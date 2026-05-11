@@ -1,0 +1,883 @@
+@import "tailwindcss";
+
+/* ----- Brand tokens (Versuz DA v2 — May 2026) -----
+ * Named palette: amber · sage · azure · ember · crimson · stone · bone · ink
+ * `--bg` = bone, `--fg` = ink, `--accent` = ember, `--surface` = stone (paper)
+ */
+:root {
+  /* Surfaces */
+  --bone: #f2eee6;
+  --stone: #dcd5c8;
+  --ink: #14120e;
+
+  /* Brand chromatics */
+  --amber: #d69e2e;
+  --sage: #3f7d4f;
+  --azure: #2a5fa8;
+  --ember: #c2410c;
+  --crimson: #b23a3a;
+
+  /* Aliases (kept for backwards-compat with the existing layer) */
+  --bg: var(--bone);
+  --fg: var(--ink);
+  --surface: #ece7dd; /* paper — slightly warmer than stone, used for cards */
+  --surface-hover: rgba(20, 18, 14, 0.04);
+  --fg-muted: #6b6557;
+  --rule: rgba(20, 18, 14, 0.12);
+  --rule-strong: rgba(20, 18, 14, 0.24);
+  --accent: var(--ember);
+  --accent-soft: rgba(194, 65, 12, 0.12);
+  --leader-tint: rgba(31, 92, 61, 0.08);
+  --leader-tint-strong: rgba(31, 92, 61, 0.14);
+  --danger: #991b1b;
+  --warning: #92400e;
+
+  --font-display: var(--font-instrument-serif), "Times New Roman", serif;
+  --font-sans: var(--font-geist), "Inter", system-ui, sans-serif;
+  --font-mono: var(--font-jetbrains), "SF Mono", monospace;
+
+  --radius: 0;
+}
+
+/* ----- Tailwind v4 mapping ----- */
+@theme inline {
+  --color-background: var(--bg);
+  --color-foreground: var(--fg);
+  --color-bone: var(--bone);
+  --color-stone: var(--stone);
+  --color-ink: var(--ink);
+  --color-surface: var(--surface);
+  --color-surface-hover: var(--surface-hover);
+  --color-fg-muted: var(--fg-muted);
+  --color-rule: var(--rule);
+  --color-rule-strong: var(--rule-strong);
+  --color-accent: var(--accent);
+  --color-ember: var(--ember);
+  --color-accent-soft: var(--accent-soft);
+  --color-leader-tint: var(--leader-tint);
+  --color-leader-tint-strong: var(--leader-tint-strong);
+  --color-danger: var(--danger);
+  --color-warning: var(--warning);
+  --color-sage: var(--sage);
+  --color-crimson: var(--crimson);
+  --color-azure: var(--azure);
+  --color-amber: var(--amber);
+
+  --font-display: var(--font-display);
+  --font-sans: var(--font-sans);
+  --font-mono: var(--font-mono);
+
+  --radius: 0;
+}
+
+/* ----- Base ----- */
+@layer base {
+  * {
+    border-color: var(--rule);
+  }
+
+  html {
+    background: var(--bg);
+    color: var(--fg);
+  }
+
+  body {
+    background: var(--bg);
+    color: var(--fg);
+    font-family: var(--font-sans);
+    font-weight: 400;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  h1,
+  h2,
+  h3,
+  h4 {
+    font-family: var(--font-display);
+    font-weight: 400;
+    letter-spacing: -0.025em;
+    line-height: 1;
+  }
+
+  code,
+  pre,
+  .font-mono {
+    font-family: var(--font-mono);
+  }
+
+  /* Square corners by default for UI surfaces. */
+  *,
+  *::before,
+  *::after {
+    border-radius: 0;
+  }
+
+  /* Explicit opt-in for round decorative shapes — beats the universal rule. */
+  .vz-shape-round {
+    border-radius: 50% !important;
+  }
+
+  /* Focus-visible (correctif a11y noté dans .ui/README.md) */
+  :focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+  }
+
+  ::selection {
+    background: var(--accent-soft);
+    color: var(--fg);
+  }
+}
+
+/* ----- Keyframes (de .ui/) ----- */
+@keyframes pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.4;
+  }
+}
+
+@keyframes marquee {
+  0% {
+    transform: translateX(0);
+  }
+  100% {
+    transform: translateX(-33.3333%);
+  }
+}
+
+@keyframes fadein {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.vz-pulse {
+  animation: pulse 1.6s infinite;
+}
+
+.vz-marquee {
+  animation: marquee 32s linear infinite;
+}
+
+.vz-marquee:hover {
+  animation-play-state: paused;
+}
+
+.vz-fadein {
+  animation: fadein 0.5s ease-out both;
+}
+
+/* ----- Reusable utilities (DA primitives) ----- */
+.vz-link {
+  color: var(--fg);
+  font-family: var(--font-sans);
+  font-size: 14px;
+  text-decoration: none;
+  border-bottom: 1px solid var(--rule);
+  padding-bottom: 2px;
+  align-self: flex-start;
+  transition: color 0.2s ease, border-color 0.2s ease;
+}
+
+.vz-link:hover {
+  color: var(--accent);
+  border-color: var(--accent);
+}
+
+.vz-nav-link {
+  color: var(--fg-muted);
+  transition: color 0.2s ease;
+  position: relative;
+}
+
+.vz-nav-link::after {
+  content: "";
+  position: absolute;
+  left: 16px;
+  right: 16px;
+  bottom: 4px;
+  height: 1px;
+  background: var(--accent);
+  transform: scaleX(0);
+  transform-origin: center;
+  transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.vz-nav-link:hover {
+  color: var(--fg);
+}
+
+.vz-nav-link:hover::after,
+.vz-nav-link[aria-current="page"]::after {
+  transform: scaleX(1);
+}
+
+.vz-hero-battle:hover {
+  border-color: var(--accent) !important;
+  transform: translateY(-2px);
+}
+
+.vz-btn-primary {
+  position: relative;
+  overflow: hidden;
+}
+
+.vz-btn-primary:hover {
+  background: var(--accent) !important;
+  transform: translateY(-1px);
+}
+
+.vz-btn-primary::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: var(--accent);
+  transform: translateY(100%);
+  transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+  z-index: 0;
+}
+
+.vz-btn-primary > * {
+  position: relative;
+  z-index: 1;
+}
+
+/* Minimalist nav link — animated underline. Spécificité bumpée pour
+   gagner contre toute autre règle de link. */
+a.vz-nav-link-minimal,
+.vz-nav-link-minimal {
+  position: relative !important;
+  display: inline-block !important;
+  color: var(--fg-muted) !important;
+  cursor: pointer;
+  transition: color 0.2s ease;
+  text-decoration: none !important;
+}
+a.vz-nav-link-minimal::after,
+.vz-nav-link-minimal::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 2px;
+  height: 1.5px;
+  background: var(--accent);
+  transform: scaleX(0);
+  transform-origin: left center;
+  transition: transform 0.32s cubic-bezier(0.16, 1, 0.3, 1);
+  pointer-events: none;
+}
+a.vz-nav-link-minimal:hover,
+a.vz-nav-link-minimal[aria-current="page"],
+.vz-nav-link-minimal:hover,
+.vz-nav-link-minimal[aria-current="page"] {
+  color: var(--fg) !important;
+}
+a.vz-nav-link-minimal:hover::after,
+a.vz-nav-link-minimal[aria-current="page"]::after,
+.vz-nav-link-minimal:hover::after,
+.vz-nav-link-minimal[aria-current="page"]::after {
+  transform: scaleX(1);
+}
+
+/* Ember-filled submit CTA in nav — lift + glow on hover */
+.vz-nav-submit-ember:hover {
+  transform: translateY(-1px);
+  box-shadow:
+    0 0 0 1px var(--accent),
+    inset 0 -2px 0 color-mix(in oklab, black 22%, transparent),
+    0 6px 20px -8px color-mix(in oklab, var(--accent) 60%, transparent);
+}
+.vz-nav-submit-ember:active {
+  transform: translateY(0);
+}
+
+/* Logo : subtle hover scale on the mark */
+.vz-nav-logo:hover svg {
+  transform: rotate(-3deg);
+  transition: transform 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+.vz-nav-logo svg {
+  transition: transform 0.25s ease;
+}
+
+/* =========================================================
+   Landing-wide animations & hover lifts
+   Adds life across all sections of /, not just the hero.
+   ========================================================= */
+
+/* Stat cards (vz-stat-grid > *) — gentle hover lift + accent dot scale */
+.vz-stat-grid > * {
+  transition: transform 0.35s cubic-bezier(0.16, 1, 0.3, 1),
+              background 0.3s ease;
+}
+.vz-stat-grid > *:hover {
+  transform: translateY(-3px);
+  background: color-mix(in oklab, var(--surface) 60%, transparent);
+}
+
+/* Pillars (vz-pillars > *) — same lift pattern */
+.vz-pillars > * {
+  transition: transform 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.vz-pillars > *:hover {
+  transform: translateY(-2px);
+}
+
+/* Method flow cards (§03) — subtle hover + ember left-border on hover */
+.vz-method-flow > * {
+  transition: transform 0.32s cubic-bezier(0.16, 1, 0.3, 1),
+              box-shadow 0.32s ease;
+  position: relative;
+}
+.vz-method-flow > *:hover {
+  transform: translateY(-3px);
+  box-shadow: inset 3px 0 0 var(--accent);
+}
+
+/* Topic pills (the "Browse by topic" chips) — hover ember bg + lift */
+.vz-pill-btn {
+  transition: transform 0.22s cubic-bezier(0.16, 1, 0.3, 1),
+              background 0.22s ease,
+              border-color 0.22s ease,
+              color 0.22s ease;
+}
+.vz-pill-btn:hover {
+  transform: translateY(-1px);
+  background: color-mix(in oklab, var(--accent) 12%, var(--surface)) !important;
+  border-color: var(--accent) !important;
+  color: var(--fg) !important;
+}
+
+/* Hero shapes (§01..§05) — slow drift to add motion sans agressivité */
+@keyframes vz-shape-drift {
+  0%, 100% { transform: translate(0, 0); }
+  50% { transform: translate(8px, -6px); }
+}
+@media (prefers-reduced-motion: no-preference) {
+  .vz-shape-round {
+    animation-iteration-count: 1 !important;
+  }
+}
+
+/* Live-stats delta pill : fades in, holds, fades out + slight translate up */
+@keyframes vz-delta-flash {
+  0% {
+    opacity: 0;
+    transform: translateX(100%) translateY(8px) scale(0.85);
+  }
+  15% {
+    opacity: 1;
+    transform: translateX(100%) translateY(0) scale(1);
+  }
+  75% {
+    opacity: 1;
+    transform: translateX(100%) translateY(0) scale(1);
+  }
+  100% {
+    opacity: 0;
+    transform: translateX(100%) translateY(-8px) scale(0.9);
+  }
+}
+
+/* Skill row in leaderboard table — subtle background change on hover, no translate. */
+.vz-skill-row {
+  transition: background 0.18s ease;
+}
+.vz-skill-row:hover {
+  background: color-mix(in oklab, var(--surface) 60%, transparent) !important;
+}
+
+/* Section header italic ember — subtle gradient shimmer on viewport entry */
+@keyframes vz-text-shimmer {
+  0% { background-position: 200% center; }
+  100% { background-position: -200% center; }
+}
+
+/* Buttons : primary CTA gets a subtle ember ripple on hover */
+.vz-btn-primary {
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+.vz-btn-primary:hover {
+  transform: translateY(-2px);
+}
+.vz-btn-ghost-outline {
+  transition: transform 0.2s ease, border-color 0.2s ease, background 0.2s ease;
+}
+.vz-btn-ghost-outline:hover {
+  transform: translateY(-2px);
+  border-color: var(--accent) !important;
+  background: color-mix(in oklab, var(--accent) 6%, transparent);
+}
+
+/* Install cards (CLI + MCP) — directional accent on hover */
+.vz-install-card {
+  transition: transform 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.vz-install-card > div {
+  transition: border-color 0.35s ease, box-shadow 0.35s ease;
+}
+.vz-install-card:hover {
+  transform: translateY(-4px);
+}
+.vz-install-card:hover > div {
+  border-color: var(--accent) !important;
+  box-shadow: 0 12px 32px -16px color-mix(in oklab, var(--accent) 35%, transparent);
+}
+
+/* Submit CTA section : huge headline italic ember has a soft glow on hover */
+.vz-submit-cta:hover {
+  filter: brightness(1.05);
+  transition: filter 0.4s ease;
+}
+
+/* Footer FlukX link — keeps the mono/uppercase parent inheritance, just adds
+   subtle ember on hover. */
+.vz-footer-flukx {
+  transition: color 0.18s ease;
+}
+.vz-footer-flukx:hover {
+  color: var(--accent) !important;
+}
+
+/* duplicate .vz-skill-row block removed — hover is defined once above. */
+
+.vz-latest-card {
+  background: transparent;
+}
+
+.vz-latest-card:hover {
+  background: var(--surface) !important;
+}
+
+.vz-today-strip {
+  background: var(--bg);
+}
+
+@media (max-width: 1024px) {
+  .vz-today-strip {
+    grid-template-columns: 1fr 1fr !important;
+  }
+  .vz-today-strip > * {
+    border-right: none !important;
+    border-bottom: 1px solid var(--rule);
+  }
+}
+
+@media (max-width: 640px) {
+  .vz-today-strip {
+    grid-template-columns: 1fr !important;
+  }
+}
+
+@media (max-width: 900px) {
+  .vz-pillars {
+    grid-template-columns: 1fr !important;
+  }
+  .vz-pillars > * {
+    border-right: none !important;
+  }
+  .vz-stat-grid {
+    grid-template-columns: 1fr !important;
+  }
+  .vz-stat-grid > * {
+    border-right: none !important;
+    border-bottom: 1px solid var(--rule);
+  }
+  .vz-hero-grid {
+    grid-template-columns: 1fr !important;
+    gap: 48px !important;
+  }
+  .vz-hero-foot {
+    grid-template-columns: 1fr !important;
+    gap: 32px !important;
+  }
+  .vz-method-flow {
+    grid-template-columns: 1fr 1fr !important;
+  }
+  .vz-method-flow > * {
+    border-right: none !important;
+    border-bottom: 1px solid var(--rule);
+  }
+}
+
+@media (max-width: 600px) {
+  .vz-method-flow {
+    grid-template-columns: 1fr !important;
+  }
+}
+
+@media (max-width: 900px) {
+  .vz-history-grid {
+    grid-template-columns: 1fr !important;
+  }
+  .vz-judge-row {
+    grid-template-columns: 1fr !important;
+    gap: 24px !important;
+  }
+  .vz-auth-grid {
+    grid-template-columns: 1fr !important;
+    gap: 48px !important;
+  }
+  .vz-filter-bar {
+    grid-template-columns: 1fr 1fr !important;
+    gap: 24px !important;
+  }
+  .vz-judge-status-grid {
+    grid-template-columns: 1fr !important;
+  }
+}
+
+@media (max-width: 600px) {
+  .vz-filter-bar {
+    grid-template-columns: 1fr !important;
+  }
+}
+
+@media (max-width: 900px) {
+  .vz-install-grid {
+    grid-template-columns: 1fr !important;
+  }
+  .vz-compare-grid > * {
+    grid-template-columns: 1fr 1fr !important;
+  }
+  .vz-compare-content {
+    grid-template-columns: 1fr !important;
+  }
+  .vz-admin-row {
+    grid-template-columns: 1fr !important;
+  }
+}
+
+/* Loading skeleton — subtle shimmer aligned with paper/bone palette */
+.vz-skeleton {
+  background:
+    linear-gradient(
+      90deg,
+      rgba(20, 18, 14, 0.04) 0%,
+      rgba(20, 18, 14, 0.08) 50%,
+      rgba(20, 18, 14, 0.04) 100%
+    );
+  background-size: 200% 100%;
+  animation: vz-skeleton-shimmer 1.4s ease-in-out infinite;
+}
+
+@keyframes vz-skeleton-shimmer {
+  0% {
+    background-position: 200% 0;
+  }
+  100% {
+    background-position: -200% 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .vz-skeleton {
+    animation: none;
+    background: rgba(20, 18, 14, 0.06);
+  }
+  .vz-marquee,
+  .vz-pulse {
+    animation: none !important;
+  }
+}
+
+.vz-menu-item:hover {
+  background: var(--surface);
+  color: var(--fg) !important;
+}
+
+/* Reveal animation — CSS-driven, instant SSR visibility */
+@keyframes vz-reveal-in {
+  from {
+    opacity: 0;
+    transform: translateY(24px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes vz-headline-rise {
+  from {
+    opacity: 0;
+    transform: translateY(60px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes vz-headline-pop {
+  from {
+    opacity: 0;
+    transform: translateY(40px) scale(0.8);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes vz-shape-slide-x-from-left {
+  from { opacity: 0; transform: translateX(-80px); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+@keyframes vz-shape-slide-x-from-right {
+  from { opacity: 0; transform: translateX(80px); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+@keyframes vz-shape-rise {
+  from { opacity: 0; transform: translateY(-24px) rotate(-8deg); }
+  to   { opacity: 1; transform: translateY(0) rotate(0); }
+}
+@keyframes vz-shape-grow-y {
+  from { transform: scaleY(0); }
+  to   { transform: scaleY(1); }
+}
+@keyframes vz-shape-pop {
+  from { opacity: 0; transform: scale(0); }
+  to   { opacity: 1; transform: scale(1); }
+}
+
+/* Per-child stagger inside RevealStagger: each child gets a delay derived
+ * from its position. Caps at child 12 to avoid huge delays in long lists. */
+.vz-stagger-child:nth-child(1)  { animation-delay: calc(var(--vz-stagger-base, 0s) + var(--vz-stagger, 0.08s) * 0); }
+.vz-stagger-child:nth-child(2)  { animation-delay: calc(var(--vz-stagger-base, 0s) + var(--vz-stagger, 0.08s) * 1); }
+.vz-stagger-child:nth-child(3)  { animation-delay: calc(var(--vz-stagger-base, 0s) + var(--vz-stagger, 0.08s) * 2); }
+.vz-stagger-child:nth-child(4)  { animation-delay: calc(var(--vz-stagger-base, 0s) + var(--vz-stagger, 0.08s) * 3); }
+.vz-stagger-child:nth-child(5)  { animation-delay: calc(var(--vz-stagger-base, 0s) + var(--vz-stagger, 0.08s) * 4); }
+.vz-stagger-child:nth-child(6)  { animation-delay: calc(var(--vz-stagger-base, 0s) + var(--vz-stagger, 0.08s) * 5); }
+.vz-stagger-child:nth-child(7)  { animation-delay: calc(var(--vz-stagger-base, 0s) + var(--vz-stagger, 0.08s) * 6); }
+.vz-stagger-child:nth-child(8)  { animation-delay: calc(var(--vz-stagger-base, 0s) + var(--vz-stagger, 0.08s) * 7); }
+.vz-stagger-child:nth-child(9)  { animation-delay: calc(var(--vz-stagger-base, 0s) + var(--vz-stagger, 0.08s) * 8); }
+.vz-stagger-child:nth-child(10) { animation-delay: calc(var(--vz-stagger-base, 0s) + var(--vz-stagger, 0.08s) * 9); }
+.vz-stagger-child:nth-child(11) { animation-delay: calc(var(--vz-stagger-base, 0s) + var(--vz-stagger, 0.08s) * 10); }
+.vz-stagger-child:nth-child(12) { animation-delay: calc(var(--vz-stagger-base, 0s) + var(--vz-stagger, 0.08s) * 11); }
+.vz-stagger-child:nth-child(n + 13) {
+  animation-delay: calc(var(--vz-stagger-base, 0s) + var(--vz-stagger, 0.08s) * 12);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .vz-stagger-child,
+  [style*="vz-reveal-in"] {
+    animation: none !important;
+  }
+}
+
+.vz-cat-tab:hover {
+  color: var(--fg) !important;
+}
+
+.vz-btn-ghost {
+  background: transparent;
+  border: 1px solid var(--rule-strong);
+  color: var(--fg);
+  padding: 12px 20px;
+  font-family: var(--font-sans);
+  font-size: 14px;
+  cursor: pointer;
+  transition: background 0.2s ease, border-color 0.2s ease;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  text-decoration: none;
+}
+
+.vz-btn-ghost:hover {
+  background: var(--surface);
+  border-color: var(--fg);
+}
+
+.vz-btn-ghost-outline {
+  background: transparent;
+  transition: background 0.2s ease, border-color 0.2s ease;
+}
+
+.vz-btn-ghost-outline:hover {
+  background: var(--surface);
+  border-color: var(--fg);
+}
+
+.vz-cat-pill:hover {
+  border-color: var(--fg) !important;
+  color: var(--fg) !important;
+}
+
+.vz-cat-card {
+  background: transparent;
+}
+.vz-cat-card:hover {
+  background: var(--surface);
+}
+
+.vz-mp-card:hover {
+  border-color: var(--accent) !important;
+  transform: translateY(-2px);
+}
+
+.vz-pill-btn {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  padding: 8px 12px;
+  background: transparent;
+  color: var(--fg-muted);
+  border: 1px solid var(--rule);
+  cursor: pointer;
+  transition: color 0.15s ease, background 0.15s ease, border-color 0.15s ease;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-weight: 500;
+}
+.vz-pill-btn:hover {
+  color: var(--fg);
+  border-color: var(--fg);
+}
+.vz-pill-btn[data-active="true"] {
+  color: var(--bg);
+  background: var(--fg);
+  border-color: var(--fg);
+}
+
+.vz-judge-row {
+  transition: background 0.2s ease;
+}
+.vz-judge-row:hover {
+  background: var(--surface-hover);
+}
+
+.vz-terminal {
+  background: var(--surface);
+  border: 1px solid var(--rule);
+  padding: 16px 20px;
+  font-family: var(--font-mono);
+  font-size: 13px;
+  color: var(--fg);
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+  letter-spacing: 0.02em;
+}
+
+.vz-terminal::before {
+  content: "$";
+  color: var(--accent);
+  font-weight: 500;
+}
+
+/* Editorial 2-col grid */
+.vz-grid-editorial {
+  display: grid;
+  grid-template-columns: 180px 1fr;
+  gap: 64px;
+}
+
+@media (max-width: 768px) {
+  .vz-grid-editorial {
+    grid-template-columns: 1fr;
+    gap: 32px;
+  }
+  .vz-footer-grid {
+    grid-template-columns: 1fr !important;
+    gap: 48px !important;
+  }
+}
+
+/* Nav responsive — collapse below 1024px : nav links hidden, user cluster
+   (UserMenu + Sign in + Submit) hidden, all moved into the hamburger drawer.
+   Logo swaps from full wordmark to small mark. */
+@media (max-width: 1024px) {
+  .vz-nav-links {
+    display: none !important;
+  }
+  .vz-nav-user-cluster {
+    display: none !important;
+  }
+  .vz-mobile-menu-btn {
+    display: inline-flex !important;
+  }
+}
+@media (max-width: 768px) {
+  .vz-nav-row {
+    height: 64px !important;
+    gap: 12px !important;
+  }
+  .vz-cmdk-hint {
+    display: none !important;
+  }
+}
+
+/* Marketplace card grid — tighter on mobile */
+@media (max-width: 600px) {
+  .vz-mp-card {
+    min-height: 220px !important;
+    padding: 16px 16px 14px !important;
+  }
+}
+
+/* Compare bar entrance — slide up + fade in */
+@keyframes vz-compare-bar-in {
+  from {
+    transform: translateX(-50%) translateY(20px);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(-50%) translateY(0);
+    opacity: 1;
+  }
+}
+
+/* Compare picker checkbox — invisible by default, surfaces on hover OR
+   when checked. Always visible on touch (no hover) so users can pick. */
+.vz-mp-checkbox {
+  opacity: 0;
+}
+.vz-mp-wrapper:hover .vz-mp-checkbox,
+.vz-mp-wrapper:focus-within .vz-mp-checkbox,
+.vz-mp-checkbox[data-checked="true"] {
+  opacity: 1;
+}
+@media (hover: none) {
+  /* Touch devices : always show, no hover possible */
+  .vz-mp-checkbox {
+    opacity: 1;
+  }
+}
+
+/* Hero decorations (round blobs, triangles, vertical bars) overlap text
+   awkwardly on small viewports — hide them entirely below 768px so the
+   page stays clean and readable. Add `vz-hero-decoration` to the wrapper
+   div of any decoration shapes container. */
+@media (max-width: 768px) {
+  .vz-shape-round,
+  .vz-hero-decoration {
+    display: none !important;
+  }
+}
+
+/* Tables and admin rows — already covered above for vz-admin-row.
+   Add a generic mobile-stack helper for tables that overflow. */
+@media (max-width: 640px) {
+  .vz-stack-mobile {
+    grid-template-columns: 1fr !important;
+    gap: 8px !important;
+  }
+  .vz-hide-mobile {
+    display: none !important;
+  }
+}

@@ -1,0 +1,45 @@
+{
+  "name": "versuz",
+  "version": "0.1.0",
+  "description": "Browse, search, and install Claude skills + CLAUDE.md from the Versuz marketplace",
+  "type": "module",
+  "bin": {
+    "versuz": "./bin/versuz.js"
+  },
+  "main": "./src/index.js",
+  "files": [
+    "bin",
+    "src",
+    "README.md"
+  ],
+  "scripts": {
+    "start": "node bin/versuz.js"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "keywords": [
+    "claude",
+    "claude-code",
+    "skills",
+    "marketplace",
+    "ai",
+    "cli"
+  ],
+  "homepage": "https://versuz.dev",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/versuzdev/versuz",
+    "directory": "cli"
+  },
+  "license": "MIT",
+  "dependencies": {
+    "boxen": "^7.1.1",
+    "chalk": "^5.3.0",
+    "cli-table3": "^0.6.5",
+    "figlet": "^1.11.0",
+    "gradient-string": "^2.0.2",
+    "ora": "^8.0.1",
+    "prompts": "^2.4.2"
+  }
+}

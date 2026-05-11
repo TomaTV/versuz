@@ -1,0 +1,783 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Versuz — Brand & Design System</title>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Geist:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+
+  <script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+  <script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+  <script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+
+  <style>
+    :root {
+      --bg: #F2EEE6;
+      --paper: #ECE7DD;
+      --ink: #14120E;
+      --ink-2: #6B6557;
+      --rule: rgba(20, 18, 14, 0.12);
+      --rule-strong: rgba(20, 18, 14, 0.24);
+      --accent: #C2410C;
+      --accent-soft: rgba(194, 65, 12, 0.12);
+      --leader: #3F7D4F;
+      --sage: #3F7D4F;
+      --crimson: #B23A3A;
+      --azure: #2A5FA8;
+      --amber: #D69E2E;
+      --danger: #B23A3A;
+      --font-display: 'Instrument Serif', 'Times New Roman', serif;
+      --font-ui: 'Geist', system-ui, sans-serif;
+      --font-mono: 'JetBrains Mono', ui-monospace, monospace;
+    }
+    *, *::before, *::after { box-sizing: border-box; }
+    html, body { margin: 0; padding: 0; }
+    body {
+      background: var(--bg); color: var(--ink);
+      font-family: var(--font-ui); font-size: 15px; line-height: 1.5;
+      -webkit-font-smoothing: antialiased; text-rendering: optimizeLegibility;
+    }
+    button, input { font-family: inherit; color: inherit; }
+    a { color: inherit; text-decoration: none; }
+    ::selection { background: var(--accent); color: var(--bg); }
+
+    /* === BUTTONS ============================== */
+    .vz-btn {
+      display: inline-flex; align-items: center; gap: 12px;
+      padding: 14px 22px;
+      font-family: var(--font-ui); font-size: 14px; font-weight: 500;
+      letter-spacing: 0.01em; cursor: pointer;
+      border: 1px solid transparent;
+      transition: background-color .2s, color .2s, border-color .2s;
+    }
+    .vz-btn-primary { background: var(--ink); color: var(--bg); border-color: var(--ink); }
+    .vz-btn-primary:hover { background: var(--accent); border-color: var(--accent); color: #fff; }
+    .vz-btn-ghost { background: transparent; color: var(--ink); border-color: var(--rule-strong); }
+    .vz-btn-ghost:hover { border-color: var(--accent); color: var(--accent); }
+    .vz-btn-accent { background: var(--accent); color: #fff; border-color: var(--accent); }
+    .vz-btn-accent:hover { background: var(--ink); border-color: var(--ink); }
+    .vz-btn-sm { padding: 9px 14px; font-size: 12px; }
+    .vz-btn-lg { padding: 18px 28px; font-size: 16px; }
+
+    .vz-link {
+      display: inline-flex; align-items: center; gap: 8px;
+      font-family: var(--font-mono); font-size: 12px;
+      letter-spacing: 0.04em; cursor: pointer;
+      background: transparent; border: none; padding: 8px 0;
+      border-bottom: 1px solid var(--rule);
+      transition: border-color .2s, color .2s;
+    }
+    .vz-link:hover { color: var(--accent); border-color: var(--accent); }
+
+    /* === FORM CONTROLS ======================== */
+    .vz-input {
+      width: 100%;
+      background: transparent;
+      border: none; border-bottom: 1px solid var(--rule-strong);
+      padding: 12px 0;
+      font-family: var(--font-mono); font-size: 14px;
+      color: var(--ink); outline: none;
+      transition: border-color .2s;
+    }
+    .vz-input:focus { border-bottom-color: var(--accent); }
+    .vz-input::placeholder { color: var(--ink-2); }
+
+    /* === BADGES =============================== */
+    .vz-badge {
+      display: inline-flex; align-items: center; gap: 6px;
+      padding: 4px 10px;
+      font-family: var(--font-mono); font-size: 10px;
+      letter-spacing: 0.16em; text-transform: uppercase;
+      border: 1px solid var(--rule-strong);
+    }
+    .vz-badge-accent { color: var(--accent); border-color: var(--accent); }
+    .vz-badge-leader { color: var(--leader); border-color: var(--leader); background: rgba(31,92,61,0.08); }
+    .vz-badge-solid { background: var(--ink); color: var(--bg); border-color: var(--ink); }
+
+    /* DS scaffold */
+    .ds-page { max-width: 1280px; margin: 0 auto; padding: 80px 64px 160px; }
+    .ds-section { padding: 80px 0; border-top: 1px solid var(--rule); }
+    .ds-section:first-of-type { border-top: none; padding-top: 24px; }
+    .ds-section-head {
+      display: grid; grid-template-columns: 200px 1fr; gap: 64px;
+      margin-bottom: 56px; align-items: baseline;
+    }
+    .ds-section-num {
+      font-family: var(--font-mono); font-size: 11px;
+      letter-spacing: 0.18em; text-transform: uppercase; color: var(--ink-2);
+    }
+    .ds-section-title {
+      font-family: var(--font-display); font-size: 56px;
+      font-weight: 400; letter-spacing: -0.03em; line-height: 1;
+      margin: 0;
+    }
+    .ds-grid { display: grid; gap: 24px; grid-template-columns: 200px 1fr; }
+    .ds-label {
+      font-family: var(--font-mono); font-size: 11px;
+      letter-spacing: 0.16em; text-transform: uppercase; color: var(--ink-2);
+    }
+    .ds-spec {
+      font-family: var(--font-mono); font-size: 11px;
+      color: var(--ink-2); letter-spacing: 0.04em;
+    }
+    .ds-card {
+      background: var(--paper); padding: 32px;
+      border: 1px solid var(--rule);
+      display: flex; flex-direction: column; gap: 16px;
+    }
+  </style>
+</head>
+<body>
+  <div id="root"></div>
+
+  <script type="text/babel" src="brand.jsx"></script>
+
+  <script type="text/babel" data-presets="env,react">
+    const { VersuzMark, VersuzWordmark, SkillGlyph, BRAND_PALETTE } = window;
+
+    // === Section ============================
+    const Section = ({ num, title, intro, children }) => (
+      <section className="ds-section">
+        <div className="ds-section-head">
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+            <span className="ds-section-num">§ {num}</span>
+            <span className="ds-section-num" style={{ textTransform: 'none' }}>{intro}</span>
+          </div>
+          <h2 className="ds-section-title">{title}</h2>
+        </div>
+        {children}
+      </section>
+    );
+
+    // === Header ============================
+    const Header = () => (
+      <header style={{
+        position: 'sticky', top: 0, zIndex: 50, height: 72,
+        background: 'color-mix(in srgb, var(--bg) 88%, transparent)',
+        backdropFilter: 'blur(12px)', borderBottom: '1px solid var(--rule)',
+      }}>
+        <div style={{
+          maxWidth: 1280, margin: '0 auto', height: '100%', padding: '0 64px',
+          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+            <VersuzMark size={22} accentColor="var(--accent)" />
+            <VersuzWordmark size={20} accentColor="var(--accent)" />
+            <span className="vz-badge" style={{ marginLeft: 12 }}>Brand v01</span>
+          </div>
+          <nav style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 13, color: 'var(--ink-2)' }}>
+            <a href="#mark" style={{ padding: '8px 14px' }}>Mark</a>
+            <a href="#color" style={{ padding: '8px 14px' }}>Color</a>
+            <a href="#type" style={{ padding: '8px 14px' }}>Type</a>
+            <a href="#components" style={{ padding: '8px 14px' }}>Components</a>
+            <a href="Versuz Prototype.html" className="vz-btn vz-btn-primary vz-btn-sm" style={{ marginLeft: 12 }}>
+              Open prototype <span style={{ fontFamily: 'var(--font-mono)' }}>↗</span>
+            </a>
+          </nav>
+        </div>
+      </header>
+    );
+
+    // === Hero ============================
+    const Hero = () => (
+      <section style={{
+        position: 'relative', padding: '120px 0 80px',
+        display: 'grid', gridTemplateColumns: '200px 1fr', gap: 64,
+        borderBottom: '1px solid var(--rule)', overflow: 'hidden',
+      }}>
+        {/* scattered shapes — pinned to top strip ABOVE headline */}
+        <div aria-hidden style={{
+          position: 'absolute', right: -60, top: -60, width: 180, height: 180,
+          borderRadius: '50%', background: 'var(--accent)', opacity: 0.92,
+          zIndex: 0,
+        }} />
+        <svg aria-hidden width="160" height="50" viewBox="0 0 160 50" style={{
+          position: 'absolute', right: 200, top: 36, zIndex: 0,
+        }}>
+          <rect x="0" y="0" width="160" height="8" fill="var(--ink)" />
+          <rect x="20" y="14" width="120" height="8" fill="var(--ink)" opacity="0.5" />
+          <rect x="40" y="28" width="90" height="8" fill="var(--accent)" />
+        </svg>
+        {/* wedge — bottom right of hero, behind */}
+        <svg aria-hidden width="140" height="140" viewBox="0 0 140 140" style={{
+          position: 'absolute', right: -20, bottom: 24, zIndex: 0, opacity: 0.95,
+        }}>
+          <path d="M 140 0 L 140 140 L 0 140 Z" fill="var(--ink)" />
+        </svg>
+
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+          <span className="ds-section-num">§ 00</span>
+          <span className="ds-section-num" style={{ textTransform: 'none' }}>Brand & UI system</span>
+        </div>
+        <div style={{ position: 'relative', zIndex: 1 }}>
+          <h1 style={{
+            fontFamily: 'var(--font-display)',
+            fontSize: 'clamp(72px, 9vw, 128px)',
+            fontWeight: 400, letterSpacing: '-0.04em', lineHeight: 0.92,
+            margin: 0, maxWidth: 900,
+          }}>
+            The visual constitution of <em style={{ color: 'var(--accent)' }}>Versuz</em>.
+          </h1>
+          <p style={{
+            margin: '32px 0 0', fontFamily: 'var(--font-display)',
+            fontSize: 22, lineHeight: 1.4, letterSpacing: '-0.01em',
+            color: 'var(--ink-2)', maxWidth: 640,
+          }}>
+            Every mark, color, type ramp, and component used to dress the open arena.
+            Editorial restraint, a single ember accent, no gradients.
+          </p>
+          <div style={{ marginTop: 40, display: 'flex', gap: 16, flexWrap: 'wrap' }}>
+            <span className="vz-badge vz-badge-accent">Open arena</span>
+            <span className="vz-badge">Bone · Ink · Ember</span>
+            <span className="vz-badge">Instrument Serif · Geist · JetBrains Mono</span>
+            <span className="vz-badge vz-badge-leader">Cycle #184</span>
+          </div>
+        </div>
+      </section>
+    );
+
+    // === The Mark ============================
+    const MarkSection = () => (
+      <Section num="01" intro="The mark" title="A signet, not a logo.">
+        <div className="ds-grid" style={{ marginBottom: 48 }}>
+          <span className="ds-label">Concept</span>
+          <p style={{
+            fontFamily: 'var(--font-display)', fontSize: 24, lineHeight: 1.45,
+            letterSpacing: '-0.01em', color: 'var(--ink)', maxWidth: 700, margin: 0,
+          }}>
+            Two stencil-cut letterforms — V over Z — divided by the verdict bar.
+            The bar is the cut; the cut is the ranking. Every battle ends with a line drawn.
+          </p>
+        </div>
+
+        <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr', gap: 24, marginBottom: 24 }}>
+          {/* Hero mark */}
+          <div className="ds-card" style={{ padding: 0, alignItems: 'stretch', justifyContent: 'center', minHeight: 360 }}>
+            <div style={{
+              flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center',
+              background: 'var(--bg)', position: 'relative',
+            }}>
+              <div style={{ color: 'var(--ink)' }}>
+                <VersuzMark size={200} accentColor="var(--accent)" />
+              </div>
+              {/* construction grid */}
+              <div aria-hidden style={{
+                position: 'absolute', inset: 0,
+                backgroundImage: 'linear-gradient(rgba(20,18,14,0.06) 1px, transparent 1px), linear-gradient(90deg, rgba(20,18,14,0.06) 1px, transparent 1px)',
+                backgroundSize: '20px 20px',
+                pointerEvents: 'none',
+              }} />
+            </div>
+            <div style={{
+              padding: '14px 20px', borderTop: '1px solid var(--rule)',
+              display: 'flex', justifyContent: 'space-between',
+              fontFamily: 'var(--font-mono)', fontSize: 11, color: 'var(--ink-2)',
+              letterSpacing: '0.04em', background: 'var(--paper)',
+            }}>
+              <span>versuz / signet / 200×200</span>
+              <span>40-unit grid · cut at y=22</span>
+            </div>
+          </div>
+
+          {/* Wordmark + lockups */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
+            <div className="ds-card" style={{ alignItems: 'flex-start', justifyContent: 'center', minHeight: 168 }}>
+              <span className="ds-spec">Wordmark</span>
+              <VersuzWordmark size={48} accentColor="var(--accent)" />
+            </div>
+            <div className="ds-card" style={{ minHeight: 168 }}>
+              <span className="ds-spec">Horizontal lockup</span>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+                <div style={{ color: 'var(--ink)' }}><VersuzMark size={48} accentColor="var(--accent)" /></div>
+                <VersuzWordmark size={36} accentColor="var(--accent)" />
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Sizes */}
+        <div className="ds-grid" style={{ marginTop: 64 }}>
+          <span className="ds-label">Sizes</span>
+          <div style={{
+            display: 'flex', alignItems: 'flex-end', gap: 48, padding: '32px 0',
+            borderTop: '1px solid var(--rule)', borderBottom: '1px solid var(--rule)',
+          }}>
+            {[16, 22, 32, 48, 80, 120].map(s => (
+              <div key={s} style={{ display: 'flex', flexDirection: 'column', gap: 12, alignItems: 'flex-start' }}>
+                <div style={{ color: 'var(--ink)' }}><VersuzMark size={s} accentColor="var(--accent)" /></div>
+                <span className="ds-spec">{s}px</span>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* On surfaces */}
+        <div className="ds-grid" style={{ marginTop: 32 }}>
+          <span className="ds-label">On surfaces</span>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 16 }}>
+            <div style={{ background: 'var(--bg)', padding: 48, border: '1px solid var(--rule)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <div style={{ color: 'var(--ink)' }}><VersuzMark size={64} accentColor="var(--accent)" /></div>
+            </div>
+            <div style={{ background: 'var(--ink)', padding: 48, display: 'flex', alignItems: 'center', justifyContent: 'center', '--bg': '#14120E' }}>
+              <div style={{ color: 'var(--bg)' }}>
+                <svg width="64" height="64" viewBox="0 0 40 40" style={{ display: 'block' }}>
+                  <rect x="2" y="2" width="36" height="36" fill="#F2EEE6" />
+                  <path d="M 8 6 L 14 6 L 20 18 L 26 6 L 32 6 L 22 22 L 18 22 Z" fill="#14120E" />
+                  <rect x="2" y="22" width="36" height="3" fill="#C2410C" />
+                  <path d="M 8 27 L 32 27 L 32 30 L 16 33 L 32 33 L 32 36 L 8 36 L 8 33 L 24 30 L 8 30 Z" fill="#14120E" />
+                </svg>
+              </div>
+            </div>
+            <div style={{ background: 'var(--accent)', padding: 48, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <svg width="64" height="64" viewBox="0 0 40 40" style={{ display: 'block' }}>
+                <rect x="2" y="2" width="36" height="36" fill="#14120E" />
+                <path d="M 8 6 L 14 6 L 20 18 L 26 6 L 32 6 L 22 22 L 18 22 Z" fill="#C2410C" />
+                <rect x="2" y="22" width="36" height="3" fill="#F2EEE6" />
+                <path d="M 8 27 L 32 27 L 32 30 L 16 33 L 32 33 L 32 36 L 8 36 L 8 33 L 24 30 L 8 30 Z" fill="#C2410C" />
+              </svg>
+            </div>
+          </div>
+        </div>
+
+        {/* Skill glyphs */}
+        <div className="ds-grid" style={{ marginTop: 64 }}>
+          <span className="ds-label">Skill glyphs</span>
+          <div>
+            <p style={{ margin: '0 0 24px', fontFamily: 'var(--font-display)', fontSize: 18, color: 'var(--ink-2)', maxWidth: 520, lineHeight: 1.5 }}>
+              Each skill gets a deterministic 2-tone glyph generated from its slug — six geometric primitives (disc, square, triangle, half-disc, slashed) × accent stripe on/off.
+            </p>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(12, 1fr)', gap: 8 }}>
+              {['pdf-extract','sql-genie','csv-surgeon','web-scry','pdf-fast','code-fixer','schema-doc','test-gen','prose-tidy','agent-router','plan-builder','qa-pair','rag-recall','image-tag','spec-writer','migrator','log-reader','linter','reviewer','outliner','docs-bot','date-parser','currency-fx','geo-coder'].map(id => (
+                <div key={id} style={{ display: 'flex', flexDirection: 'column', gap: 6, alignItems: 'center' }}>
+                  <SkillGlyph id={id} size={36} />
+                  <span style={{ fontFamily: 'var(--font-mono)', fontSize: 9, color: 'var(--ink-2)', letterSpacing: '0.02em' }}>{id}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      </Section>
+    );
+
+    // === Color ============================
+    const Swatch = ({ name, hex, role, light }) => (
+      <div className="ds-card" style={{ padding: 0, alignItems: 'stretch', gap: 0 }}>
+        <div style={{ background: hex, height: 140, borderBottom: '1px solid var(--rule)' }} />
+        <div style={{ padding: '14px 18px', display: 'flex', flexDirection: 'column', gap: 4 }}>
+          <span style={{ fontFamily: 'var(--font-display)', fontSize: 22, letterSpacing: '-0.02em' }}>{name}</span>
+          <span style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: 'var(--ink-2)' }}>{hex.toUpperCase()}</span>
+          <span style={{ fontFamily: 'var(--font-mono)', fontSize: 10, color: 'var(--ink-2)', letterSpacing: '0.04em', marginTop: 4 }}>{role}</span>
+        </div>
+      </div>
+    );
+
+    const ColorSection = () => (
+      <Section num="02" intro="Color" title="Bone, ink, ember.">
+        <div className="ds-grid" style={{ marginBottom: 48 }}>
+          <span className="ds-label">Principle</span>
+          <p style={{ margin: 0, fontFamily: 'var(--font-display)', fontSize: 22, lineHeight: 1.45, maxWidth: 680, color: 'var(--ink)' }}>
+            Two grounds and one accent. Bone (warm paper) and ink (near-black) carry 95% of every surface; ember does the pointing. Sage green appears only on leader-row tints. No gradients, ever.
+          </p>
+        </div>
+
+        <div className="ds-grid">
+          <span className="ds-label">Core</span>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 16 }}>
+            <Swatch name="Bone" hex="#F2EEE6" role="background · paper" />
+            <Swatch name="Paper" hex="#ECE7DD" role="surface · cards" />
+            <Swatch name="Ink" hex="#14120E" role="text · primary fill" />
+            <Swatch name="Ember" hex="#C2410C" role="accent · verdict bar" />
+          </div>
+        </div>
+
+        <div className="ds-grid" style={{ marginTop: 24 }}>
+          <span className="ds-label">Semantics</span>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 16 }}>
+            <Swatch name="Sage" hex="#3F7D4F" role="green · leader / win" />
+            <Swatch name="Crimson" hex="#B23A3A" role="red · loss / negative" />
+            <Swatch name="Azure" hex="#2A5FA8" role="blue · judges / data" />
+            <Swatch name="Amber" hex="#D69E2E" role="yellow · featured / hot" />
+          </div>
+        </div>
+
+        <div className="ds-grid" style={{ marginTop: 24 }}>
+          <span className="ds-label">Support</span>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 16 }}>
+            <Swatch name="Slate" hex="#6B6557" role="muted text · meta" />
+            <Swatch name="Char" hex="#0E0D0B" role="dark surface" />
+            <Swatch name="Bone+" hex="#E8E2D4" role="alt paper" />
+            <Swatch name="Ink-2" hex="#2A2620" role="elevated ink" />
+          </div>
+        </div>
+
+        <div className="ds-grid" style={{ marginTop: 32 }}>
+          <span className="ds-label">In use</span>
+          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '4px 10px', fontFamily: 'var(--font-mono)', fontSize: 10, letterSpacing: '0.16em', textTransform: 'uppercase', border: '1px solid #3F7D4F', color: '#3F7D4F', background: 'rgba(63,125,79,0.08)' }}>
+              <span style={{ width: 6, height: 6, background: '#3F7D4F' }} /> #1 leader
+            </span>
+            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '4px 10px', fontFamily: 'var(--font-mono)', fontSize: 10, letterSpacing: '0.16em', textTransform: 'uppercase', border: '1px solid #B23A3A', color: '#B23A3A' }}>
+              <span style={{ width: 6, height: 6, background: '#B23A3A' }} /> ↘ −24
+            </span>
+            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '4px 10px', fontFamily: 'var(--font-mono)', fontSize: 10, letterSpacing: '0.16em', textTransform: 'uppercase', border: '1px solid #2A5FA8', color: '#2A5FA8' }}>
+              <span style={{ width: 6, height: 6, background: '#2A5FA8' }} /> Opus 4.7
+            </span>
+            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '4px 10px', fontFamily: 'var(--font-mono)', fontSize: 10, letterSpacing: '0.16em', textTransform: 'uppercase', border: '1px solid #D69E2E', color: '#D69E2E', background: 'rgba(214,158,46,0.10)' }}>
+              <span style={{ width: 6, height: 6, background: '#D69E2E' }} /> Featured
+            </span>
+            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '4px 10px', fontFamily: 'var(--font-mono)', fontSize: 10, letterSpacing: '0.16em', textTransform: 'uppercase', border: '1px solid var(--accent)', color: '#fff', background: 'var(--accent)' }}>
+              ↗ Submit
+            </span>
+          </div>
+        </div>
+
+        <div className="ds-grid" style={{ marginTop: 48 }}>
+          <span className="ds-label">Tokens</span>
+          <div style={{ background: 'var(--paper)', padding: 24, border: '1px solid var(--rule)', fontFamily: 'var(--font-mono)', fontSize: 13, lineHeight: 1.85 }}>
+            <span style={{ color: 'var(--ink-2)' }}>:root {'{'}</span><br/>
+            {[
+              ['--bg', '#F2EEE6'], ['--paper', '#ECE7DD'], ['--ink', '#14120E'],
+              ['--ink-2', '#6B6557'], ['--accent', '#C2410C'], ['--leader', '#1F5C3D'],
+              ['--rule', 'rgba(20,18,14,0.12)'], ['--rule-strong', 'rgba(20,18,14,0.24)'],
+            ].map(([k, v]) => (
+              <span key={k}>
+                <span>&nbsp;&nbsp;</span>
+                <span style={{ color: 'var(--accent)' }}>{k}</span>
+                <span style={{ color: 'var(--ink-2)' }}>: </span>
+                <span>{v}</span>
+                <span style={{ color: 'var(--ink-2)' }}>;</span>
+                <br/>
+              </span>
+            ))}
+            <span style={{ color: 'var(--ink-2)' }}>{'}'}</span>
+          </div>
+        </div>
+      </Section>
+    );
+
+    // === Type ============================
+    const TypeRow = ({ size, line, weight, family, label, text, italic }) => {
+      const cap = Math.min(size, 64);
+      return (
+        <div style={{
+          display: 'grid', gridTemplateColumns: '120px 1fr 200px',
+          gap: 32, padding: '28px 0', borderTop: '1px solid var(--rule)',
+          alignItems: 'baseline',
+        }}>
+          <span className="ds-spec">{label}</span>
+          <span style={{
+            fontFamily: family, fontSize: cap, fontWeight: weight,
+            lineHeight: line, letterSpacing: '-0.025em',
+            fontStyle: italic ? 'italic' : 'normal',
+            color: 'var(--ink)',
+            whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
+          }}>
+            {text}
+          </span>
+          <span className="ds-spec" style={{ textAlign: 'right' }}>
+            {size}px / {line} · {weight}
+          </span>
+        </div>
+      );
+    };
+
+    const TypeSection = () => (
+      <Section num="03" intro="Typography" title="Three voices, one page.">
+        <div className="ds-grid" style={{ marginBottom: 48 }}>
+          <span className="ds-label">Stack</span>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 16 }}>
+            <div className="ds-card" style={{ minHeight: 200 }}>
+              <span className="ds-spec">Display · headlines, hero, italic accents</span>
+              <span style={{ fontFamily: 'var(--font-display)', fontSize: 64, lineHeight: 0.95, letterSpacing: '-0.03em' }}>Aa</span>
+              <span style={{ fontFamily: 'var(--font-display)', fontSize: 18, color: 'var(--ink-2)' }}>Instrument Serif</span>
+            </div>
+            <div className="ds-card" style={{ minHeight: 200 }}>
+              <span className="ds-spec">UI · buttons, body, nav</span>
+              <span style={{ fontFamily: 'var(--font-ui)', fontSize: 64, fontWeight: 500, lineHeight: 0.95, letterSpacing: '-0.04em' }}>Aa</span>
+              <span style={{ fontFamily: 'var(--font-mono)', fontSize: 12, color: 'var(--ink-2)' }}>Geist · 300 / 400 / 500 / 600</span>
+            </div>
+            <div className="ds-card" style={{ minHeight: 200 }}>
+              <span className="ds-spec">Mono · numerics, ranks, labels</span>
+              <span style={{ fontFamily: 'var(--font-mono)', fontSize: 64, fontWeight: 500, lineHeight: 0.95, letterSpacing: '-0.02em' }}>Aa</span>
+              <span style={{ fontFamily: 'var(--font-mono)', fontSize: 12, color: 'var(--ink-2)' }}>JetBrains Mono · 400 / 500</span>
+            </div>
+          </div>
+        </div>
+
+        <div className="ds-grid">
+          <span className="ds-label">Display ramp</span>
+          <div>
+            <TypeRow label="Hero" size={120} line={0.92} weight={400} family="var(--font-display)" text="Skills go in." />
+            <TypeRow label="Hero italic" size={120} line={0.92} weight={400} family="var(--font-display)" text="Only one wins." italic />
+            <TypeRow label="H1" size={88} line={0.95} weight={400} family="var(--font-display)" text="A leader across every suite." />
+            <TypeRow label="H2" size={56} line={1} weight={400} family="var(--font-display)" text="The top of the bracket." />
+            <TypeRow label="H3" size={32} line={1.1} weight={400} family="var(--font-display)" text="Today's bout · pdf-extract" />
+            <TypeRow label="Lede" size={22} line={1.4} weight={400} family="var(--font-display)" text="247 public Claude skills, judged by three frontier models." />
+          </div>
+        </div>
+
+        <div className="ds-grid" style={{ marginTop: 48 }}>
+          <span className="ds-label">UI ramp</span>
+          <div>
+            <TypeRow label="Body L" size={18} line={1.55} weight={400} family="var(--font-ui)" text="The arena evaluates pull requests every 24 hours." />
+            <TypeRow label="Body" size={15} line={1.5} weight={400} family="var(--font-ui)" text="Cold-start prior of 1400 Elo. K-factor tapers from 32 to 8." />
+            <TypeRow label="Button" size={14} line={1} weight={500} family="var(--font-ui)" text="See standings ↗" />
+            <TypeRow label="Caption" size={13} line={1.4} weight={400} family="var(--font-ui)" text="Updated every 24h · methodology v04" />
+          </div>
+        </div>
+
+        <div className="ds-grid" style={{ marginTop: 48 }}>
+          <span className="ds-label">Mono ramp</span>
+          <div>
+            <TypeRow label="Numeric L" size={56} line={0.9} weight={500} family="var(--font-mono)" text="1648.2" />
+            <TypeRow label="Stat" size={28} line={1} weight={500} family="var(--font-mono)" text="247 · 30 · 3" />
+            <TypeRow label="Label" size={11} line={1.2} weight={500} family="var(--font-mono)" text="CYCLE · #184 · LIVE" />
+            <TypeRow label="Code" size={13} line={1.6} weight={400} family="var(--font-mono)" text="$ npx versuz submit ./my-skill" />
+          </div>
+        </div>
+      </Section>
+    );
+
+    // === Components ============================
+    const ComponentsSection = () => (
+      <Section num="04" intro="Components" title="UI parts.">
+        {/* Buttons */}
+        <div className="ds-grid">
+          <span className="ds-label">Buttons</span>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
+            <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', alignItems: 'center' }}>
+              <button className="vz-btn vz-btn-primary">Primary <span style={{fontFamily:'var(--font-mono)'}}>↗</span></button>
+              <button className="vz-btn vz-btn-accent">Accent <span style={{fontFamily:'var(--font-mono)'}}>↗</span></button>
+              <button className="vz-btn vz-btn-ghost">Ghost</button>
+              <button className="vz-link">Inline link</button>
+            </div>
+            <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', alignItems: 'center' }}>
+              <button className="vz-btn vz-btn-primary vz-btn-sm">Small</button>
+              <button className="vz-btn vz-btn-primary">Default</button>
+              <button className="vz-btn vz-btn-primary vz-btn-lg">Large</button>
+            </div>
+            <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', alignItems: 'center' }}>
+              <button className="vz-btn vz-btn-primary" disabled style={{ opacity: 0.4, cursor: 'not-allowed' }}>Disabled</button>
+              <span className="ds-spec">hover → ember swap · 200ms ease</span>
+            </div>
+          </div>
+        </div>
+
+        {/* Form */}
+        <div className="ds-grid" style={{ marginTop: 64 }}>
+          <span className="ds-label">Form</span>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 32, maxWidth: 720 }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+              <span className="ds-spec">Email</span>
+              <input className="vz-input" placeholder="you@somewhere.dev" />
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+              <span className="ds-spec">Skill slug</span>
+              <input className="vz-input" placeholder="my-skill" defaultValue="pdf-extract" />
+            </div>
+          </div>
+        </div>
+
+        {/* Badges */}
+        <div className="ds-grid" style={{ marginTop: 64 }}>
+          <span className="ds-label">Badges</span>
+          <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', alignItems: 'center' }}>
+            <span className="vz-badge">Cycle #184</span>
+            <span className="vz-badge vz-badge-accent">↗ +24 Elo</span>
+            <span className="vz-badge vz-badge-leader">★ #1 overall</span>
+            <span className="vz-badge vz-badge-solid">Submit</span>
+          </div>
+        </div>
+
+        {/* Eyebrow + Section number */}
+        <div className="ds-grid" style={{ marginTop: 64 }}>
+          <span className="ds-label">Eyebrow</span>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 16, alignItems: 'flex-start' }}>
+            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 12, fontFamily: 'var(--font-mono)', fontSize: 11, color: 'var(--accent)', letterSpacing: '0.18em', textTransform: 'uppercase', fontWeight: 500 }}>
+              <span style={{ width: 24, height: 1, background: 'var(--accent)', opacity: 0.5 }} />
+              Season 02 · cycle #184
+            </span>
+            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 12, fontFamily: 'var(--font-mono)', fontSize: 11, color: 'var(--ink-2)', letterSpacing: '0.18em', textTransform: 'uppercase' }}>
+              <span style={{ width: 24, height: 1, background: 'var(--ink-2)', opacity: 0.5 }} />
+              Live · 14:32 UTC
+            </span>
+          </div>
+        </div>
+
+        {/* Score bar */}
+        <div className="ds-grid" style={{ marginTop: 64 }}>
+          <span className="ds-label">Score bar</span>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 16, maxWidth: 480 }}>
+            {[
+              { label: 'pdf-extract', v: 0.871, color: 'var(--accent)' },
+              { label: 'pdf-fast', v: 0.642, color: 'var(--ink)' },
+              { label: 'pdf-quick', v: 0.412, color: 'var(--ink-2)' },
+            ].map(s => (
+              <div key={s.label} style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontFamily: 'var(--font-mono)', fontSize: 11, color: 'var(--ink-2)', letterSpacing: '0.04em' }}>
+                  <span>{s.label}</span>
+                  <span>{(s.v * 100).toFixed(1)}%</span>
+                </div>
+                <div style={{ height: 4, background: 'var(--rule)' }}>
+                  <div style={{ width: `${s.v * 100}%`, height: '100%', background: s.color }} />
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Skill row */}
+        <div className="ds-grid" style={{ marginTop: 64 }}>
+          <span className="ds-label">Skill row</span>
+          <div style={{ borderTop: '1px solid var(--rule-strong)' }}>
+            {[
+              { rank: 1, id: 'pdf-extract', author: 'anthropic-labs', elo: 1648, delta: 24, win: 0.871, leader: true },
+              { rank: 2, id: 'sql-genie', author: 'maple', elo: 1612, delta: -8, win: 0.78 },
+              { rank: 3, id: 'csv-surgeon', author: 'rowan-yu', elo: 1594, delta: 12, win: 0.74 },
+            ].map(s => (
+              <div key={s.id} style={{
+                display: 'grid', gridTemplateColumns: '64px 1fr 100px 80px 100px',
+                gap: 24, padding: '20px 24px', alignItems: 'center',
+                borderBottom: '1px solid var(--rule)',
+                background: s.leader ? 'rgba(31,92,61,0.08)' : 'transparent',
+              }}>
+                <span style={{ fontFamily: 'var(--font-mono)', fontSize: 14, color: 'var(--ink-2)', letterSpacing: '0.04em' }}>#{String(s.rank).padStart(2,'0')}</span>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+                  <SkillGlyph id={s.id} size={24} />
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                    <span style={{ fontFamily: 'var(--font-display)', fontSize: 22, letterSpacing: '-0.02em', fontStyle: s.leader ? 'italic' : 'normal' }}>{s.id}</span>
+                    <span style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: 'var(--ink-2)' }}>{s.author}</span>
+                  </div>
+                </div>
+                <span style={{ fontFamily: 'var(--font-display)', fontSize: 22, textAlign: 'right' }}>{s.elo}</span>
+                <span style={{ fontFamily: 'var(--font-mono)', fontSize: 13, color: s.delta > 0 ? 'var(--accent)' : 'var(--danger)', textAlign: 'right' }}>
+                  {s.delta > 0 ? '↗ +' : '↘ '}{Math.abs(s.delta)}
+                </span>
+                <span style={{ fontFamily: 'var(--font-mono)', fontSize: 13, textAlign: 'right' }}>{(s.win * 100).toFixed(0)}%</span>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Bracketed frame */}
+        <div className="ds-grid" style={{ marginTop: 64 }}>
+          <span className="ds-label">Bracket frame</span>
+          <div style={{ position: 'relative', padding: 32, maxWidth: 480, background: 'var(--paper)' }}>
+            {[
+              { top: 0, left: 0, borderTop: '2px solid var(--ink)', borderLeft: '2px solid var(--ink)' },
+              { top: 0, right: 0, borderTop: '2px solid var(--ink)', borderRight: '2px solid var(--ink)' },
+              { bottom: 0, left: 0, borderBottom: '2px solid var(--ink)', borderLeft: '2px solid var(--ink)' },
+              { bottom: 0, right: 0, borderBottom: '2px solid var(--ink)', borderRight: '2px solid var(--ink)' },
+            ].map((s, i) => (<span key={i} aria-hidden style={{ position: 'absolute', width: 16, height: 16, ...s }} />))}
+            <span className="ds-spec">Featured</span>
+            <h3 style={{ fontFamily: 'var(--font-display)', fontSize: 32, margin: '8px 0 0', letterSpacing: '-0.02em' }}>
+              <em style={{ color: 'var(--accent)' }}>pdf-extract</em> defeated pdf-fast.
+            </h3>
+            <p style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: 'var(--ink-2)', margin: '12px 0 0', letterSpacing: '0.04em' }}>
+              2 minutes ago · all 3 judges
+            </p>
+          </div>
+        </div>
+
+        {/* Code chip */}
+        <div className="ds-grid" style={{ marginTop: 64 }}>
+          <span className="ds-label">Code chip</span>
+          <div style={{
+            display: 'inline-flex', alignItems: 'center', gap: 16,
+            padding: '20px 24px', border: '1px solid var(--rule)',
+            background: 'var(--paper)',
+            fontFamily: 'var(--font-mono)', fontSize: 14, color: 'var(--ink)',
+          }}>
+            <span style={{ color: 'var(--ink-2)' }}>$</span>
+            <span>npx <em style={{ color: 'var(--accent)', fontStyle: 'italic' }}>versuz</em> submit ./my-skill</span>
+            <span style={{ color: 'var(--ink-2)', marginLeft: 24 }}>↵</span>
+          </div>
+        </div>
+      </Section>
+    );
+
+    // === Shapes / decoration ============================
+    const ShapesSection = () => (
+      <Section num="05" intro="Decoration" title="Shapes & motifs.">
+        <div className="ds-grid" style={{ marginBottom: 32 }}>
+          <span className="ds-label">Vocabulary</span>
+          <p style={{ margin: 0, fontFamily: 'var(--font-display)', fontSize: 22, lineHeight: 1.45, maxWidth: 680, color: 'var(--ink)' }}>
+            Five recurring forms — solid disc, ink wedge, stacked stripe block, dot matrix, and verdict bar.
+            Use them to break up long stretches of paper. Never gradients, never glow.
+          </p>
+        </div>
+
+        <div className="ds-grid">
+          <span className="ds-label">Library</span>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 16 }}>
+            <div className="ds-card" style={{ minHeight: 200, alignItems: 'center', justifyContent: 'center' }}>
+              <div style={{ width: 100, height: 100, borderRadius: '50%', background: 'var(--accent)' }} />
+              <span className="ds-spec">Disc</span>
+            </div>
+            <div className="ds-card" style={{ minHeight: 200, alignItems: 'center', justifyContent: 'center' }}>
+              <svg width="100" height="100" viewBox="0 0 100 100"><path d="M 0 0 L 100 0 L 0 100 Z" fill="var(--ink)" /></svg>
+              <span className="ds-spec">Wedge</span>
+            </div>
+            <div className="ds-card" style={{ minHeight: 200, alignItems: 'center', justifyContent: 'center' }}>
+              <svg width="120" height="80" viewBox="0 0 120 80">
+                <rect x="0" y="0" width="120" height="10" fill="var(--ink)" />
+                <rect x="20" y="18" width="100" height="10" fill="var(--accent)" />
+                <rect x="0" y="36" width="80" height="10" fill="var(--ink)" opacity="0.5" />
+                <rect x="40" y="54" width="80" height="10" fill="var(--ink)" />
+                <rect x="20" y="72" width="60" height="6" fill="var(--accent)" opacity="0.5" />
+              </svg>
+              <span className="ds-spec">Stacked stripe</span>
+            </div>
+            <div className="ds-card" style={{ minHeight: 200, alignItems: 'center', justifyContent: 'center' }}>
+              <svg width="100" height="100" viewBox="0 0 100 100">
+                {[0,1,2,3,4].map(i => [0,1,2,3,4].map(j => (
+                  <circle key={`${i}-${j}`} cx={10 + j * 20} cy={10 + i * 20} r="3" fill="var(--ink)" />
+                )))}
+              </svg>
+              <span className="ds-spec">Dot matrix</span>
+            </div>
+            <div className="ds-card" style={{ minHeight: 200, alignItems: 'center', justifyContent: 'center' }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 0, alignItems: 'center' }}>
+                <span style={{ fontFamily: 'var(--font-display)', fontSize: 56, fontStyle: 'italic', color: 'var(--ink)', lineHeight: 1 }}>vs</span>
+                <div style={{ width: 80, height: 4, background: 'var(--accent)', marginTop: 4 }} />
+              </div>
+              <span className="ds-spec">Verdict bar</span>
+            </div>
+          </div>
+        </div>
+      </Section>
+    );
+
+    const App = () => (
+      <>
+        <Header />
+        <main>
+          <div className="ds-page">
+            <Hero />
+            <div id="mark"><MarkSection /></div>
+            <div id="color"><ColorSection /></div>
+            <div id="type"><TypeSection /></div>
+            <div id="components"><ComponentsSection /></div>
+            <ShapesSection />
+          </div>
+          <footer style={{
+            borderTop: '1px solid var(--rule)',
+            padding: '48px 64px', maxWidth: 1280, margin: '0 auto',
+            display: 'flex', justifyContent: 'space-between', flexWrap: 'wrap', gap: 16,
+            fontFamily: 'var(--font-mono)', fontSize: 10,
+            color: 'var(--ink-2)', letterSpacing: '0.16em', textTransform: 'uppercase',
+          }}>
+            <span>© 2026 Versuz · brand v01 · open arena</span>
+            <a href="Versuz Prototype.html" style={{ color: 'var(--accent)' }}>Open prototype ↗</a>
+          </footer>
+        </main>
+      </>
+    );
+
+    ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+  </script>
+</body>
+</html>

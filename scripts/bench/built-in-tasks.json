@@ -1,0 +1,748 @@
+{
+  "skill": {
+    "document": [
+      {
+        "title": "Extract line items from a small invoice PDF",
+        "description": "Given an invoice PDF, return a JSON object with vendor, invoice_number, issue_date, and line_items[{description, qty, unit_price, total}].",
+        "input_data": { "file": "invoice-acme-2026-01.pdf", "format": "json" },
+        "rubric": { "signal": "JSON contains all line items with correct totals; no fabricated fields", "difficulty": "medium" },
+        "difficulty": "medium"
+      },
+      {
+        "title": "Summarize a 12-page research paper",
+        "description": "Produce a 5-bullet summary of the paper's main claims, methodology, and limitations. Each bullet under 30 words.",
+        "input_data": { "file": "paper-attention-is-all-you-need.pdf" },
+        "rubric": { "signal": "5 bullets, each accurate, no hallucinated citations", "difficulty": "medium" },
+        "difficulty": "medium"
+      },
+      {
+        "title": "Convert a multi-column PDF page to clean markdown",
+        "description": "Given a page with 2 columns, footnotes, and a table, output well-structured markdown that preserves reading order, table structure, and footnote anchors.",
+        "input_data": { "file": "academic-page-3.pdf" },
+        "rubric": { "signal": "Reading order preserved; table renders as | pipes |; footnotes linked", "difficulty": "hard" },
+        "difficulty": "hard"
+      },
+      {
+        "title": "Extract recipient address from a scanned letter",
+        "description": "Pull the recipient's name, full street address, city, postal code, and country from a scanned letter image.",
+        "input_data": { "file": "letter-scan-001.png" },
+        "rubric": { "signal": "All 5 fields correct or marked null if absent", "difficulty": "easy" },
+        "difficulty": "easy"
+      },
+      {
+        "title": "Detect signature presence in a contract",
+        "description": "Return JSON {signed: bool, signature_count: int, page_numbers: int[]} indicating whether the contract has signatures and on which pages.",
+        "input_data": { "file": "msa-vendor.pdf" },
+        "rubric": { "signal": "Booleans correct; pages match visible signatures", "difficulty": "medium" },
+        "difficulty": "medium"
+      },
+      {
+        "title": "OCR a handwritten note",
+        "description": "Transcribe a 3-line handwritten note. Preserve line breaks and any [unclear] markers for ambiguous words.",
+        "input_data": { "file": "handwritten-note.jpg" },
+        "rubric": { "signal": "Words match; ambiguous chars marked [unclear]", "difficulty": "hard" },
+        "difficulty": "hard"
+      },
+      {
+        "title": "Extract a structured table from a financial report",
+        "description": "From a financial report's income statement page, output the table as CSV with revenue, COGS, gross_profit rows for each year.",
+        "input_data": { "file": "10k-tesla-2024.pdf", "page": 47 },
+        "rubric": { "signal": "CSV parses cleanly; numbers match source within rounding", "difficulty": "hard" },
+        "difficulty": "hard"
+      },
+      {
+        "title": "Identify the language of a document",
+        "description": "Return ISO 639-1 language code(s) detected in the document. Multi-lingual documents return all codes.",
+        "input_data": { "file": "manual-multilingual.pdf" },
+        "rubric": { "signal": "Codes are valid ISO 639-1; covers all detected languages", "difficulty": "easy" },
+        "difficulty": "easy"
+      },
+      {
+        "title": "Redact PII from a contract",
+        "description": "Output the contract markdown with all personal names, emails, phone numbers, and SSNs replaced by [REDACTED-NAME], [REDACTED-EMAIL], etc.",
+        "input_data": { "file": "employment-contract.pdf" },
+        "rubric": { "signal": "Zero PII leaks; non-PII text untouched", "difficulty": "medium" },
+        "difficulty": "medium"
+      },
+      {
+        "title": "Generate a Q&A pair list from a manual",
+        "description": "Given a 20-page user manual, generate 10 question/answer pairs covering the manual's main features. Each Q under 15 words.",
+        "input_data": { "file": "thermostat-manual.pdf" },
+        "rubric": { "signal": "10 pairs, answers grounded in source, no fabrication", "difficulty": "medium" },
+        "difficulty": "medium"
+      },
+      {
+        "title": "Detect headings hierarchy",
+        "description": "Output a JSON tree {h1: string, sections: [{h2: string, sections: [{h3: string}]}]} reflecting the document structure.",
+        "input_data": { "file": "rfc9110.pdf" },
+        "rubric": { "signal": "Tree depth and sibling order match source", "difficulty": "medium" },
+        "difficulty": "medium"
+      },
+      {
+        "title": "Compute total expense from a receipt",
+        "description": "Given a receipt photo, return JSON {currency, items: [{name, price}], subtotal, tax, total}.",
+        "input_data": { "file": "receipt-grocery.jpg" },
+        "rubric": { "signal": "Sum of items + tax = total within 0.01", "difficulty": "easy" },
+        "difficulty": "easy"
+      }
+    ],
+    "sql": [
+      {
+        "title": "Count distinct users per day from a logs table",
+        "description": "Write a SQL query against `events(user_id uuid, occurred_at timestamptz, event_name text)` returning `(day, distinct_users)` for the last 30 days.",
+        "input_data": { "schema": { "events": ["user_id uuid", "occurred_at timestamptz", "event_name text"] }, "dialect": "postgres" },
+        "rubric": { "signal": "Uses date_trunc, GROUP BY day, COUNT(DISTINCT user_id), filter on 30-day window", "difficulty": "easy" },
+        "difficulty": "easy"
+      },
+      {
+        "title": "Compute weekly retention cohorts",
+        "description": "From `events(user_id, occurred_at)`, compute weekly retention: % of users from cohort week W active in week W+N for N in [0..4].",
+        "input_data": { "schema": { "events": ["user_id uuid", "occurred_at timestamptz"] }, "dialect": "postgres" },
+        "rubric": { "signal": "Uses cohort week + activity week + percentage; output pivot or long format", "difficulty": "hard" },
+        "difficulty": "hard"
+      },
+      {
+        "title": "Translate a Postgres query to BigQuery",
+        "description": "Convert a Postgres query that uses jsonb operators and date_trunc to equivalent BigQuery Standard SQL.",
+        "input_data": { "query": "SELECT date_trunc('week', occurred_at) w, payload->>'plan' p, count(*) FROM events WHERE occurred_at > now() - interval '90 days' GROUP BY 1, 2" },
+        "rubric": { "signal": "Uses TIMESTAMP_TRUNC, JSON_VALUE, INTERVAL '90' DAY syntax for BigQuery", "difficulty": "medium" },
+        "difficulty": "medium"
+      },
+      {
+        "title": "Find duplicates by composite key",
+        "description": "Given `customers(email, phone, created_at)`, return rows where (email, phone) appears more than once. Show all duplicate rows, not just one per group.",
+        "input_data": { "schema": { "customers": ["email text", "phone text", "created_at timestamptz"] }, "dialect": "postgres" },
+        "rubric": { "signal": "Uses window function or self-join correctly; returns full duplicate sets", "difficulty": "medium" },
+        "difficulty": "medium"
+      },
+      {
+        "title": "Join 3 tables with a date range filter",
+        "description": "Join `orders`, `users`, `products` to return order_id, user_email, product_name, total_amount for orders placed in Q1 2026.",
+        "input_data": { "schema": { "orders": ["id", "user_id", "product_id", "total_amount", "placed_at"], "users": ["id", "email"], "products": ["id", "name"] }, "dialect": "postgres" },
+        "rubric": { "signal": "Two INNER JOINs, date range BETWEEN '2026-01-01' AND '2026-03-31'", "difficulty": "easy" },
+        "difficulty": "easy"
+      },
+      {
+        "title": "Optimize a slow query",
+        "description": "Given a query that does a full table scan on a 100M-row table, suggest indexes and rewrite the query to use them.",
+        "input_data": { "query": "SELECT * FROM events WHERE event_name LIKE '%purchase%' AND occurred_at > '2026-01-01'", "row_count": "100M" },
+        "rubric": { "signal": "Suggests index on (event_name, occurred_at), rewrites with = or prefix match if applicable", "difficulty": "hard" },
+        "difficulty": "hard"
+      },
+      {
+        "title": "Pivot rows to columns",
+        "description": "Convert a `metrics(day, metric_name, value)` table into one row per day with one column per metric_name.",
+        "input_data": { "schema": { "metrics": ["day date", "metric_name text", "value numeric"] }, "dialect": "postgres" },
+        "rubric": { "signal": "Uses FILTER (WHERE ...) inside aggregates or crosstab; preserves day per row", "difficulty": "medium" },
+        "difficulty": "medium"
+      },
+      {
+        "title": "Compute running total per group",
+        "description": "From `transactions(account_id, amount, occurred_at)`, return rows with a `running_balance` column per account.",
+        "input_data": { "schema": { "transactions": ["account_id", "amount", "occurred_at"] }, "dialect": "postgres" },
+        "rubric": { "signal": "Uses SUM(...) OVER (PARTITION BY account_id ORDER BY occurred_at)", "difficulty": "medium" },
+        "difficulty": "medium"
+      },
+      {
+        "title": "Detect gaps in a sequence",
+        "description": "From `daily_metrics(day, value)`, identify days where data is missing within the min..max range.",
+        "input_data": { "schema": { "daily_metrics": ["day date", "value numeric"] }, "dialect": "postgres" },
+        "rubric": { "signal": "Uses generate_series anti-join or LAG to detect gaps", "difficulty": "medium" },
+        "difficulty": "medium"
+      },
+      {
+        "title": "Write a safe DELETE with rollback strategy",
+        "description": "Compose a DELETE statement that removes obsolete `sessions` (last_activity > 90 days ago) along with a verifying SELECT and a comment explaining why a transaction wrap is recommended.",
+        "input_data": { "schema": { "sessions": ["id", "last_activity timestamptz"] }, "dialect": "postgres" },
+        "rubric": { "signal": "Includes BEGIN, SELECT count, DELETE, ROLLBACK/COMMIT semantics in commentary", "difficulty": "easy" },
+        "difficulty": "easy"
+      }
+    ],
+    "data": [
+      {
+        "title": "Clean a messy CSV of customer records",
+        "description": "Given a CSV with mixed-case emails, leading/trailing whitespace, inconsistent phone formats, return cleaned CSV with normalized fields.",
+        "input_data": { "file": "customers-raw.csv" },
+        "rubric": { "signal": "All emails lowercased; phones in E.164 or marked invalid; no surplus whitespace", "difficulty": "easy" },
+        "difficulty": "easy"
+      },
+      {
+        "title": "Detect schema from a JSON sample",
+        "description": "Given 50 JSON records with varying optional fields, output a schema spec listing each field, type, nullability, and presence rate.",
+        "input_data": { "file": "events-sample.jsonl" },
+        "rubric": { "signal": "All fields enumerated; types correct; nullable flag matches the data", "difficulty": "medium" },
+        "difficulty": "medium"
+      },
+      {
+        "title": "Compute summary statistics on a dataframe",
+        "description": "From a CSV of 50k rows, return min/max/mean/median/std for each numeric column plus distinct-count for categorical columns.",
+        "input_data": { "file": "transactions.csv" },
+        "rubric": { "signal": "All columns covered; numbers match within rounding; categorical distinct counts correct", "difficulty": "easy" },
+        "difficulty": "easy"
+      },
+      {
+        "title": "Pivot long to wide via pandas",
+        "description": "Given a long table (`user_id, metric, value`), return wide pandas DataFrame with one row per user, metric columns.",
+        "input_data": { "file": "user-metrics-long.csv" },
+        "rubric": { "signal": "Resulting frame has expected shape; nulls fill correctly for missing metrics", "difficulty": "medium" },
+        "difficulty": "medium"
+      },
+      {
+        "title": "Merge two CSVs with fuzzy join",
+        "description": "Join two CSVs of company names where the names differ slightly (\"Acme Inc.\" vs \"acme, inc\"). Return merged rows + similarity score.",
+        "input_data": { "files": ["companies-a.csv", "companies-b.csv"] },
+        "rubric": { "signal": "Uses normalization + similarity threshold; reports unmatched on each side", "difficulty": "hard" },
+        "difficulty": "hard"
+      },
+      {
+        "title": "Aggregate logs into hourly buckets",
+        "description": "From an NDJSON access log with timestamp + status_code + path, output hourly counts per status class (2xx/3xx/4xx/5xx).",
+        "input_data": { "file": "access.log.ndjson" },
+        "rubric": { "signal": "Hourly buckets; status classes summed; no off-by-one on hour edges", "difficulty": "medium" },
+        "difficulty": "medium"
+      },
+      {
+        "title": "Detect outliers using IQR",
+        "description": "On a numeric column from a CSV, flag values outside [Q1 - 1.5·IQR, Q3 + 1.5·IQR] and return the indices.",
+        "input_data": { "file": "sensor-readings.csv", "column": "temperature_c" },
+        "rubric": { "signal": "IQR computed correctly; bounds correct; outlier indices match expected", "difficulty": "medium" },
+        "difficulty": "medium"
+      },
+      {
+        "title": "Normalize a nested JSON to a flat table",
+        "description": "Flatten nested JSON ({user: {profile: {name}}}) to flat columns user_profile_name. Handle arrays via row-explosion.",
+        "input_data": { "file": "nested-events.json" },
+        "rubric": { "signal": "Dot-path column names; array fields exploded into rows or marked", "difficulty": "medium" },
+        "difficulty": "medium"
+      },
+      {
+        "title": "Build a percentile chart from a series",
+        "description": "Given a list of latency_ms values, compute p50, p90, p95, p99, p99.9 and output as a small ASCII bar chart.",
+        "input_data": { "file": "latencies.csv" },
+        "rubric": { "signal": "Percentiles correct within 1ms; chart visually orders ascending", "difficulty": "easy" },
+        "difficulty": "easy"
+      },
+      {
+        "title": "Validate a CSV against a schema",
+        "description": "Given a schema spec and a CSV, return all rows that violate the schema, with the failed column and reason.",
+        "input_data": { "file": "users.csv", "schema_file": "users.schema.json" },
+        "rubric": { "signal": "All violations caught; no false positives; reason cites the rule", "difficulty": "medium" },
+        "difficulty": "medium"
+      }
+    ],
+    "web": [
+      {
+        "title": "Extract product price from an Amazon-like listing",
+        "description": "Given an HTML page, extract product title, price (with currency), availability, and image URL. Return JSON.",
+        "input_data": { "url": "https://example.com/product/abc123" },
+        "rubric": { "signal": "All 4 fields present; price has currency; URL is absolute", "difficulty": "medium" },
+        "difficulty": "medium"
+      },
+      {
+        "title": "Crawl a site for all article links",
+        "description": "From a homepage, follow internal links one level deep and return a list of article URLs (filtering out nav/footer/social).",
+        "input_data": { "url": "https://blog.example.com/" },
+        "rubric": { "signal": "Returns only article URLs; respects robots.txt; deduped", "difficulty": "hard" },
+        "difficulty": "hard"
+      },
+      {
+        "title": "Submit a form and return the response page",
+        "description": "Given a search form with one input, submit a query and return the structured results (title, url, snippet) from the resulting page.",
+        "input_data": { "url": "https://example.com/search", "query": "claude code" },
+        "rubric": { "signal": "Submitted form correctly; results parsed into structured array", "difficulty": "medium" },
+        "difficulty": "medium"
+      },
+      {
+        "title": "Scrape a paginated table",
+        "description": "Given the first page of a paginated HTML table, follow next-page links and aggregate all rows into one CSV.",
+        "input_data": { "url": "https://example.com/table?page=1" },
+        "rubric": { "signal": "All rows collected; pagination terminated correctly; CSV well-formed", "difficulty": "medium" },
+        "difficulty": "medium"
+      },
+      {
+        "title": "Wait for dynamic content before reading",
+        "description": "Page loads results via JS after page load. Wait until results are visible, then extract them.",
+        "input_data": { "url": "https://example.com/dynamic-results" },
+        "rubric": { "signal": "Waits on selector visibility before reading; doesn't read empty initial DOM", "difficulty": "medium" },
+        "difficulty": "medium"
+      },
+      {
+        "title": "Detect login requirement",
+        "description": "Determine whether a URL requires login. Return {requires_login: bool, evidence: string}.",
+        "input_data": { "url": "https://example.com/profile" },
+        "rubric": { "signal": "Boolean correct; evidence cites redirect to login or 401/403", "difficulty": "easy" },
+        "difficulty": "easy"
+      },
+      {
+        "title": "Convert an HTML table to JSON",
+        "description": "Parse an HTML <table> into JSON with column headers as keys.",
+        "input_data": { "html": "<table><tr><th>Name</th><th>Age</th></tr><tr><td>Alice</td><td>30</td></tr></table>" },
+        "rubric": { "signal": "Headers detected; rows parsed; types kept as strings unless numeric coercion is requested", "difficulty": "easy" },
+        "difficulty": "easy"
+      },
+      {
+        "title": "Extract OpenGraph metadata",
+        "description": "From a URL, return {og:title, og:description, og:image, og:type} plus fallbacks to the regular <title> tag and meta description.",
+        "input_data": { "url": "https://example.com/article" },
+        "rubric": { "signal": "All four fields with sensible fallbacks; image URL is absolute", "difficulty": "easy" },
+        "difficulty": "easy"
+      },
+      {
+        "title": "Bypass a soft paywall via reader-view extraction",
+        "description": "Detect a soft paywall and extract the article body using a reader-view algorithm (Mozilla Readability-style).",
+        "input_data": { "url": "https://news.example.com/article" },
+        "rubric": { "signal": "Returns clean article text + author + publish date; no nav/ads", "difficulty": "hard" },
+        "difficulty": "hard"
+      },
+      {
+        "title": "Take a screenshot of a specific element",
+        "description": "Given a URL and a CSS selector, return a PNG screenshot of just that element.",
+        "input_data": { "url": "https://example.com/dashboard", "selector": "#chart-revenue" },
+        "rubric": { "signal": "PNG bytes returned; image cropped to selector bounds", "difficulty": "medium" },
+        "difficulty": "medium"
+      }
+    ],
+    "shell": [
+      {
+        "title": "Find all files larger than 100 MB",
+        "description": "Across a Unix filesystem, find all regular files >100MB and output them sorted by size desc.",
+        "input_data": { "root": "/var/log" },
+        "rubric": { "signal": "Uses find + size predicate or du; sorted descending; no symlink loops", "difficulty": "easy" },
+        "difficulty": "easy"
+      },
+      {
+        "title": "Tail a log file and filter ERROR lines in real-time",
+        "description": "Build a one-liner that tails /var/log/app.log and prints only lines containing ERROR with timestamp.",
+        "input_data": { "log_path": "/var/log/app.log" },
+        "rubric": { "signal": "Uses tail -F + grep; doesn't buffer (stdbuf or grep --line-buffered)", "difficulty": "easy" },
+        "difficulty": "easy"
+      },
+      {
+        "title": "Batch-rename PNG files to lowercase with timestamp prefix",
+        "description": "Rename all *.PNG to lowercase + prepend file mtime as YYYYMMDD-HHMMSS-.",
+        "input_data": { "dir": "./photos" },
+        "rubric": { "signal": "Idempotent; no rename if already correctly formatted", "difficulty": "medium" },
+        "difficulty": "medium"
+      },
+      {
+        "title": "Compose a docker-compose for a Postgres + redis dev stack",
+        "description": "Output docker-compose.yml with Postgres 16, Redis 7, with volumes, healthchecks, and minimal env vars.",
+        "input_data": {},
+        "rubric": { "signal": "Healthchecks defined; volumes named; depends_on with condition: service_healthy", "difficulty": "medium" },
+        "difficulty": "medium"
+      },
+      {
+        "title": "Find duplicate files by content hash",
+        "description": "Identify files with identical SHA-256 in a directory and group them.",
+        "input_data": { "dir": "./downloads" },
+        "rubric": { "signal": "Uses find + xargs sha256sum + awk/sort; groups by hash", "difficulty": "medium" },
+        "difficulty": "medium"
+      },
+      {
+        "title": "Replace a string in all matching files",
+        "description": "Recursively replace foo with bar in *.js files under ./src, in-place, with backup.",
+        "input_data": { "from": "foo", "to": "bar", "glob": "./src/**/*.js" },
+        "rubric": { "signal": "Uses find + sed -i with backup suffix; doesn't touch non-matching files", "difficulty": "easy" },
+        "difficulty": "easy"
+      },
+      {
+        "title": "Watch a port and restart a service on change",
+        "description": "Write a shell script that polls a port every 5s and restarts ./run.sh if the port is closed.",
+        "input_data": { "port": 3000 },
+        "rubric": { "signal": "Uses nc -z or ss; loops with sleep; restart only when port closed", "difficulty": "medium" },
+        "difficulty": "medium"
+      },
+      {
+        "title": "Extract HTTP latencies from an Nginx access log",
+        "description": "Parse Nginx logs and output p50/p95/p99 of upstream_response_time.",
+        "input_data": { "file": "/var/log/nginx/access.log" },
+        "rubric": { "signal": "Uses awk to extract field; computes percentiles; rounds sensibly", "difficulty": "medium" },
+        "difficulty": "medium"
+      },
+      {
+        "title": "Tar a directory excluding node_modules and .git",
+        "description": "Create a tar.gz of ./project excluding node_modules, .git, dist.",
+        "input_data": { "dir": "./project" },
+        "rubric": { "signal": "Uses --exclude flags correctly; output verified by listing", "difficulty": "easy" },
+        "difficulty": "easy"
+      },
+      {
+        "title": "Grep all TODO comments and group by file",
+        "description": "Find all TODO/FIXME/HACK comments in a codebase and produce a markdown report grouped by file with line numbers.",
+        "input_data": { "root": "./src" },
+        "rubric": { "signal": "Markdown groups by file; line numbers included; no false positives in strings", "difficulty": "medium" },
+        "difficulty": "medium"
+      }
+    ],
+    "code": [
+      {
+        "title": "Add comprehensive tests for a pure function",
+        "description": "Given a JS function `calculatePriceWithTax(items, taxRate)`, write Jest tests covering: empty list, zero tax, mixed types, negative qty, large numbers.",
+        "input_data": { "function_code": "function calculatePriceWithTax(items, taxRate) { return items.reduce((s, i) => s + i.price * i.qty, 0) * (1 + taxRate); }" },
+        "rubric": { "signal": "≥6 test cases; covers edge cases listed; uses describe/it/expect", "difficulty": "easy" },
+        "difficulty": "easy"
+      },
+      {
+        "title": "Refactor nested callbacks to async/await",
+        "description": "Given a 3-level nested callback in Node.js, rewrite using async/await with proper try/catch.",
+        "input_data": { "code": "fs.readFile('a.json', (e, a) => { if (e) return cb(e); fs.readFile('b.json', (e, b) => { if (e) return cb(e); cb(null, JSON.parse(a) + JSON.parse(b)); }); });" },
+        "rubric": { "signal": "Uses fs.promises; flat structure; errors propagate via try/catch", "difficulty": "easy" },
+        "difficulty": "easy"
+      },
+      {
+        "title": "Find a bug in a sort comparator",
+        "description": "A comparator returns true/false instead of -1/0/1, causing subtly wrong sort. Identify and fix.",
+        "input_data": { "code": "arr.sort((a, b) => a.priority > b.priority);" },
+        "rubric": { "signal": "Identifies the truthy issue; rewrites as a.priority - b.priority; explains stability", "difficulty": "medium" },
+        "difficulty": "medium"
+      },
+      {
+        "title": "Type a TypeScript generic function correctly",
+        "description": "Add a fully-typed generic to `function pluck<T>(arr: T[], key: keyof T)`. Inferred return must be `T[keyof T][]`.",
+        "input_data": { "code": "function pluck(arr, key) { return arr.map(x => x[key]); }" },
+        "rubric": { "signal": "Generic constraints correct; return type inferred without manual cast", "difficulty": "medium" },
+        "difficulty": "medium"
+      },
+      {
+        "title": "Migrate a class component to React hooks",
+        "description": "Convert a React class component with componentDidMount, componentDidUpdate, componentWillUnmount to a functional component using useEffect.",
+        "input_data": { "framework": "react", "version": "19" },
+        "rubric": { "signal": "Lifecycle correctly mapped; cleanup in unmount preserved; no extra rerenders", "difficulty": "medium" },
+        "difficulty": "medium"
+      },
+      {
+        "title": "Add JSDoc types to a JS module",
+        "description": "Annotate a 50-line JS module with full JSDoc types so TypeScript-server can type-check it.",
+        "input_data": { "file": "src/util/parse.js" },
+        "rubric": { "signal": "All exports typed; @param/@returns present; no any unless justified", "difficulty": "medium" },
+        "difficulty": "medium"
+      },
+      {
+        "title": "Implement debounce in vanilla JS",
+        "description": "Write a `debounce(fn, ms)` that delays calls and resets the timer on each new call. Include leading and trailing options.",
+        "input_data": {},
+        "rubric": { "signal": "Implementation correct; leading/trailing options; respects this binding", "difficulty": "medium" },
+        "difficulty": "medium"
+      },
+      {
+        "title": "Diagnose a memory leak in Node.js",
+        "description": "A Node.js app's heap grows unbounded. Given a heap snapshot summary, identify the likely leak source and propose a fix.",
+        "input_data": { "snapshot_summary": "Top retainer: EventEmitter listeners on db_pool" },
+        "rubric": { "signal": "Identifies missing removeListener / off; proposes cleanup pattern", "difficulty": "hard" },
+        "difficulty": "hard"
+      },
+      {
+        "title": "Write a SQL injection-safe query builder fragment",
+        "description": "Build a parameterized query for a search endpoint that filters by optional name, min_price, max_price.",
+        "input_data": { "language": "node", "library": "pg" },
+        "rubric": { "signal": "Uses $1/$2/$3 placeholders; never string-concats user input; handles missing optional filters", "difficulty": "medium" },
+        "difficulty": "medium"
+      },
+      {
+        "title": "Implement a rate limiter middleware",
+        "description": "Express middleware that enforces N requests/min/IP using a sliding window. Return 429 when exceeded.",
+        "input_data": { "limit": 100, "window_seconds": 60 },
+        "rubric": { "signal": "Sliding window algorithm correct; per-IP keys; 429 with Retry-After header", "difficulty": "hard" },
+        "difficulty": "hard"
+      }
+    ]
+  },
+  "claude_md": {
+    "nextjs": [
+      {
+        "title": "Bootstrap a Next.js 15 App Router project with auth",
+        "description": "Produce a working scaffold: app/, server actions, a protected /dashboard route guarded by Supabase Auth GitHub OAuth.",
+        "input_data": { "framework": "Next.js 15", "auth": "Supabase + GitHub OAuth" },
+        "rubric": { "signal": "Runnable; uses RSC by default; protected route redirects when unauthed", "difficulty": "medium" },
+        "difficulty": "medium"
+      },
+      {
+        "title": "Convert a pages/ component to App Router with RSC",
+        "description": "Given a pages/posts/[slug].js with getServerSideProps, port to app/posts/[slug]/page.js as an async server component.",
+        "input_data": {},
+        "rubric": { "signal": "No 'use client' unless interactive; data fetched in component body; no getServerSideProps", "difficulty": "medium" },
+        "difficulty": "medium"
+      },
+      {
+        "title": "Add a streaming Suspense boundary",
+        "description": "Wrap a slow data section in <Suspense> with a skeleton fallback in loading.js.",
+        "input_data": {},
+        "rubric": { "signal": "loading.js created at the right segment; Suspense boundary in place; skeleton matches layout", "difficulty": "easy" },
+        "difficulty": "easy"
+      },
+      {
+        "title": "Set up dynamic OG images with next/og",
+        "description": "Create app/blog/[slug]/opengraph-image.js generating a 1200×630 PNG with the post title.",
+        "input_data": {},
+        "rubric": { "signal": "Uses ImageResponse; size export correct; renders title from params", "difficulty": "medium" },
+        "difficulty": "medium"
+      },
+      {
+        "title": "Implement a middleware for locale detection",
+        "description": "middleware.ts redirects /foo to /<locale>/foo based on Accept-Language. Skip /api and static assets.",
+        "input_data": {},
+        "rubric": { "signal": "Matcher excludes /api, /_next; redirect uses NextResponse.redirect", "difficulty": "medium" },
+        "difficulty": "medium"
+      },
+      {
+        "title": "Cache an external API call across requests",
+        "description": "Wrap a slow third-party fetch with React cache() + Next's revalidate to dedupe within a render and revalidate every 60s globally.",
+        "input_data": {},
+        "rubric": { "signal": "Uses cache() for dedup; fetch with { next: { revalidate: 60 } }", "difficulty": "medium" },
+        "difficulty": "medium"
+      },
+      {
+        "title": "Build a server action for a contact form",
+        "description": "Server action that validates with zod, writes to Supabase, returns errors back via useFormState.",
+        "input_data": {},
+        "rubric": { "signal": "'use server' directive; zod schema; useFormState wired; redirect or revalidate on success", "difficulty": "medium" },
+        "difficulty": "medium"
+      },
+      {
+        "title": "Add a sitemap.js generator",
+        "description": "app/sitemap.js outputs static routes + dynamic blog posts pulled from a Supabase table.",
+        "input_data": {},
+        "rubric": { "signal": "Returns array of {url, lastModified}; absolute URLs; dynamic data fetched once", "difficulty": "easy" },
+        "difficulty": "easy"
+      }
+    ],
+    "react": [
+      {
+        "title": "Build a controlled multi-select with keyboard support",
+        "description": "Accessible multi-select component: arrow nav, space to toggle, enter to confirm, esc to close.",
+        "input_data": {},
+        "rubric": { "signal": "All keyboard interactions work; aria-expanded, aria-multiselectable correct", "difficulty": "hard" },
+        "difficulty": "hard"
+      },
+      {
+        "title": "Memoize a heavy list render",
+        "description": "A list with 5000 rows re-renders on every parent update. Use React.memo, useMemo, useCallback to fix without breaking semantics.",
+        "input_data": {},
+        "rubric": { "signal": "Verifies via profiler; preserves stable identity for callbacks; no unnecessary re-renders", "difficulty": "medium" },
+        "difficulty": "medium"
+      },
+      {
+        "title": "Add an error boundary that reports to Sentry",
+        "description": "Class-based ErrorBoundary that catches render errors and reports to Sentry with component stack.",
+        "input_data": {},
+        "rubric": { "signal": "Implements componentDidCatch; reports error + info; renders fallback UI", "difficulty": "medium" },
+        "difficulty": "medium"
+      },
+      {
+        "title": "Convert a Redux slice to Zustand",
+        "description": "Given a small Redux slice with sync + thunk actions, port to Zustand with same API surface for components.",
+        "input_data": {},
+        "rubric": { "signal": "Components consume new store; thunks become async store actions; types preserved", "difficulty": "medium" },
+        "difficulty": "medium"
+      },
+      {
+        "title": "Add Suspense for a data-fetching hook",
+        "description": "Refactor a useEffect-based fetcher to throw a promise so it works with React.Suspense.",
+        "input_data": {},
+        "rubric": { "signal": "Throws while pending; throws error on failure; resolves to data; cache by key", "difficulty": "hard" },
+        "difficulty": "hard"
+      }
+    ],
+    "python-data": [
+      {
+        "title": "Profile a slow pandas pipeline",
+        "description": "Given a pandas pipeline that takes 30s on 100k rows, profile and propose 3 concrete optimizations.",
+        "input_data": {},
+        "rubric": { "signal": "Identifies real bottlenecks (apply→vectorize, dtype, groupby) with measurements", "difficulty": "hard" },
+        "difficulty": "hard"
+      },
+      {
+        "title": "Write a parquet → DuckDB query pipeline",
+        "description": "Read 5 parquet files, register them as DuckDB views, run a join + aggregation query.",
+        "input_data": {},
+        "rubric": { "signal": "Uses duckdb.read_parquet or CREATE VIEW; query runs without materialising files", "difficulty": "medium" },
+        "difficulty": "medium"
+      },
+      {
+        "title": "Build a simple feature pipeline with scikit-learn",
+        "description": "Pipeline with imputation, OneHot, scaling, then a LogisticRegression. Include a 5-fold cross-val score.",
+        "input_data": {},
+        "rubric": { "signal": "ColumnTransformer used; cross_val_score reported; no leakage between fit/transform", "difficulty": "medium" },
+        "difficulty": "medium"
+      },
+      {
+        "title": "Plot a calibration curve",
+        "description": "Given y_true and predicted probabilities, plot a calibration curve with 10 bins using matplotlib.",
+        "input_data": {},
+        "rubric": { "signal": "Bins by predicted prob; expected vs observed plotted; diagonal reference shown", "difficulty": "easy" },
+        "difficulty": "easy"
+      },
+      {
+        "title": "Ingest CSV to Postgres in chunks",
+        "description": "Stream a 5GB CSV into Postgres without loading it all in memory. Use COPY or psycopg.copy.",
+        "input_data": {},
+        "rubric": { "signal": "Uses COPY FROM STDIN; chunk size sane; txn wraps the whole load", "difficulty": "medium" },
+        "difficulty": "medium"
+      }
+    ],
+    "backend-api": [
+      {
+        "title": "Design a paginated list endpoint",
+        "description": "REST endpoint GET /items with cursor pagination. Include the response schema and SQL.",
+        "input_data": {},
+        "rubric": { "signal": "Cursor encoded as opaque token; ORDER BY id asc/desc; next_cursor returned", "difficulty": "medium" },
+        "difficulty": "medium"
+      },
+      {
+        "title": "Add JWT auth middleware",
+        "description": "Express/FastAPI middleware that validates a bearer JWT, attaches user to req, returns 401 on invalid.",
+        "input_data": {},
+        "rubric": { "signal": "Verifies signature + exp + aud; req.user populated; 401 on missing/invalid", "difficulty": "medium" },
+        "difficulty": "medium"
+      },
+      {
+        "title": "Implement idempotency keys",
+        "description": "POST /payments uses Idempotency-Key header. Same key returns the original response without re-processing.",
+        "input_data": {},
+        "rubric": { "signal": "Key stored with response; replays detected within TTL; partial failures handled", "difficulty": "hard" },
+        "difficulty": "hard"
+      },
+      {
+        "title": "Add request-id correlation",
+        "description": "Generate or propagate X-Request-Id, attach to logs, return on response.",
+        "input_data": {},
+        "rubric": { "signal": "Middleware before logger; uuid v4 if missing; structured logs include the id", "difficulty": "easy" },
+        "difficulty": "easy"
+      },
+      {
+        "title": "Document an endpoint in OpenAPI",
+        "description": "Write the OpenAPI spec for POST /users with request body, response 201, error 400 + 409.",
+        "input_data": {},
+        "rubric": { "signal": "Valid OpenAPI 3.1; schemas defined; examples present", "difficulty": "easy" },
+        "difficulty": "easy"
+      }
+    ],
+    "mobile": [
+      {
+        "title": "Implement pull-to-refresh in a React Native FlatList",
+        "description": "Add refreshControl with proper loading state and error toast.",
+        "input_data": {},
+        "rubric": { "signal": "RefreshControl wired; refreshing state managed; error path shows toast", "difficulty": "easy" },
+        "difficulty": "easy"
+      },
+      {
+        "title": "Persist navigation state across launches",
+        "description": "Use @react-navigation/native + AsyncStorage to restore the user's last screen on relaunch.",
+        "input_data": {},
+        "rubric": { "signal": "State serialized + restored; deep-link safe; no flicker on cold start", "difficulty": "medium" },
+        "difficulty": "medium"
+      },
+      {
+        "title": "Wire a SwiftUI list to Combine fetcher",
+        "description": "@StateObject ViewModel exposes @Published items; List binds; pull-to-refresh + error retry.",
+        "input_data": {},
+        "rubric": { "signal": "MVVM separation clean; cancellables retained; refresh triggers fetch", "difficulty": "medium" },
+        "difficulty": "medium"
+      },
+      {
+        "title": "Add Android background sync via WorkManager",
+        "description": "Schedule a periodic sync every 6h with constraints (network, battery not low).",
+        "input_data": {},
+        "rubric": { "signal": "PeriodicWorkRequest with constraints; unique work name; result handles retry", "difficulty": "medium" },
+        "difficulty": "medium"
+      }
+    ],
+    "devops": [
+      {
+        "title": "Write a GitHub Actions workflow for a Node project",
+        "description": "Run lint + test on every PR + main push. Cache npm. Matrix on Node 20/22.",
+        "input_data": {},
+        "rubric": { "signal": "actions/setup-node with cache: npm; matrix matrix.node-version; concurrency cancel-in-progress", "difficulty": "easy" },
+        "difficulty": "easy"
+      },
+      {
+        "title": "Author a multi-stage Dockerfile for a Next.js app",
+        "description": "Builder stage installs + builds. Runtime stage copies standalone output, runs as non-root.",
+        "input_data": {},
+        "rubric": { "signal": "Two stages; standalone output used; runs as non-root user; .dockerignore mentioned", "difficulty": "medium" },
+        "difficulty": "medium"
+      },
+      {
+        "title": "Set up a Terraform module for an S3 bucket",
+        "description": "Module that creates a private bucket with versioning + lifecycle rule moving to IA after 30d.",
+        "input_data": {},
+        "rubric": { "signal": "aws_s3_bucket + versioning + lifecycle; public access block on; tags pass-through", "difficulty": "medium" },
+        "difficulty": "medium"
+      },
+      {
+        "title": "Write a kubectl rollout command sequence",
+        "description": "Roll out a new image, watch the rollout, rollback if it fails health checks within 5 minutes.",
+        "input_data": {},
+        "rubric": { "signal": "kubectl set image, rollout status with timeout, rollout undo on fail", "difficulty": "medium" },
+        "difficulty": "medium"
+      },
+      {
+        "title": "Configure structured logging with correlation",
+        "description": "App logs JSON to stdout with trace_id; log shipper (Vector/Fluentbit) example included.",
+        "input_data": {},
+        "rubric": { "signal": "JSON fields stable; trace_id propagated; example shipper config included", "difficulty": "medium" },
+        "difficulty": "medium"
+      }
+    ],
+    "ml-training": [
+      {
+        "title": "Implement gradient checkpointing in PyTorch",
+        "description": "Wrap a transformer block to use torch.utils.checkpoint to reduce activation memory.",
+        "input_data": {},
+        "rubric": { "signal": "Uses checkpoint correctly; no double-counting; verified by memory drop", "difficulty": "hard" },
+        "difficulty": "hard"
+      },
+      {
+        "title": "Set up DDP for multi-GPU training",
+        "description": "Convert a single-GPU training script to DistributedDataParallel with NCCL backend.",
+        "input_data": {},
+        "rubric": { "signal": "init_process_group + DDP wrap; sampler set_epoch; no hang on shutdown", "difficulty": "hard" },
+        "difficulty": "hard"
+      },
+      {
+        "title": "Track experiments with W&B",
+        "description": "Log metrics, hyperparams, model artifact to Weights & Biases; resume on rerun.",
+        "input_data": {},
+        "rubric": { "signal": "wandb.init with config; log per step + epoch; resume='allow'", "difficulty": "easy" },
+        "difficulty": "easy"
+      },
+      {
+        "title": "Build a simple LR scheduler with warmup",
+        "description": "Linear warmup for 10% of steps then cosine decay to 0.",
+        "input_data": {},
+        "rubric": { "signal": "Math correct; integrates with optimizer.step + scheduler.step", "difficulty": "medium" },
+        "difficulty": "medium"
+      }
+    ],
+    "generic": [
+      {
+        "title": "Document the project's mental model",
+        "description": "Produce a 1-page README that explains the project's purpose, the tech stack, the boundary between server and client, and the way to add a new feature.",
+        "input_data": {},
+        "rubric": { "signal": "Concise; matches repo reality; new contributor can find their bearings", "difficulty": "medium" },
+        "difficulty": "medium"
+      },
+      {
+        "title": "Set up Husky + lint-staged",
+        "description": "Block commits when ESLint or Prettier fail on staged files.",
+        "input_data": {},
+        "rubric": { "signal": "Husky pre-commit hook installed; lint-staged config sane; bypass instructions documented", "difficulty": "easy" },
+        "difficulty": "easy"
+      },
+      {
+        "title": "Write a CONTRIBUTING.md",
+        "description": "Cover dev setup, commit conventions, branch naming, PR requirements, code of conduct pointer.",
+        "input_data": {},
+        "rubric": { "signal": "All five sections present; tone matches an OSS project", "difficulty": "easy" },
+        "difficulty": "easy"
+      },
+      {
+        "title": "Add an .editorconfig + Prettier baseline",
+        "description": "Configure consistent indent (2 sp), LF endings, trailing newline, max line length 100.",
+        "input_data": {},
+        "rubric": { "signal": "Both files match; pre-commit catches violations", "difficulty": "easy" },
+        "difficulty": "easy"
+      }
+    ]
+  }
+}

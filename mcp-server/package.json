@@ -1,0 +1,39 @@
+{
+  "name": "@versuz/mcp",
+  "version": "0.1.0",
+  "description": "MCP server exposing the Versuz marketplace — search, install Claude skills + CLAUDE.md directly from Claude Code",
+  "type": "module",
+  "bin": {
+    "versuz-mcp": "./bin/server.js"
+  },
+  "main": "./src/index.js",
+  "files": [
+    "bin",
+    "src",
+    "README.md"
+  ],
+  "scripts": {
+    "start": "node bin/server.js"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "keywords": [
+    "mcp",
+    "model-context-protocol",
+    "claude",
+    "claude-code",
+    "skills",
+    "versuz"
+  ],
+  "homepage": "https://versuz.dev",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/versuzdev/versuz",
+    "directory": "mcp-server"
+  },
+  "license": "MIT",
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.0.0"
+  }
+}

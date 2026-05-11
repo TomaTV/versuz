@@ -1,0 +1,67 @@
+name: Bench runner
+
+on:
+  schedule:
+    # Toutes les 2h. La queue est alimentée par le cron Vercel `/api/cron/bench`
+    # daily à 04:00 UTC qui enqueue les 14 scopes. Le runner ici les draine
+    # progressivement sous BENCH_BUDGET_USD.
+    - cron: "0 */2 * * *"
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: "Mode bench"
+        required: true
+        default: "or-thrift"
+        type: choice
+        options:
+          - or-thrift     # GPT-5 nano seul, rapide + pas cher
+          - or-v1         # Haiku + DeepSeek + GPT-5 mini (3 judges)
+          - dev           # Groq Llama free
+      budget_usd:
+        description: "Budget cap (USD) — runner halt si atteint"
+        required: false
+        default: "5"
+      scope:
+        description: "Scope unique (vide = pick le premier cycle queued)"
+        required: false
+        default: ""
+
+jobs:
+  bench:
+    runs-on: ubuntu-latest
+    timeout-minutes: 50
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Run bench
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
+          GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
+          BENCH_MODE: ${{ inputs.mode || 'or-thrift' }}
+          BENCH_BUDGET_USD: ${{ inputs.budget_usd || '5' }}
+          BENCH_JUDGE_COUNT: ${{ inputs.mode == 'or-v1' && '3' || '1' }}
+        run: |
+          if [ -n "${{ inputs.scope }}" ]; then
+            node scripts/bench/index.mjs --scope=${{ inputs.scope }} --concurrency=6
+          else
+            # No scope = drain le premier cycle queued (resume FIFO)
+            node scripts/bench/index.mjs --concurrency=6
+          fi
+      - name: Refresh rankings
+        if: success()
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+        run: |
+          node -e "
+            import('@supabase/supabase-js').then(({createClient}) => {
+              const sb = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY);
+              return sb.rpc('refresh_rankings');
+            }).then(r => console.log('rankings refreshed', r));
+          "
