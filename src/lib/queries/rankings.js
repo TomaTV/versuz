@@ -548,27 +548,27 @@ const getCategoryCountsInternal = cache(async (kind = "skill") => {
   const table = kind === "skill" ? "skills" : "claude_md_files";
   const catCol = kind === "skill" ? "category" : "project_category";
   const labels = kind === "skill" ? CATEGORY_LABELS : PROJECT_CATEGORY_LABELS;
-  const categories = kind === "skill" 
-    ? Object.keys(CATEGORY_LABELS)
-    : Object.keys(PROJECT_CATEGORY_LABELS);
 
-  // Count per category with individual queries (avoids 1000 row limit)
-  const counts = await Promise.all(
-    categories.map(async (cat) => {
-      let q = sb.from(table).select("id", { count: "exact", head: true }).eq(catCol, cat);
-      if (kind === "claude_md") {
-        q = q.or("word_count.gte.40,word_count.is.null");
-      }
-      const { count } = await q;
-      return { category: cat, count: count || 0 };
-    })
-  );
-
+  // 1 RPC call (server-side GROUP BY) au lieu de N count queries.
+  // Voir migration 0036_category_counts_rpc.sql.
+  const { data, error } = await sb.rpc("get_category_counts", {
+    p_table: table,
+    p_cat_col: catCol,
+    p_kind: kind,
+  });
+  if (error) {
+    console.warn(`[getCategoryCounts] RPC failed: ${error.message}`);
+    return [];
+  }
+  const counts = (data || []).map((r) => ({
+    category: r.category,
+    count: Number(r.count) || 0,
+  }));
   const total = counts.reduce((sum, c) => sum + c.count, 0);
-  const sorted = counts.filter(c => c.count > 0).sort((a, b) => b.count - a.count);
+  const sorted = counts.filter((c) => c.count > 0).sort((a, b) => b.count - a.count);
   return [
     { id: "all", label: "All", count: total },
-    ...sorted.map(c => ({ id: c.category, label: labels[c.category] || c.category, count: c.count })),
+    ...sorted.map((c) => ({ id: c.category, label: labels[c.category] || c.category, count: c.count })),
   ];
 });
 
@@ -591,54 +591,33 @@ export const getAvailableSources = cache(async (kind = "skill") => {
   if (!sb) return [];
   const table = kind === "skill" ? "skills" : "claude_md_files";
 
-  // Paginate through every row's `source` column and group client-side.
-  // PostgREST has no built-in DISTINCT or GROUP BY for non-aggregated
-  // selects, so we fetch the source column for every row (one ~10-byte
-  // string per row → ~1 MB total at 100k rows, fast). Cached via React
-  // cache() so this runs at most once per request.
-  const sourceCount = new Map();
-  let from = 0;
-  const PAGE = 1000;
-  // eslint-disable-next-line no-constant-condition
-  while (true) {
-    const { data, error } = await sb
-      .from(table)
-      .select("source")
-      .range(from, from + PAGE - 1);
-    if (error) {
-      console.warn(`[getAvailableSources] ${table}: ${error.message}`);
-      break;
-    }
-    if (!data || data.length === 0) break;
-    for (const r of data) {
-      const raw = (r.source || "").toLowerCase() || "github"; // NULL → github (legacy default)
-      sourceCount.set(raw, (sourceCount.get(raw) || 0) + 1);
-    }
-    if (data.length < PAGE) break;
-    from += PAGE;
-  }
+  // 7 count-only queries (head:true) en parallèle, par bucket canonique
+  // via ILIKE. Au lieu de paginer 100k rows séquentiellement (5-7s sur
+  // Supabase Free), on demande à Postgres le count direct par pattern.
+  // ~100ms total avec un index trigram ou btree sur lower(source).
+  const buckets = [
+    { id: "github", pattern: "%github%" },
+    { id: "sourcegraph", pattern: "%sourcegraph%" },
+    { id: "grepapp", pattern: "%grep%" },
+    { id: "gitlab", pattern: "%gitlab%" },
+    { id: "aggregator", pattern: "%aggregator%" },
+    { id: "web-directory", pattern: "%directory%" },
+    { id: "submit", pattern: "submit%" },
+    { id: "cli", pattern: "cli%" },
+  ];
 
-  // Aggregate into canonical buckets via the same rules as the client-side
-  // normalizeSource() helper. Anything that doesn't match a canonical
-  // bucket lands in "other".
-  const buckets = new Map();
-  const bump = (id, n) => {
-    if (n > 0) buckets.set(id, (buckets.get(id) || 0) + n);
-  };
-  for (const [raw, count] of sourceCount) {
-    if (raw.includes("github")) bump("github", count);
-    else if (raw.includes("sourcegraph")) bump("sourcegraph", count);
-    else if (raw.includes("grep")) bump("grepapp", count);
-    else if (raw.includes("gitlab")) bump("gitlab", count);
-    else if (raw.includes("aggregator") || raw.includes("awesome")) bump("aggregator", count);
-    else if (raw.includes("web-directory") || raw.includes("directory")) bump("web-directory", count);
-    else if (raw === "submit" || raw.startsWith("submit:")) bump("submit", count);
-    else if (raw === "cli" || raw.startsWith("cli:")) bump("cli", count);
-    else bump("other", count);
-  }
+  const results = await Promise.all(
+    buckets.map(async ({ id, pattern }) => {
+      const { count } = await sb
+        .from(table)
+        .select("id", { count: "exact", head: true })
+        .ilike("source", pattern);
+      return { id, count: count || 0 };
+    })
+  );
 
-  return [...buckets.entries()]
-    .map(([id, count]) => ({ id, count }))
+  return results
+    .filter((b) => b.count > 0)
     .sort((a, b) => b.count - a.count);
 });
 
