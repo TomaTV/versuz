@@ -11,7 +11,7 @@ import {
   reopenPartialCycle,
 } from "@/lib/admin/actions";
 
-export const dynamic = "force-dynamic";
+export const revalidate = 30;
 
 async function loadCycles() {
   const sb = createSupabaseAdminClient();
