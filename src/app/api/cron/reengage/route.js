@@ -10,6 +10,9 @@
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { sendEmail } from "@/lib/resend";
 import { reengagementEmail } from "@/lib/emails/transactional";
+import { unsubLink } from "@/lib/emails/unsubscribe-token";
+
+const SITE = process.env.NEXT_PUBLIC_SITE_URL || "https://versuz.dev";
 
 export const dynamic = "force-dynamic";
 
@@ -71,8 +74,14 @@ export async function GET(request) {
       const { subject, html } = reengagementEmail({
         githubLogin: p.github_login,
         daysInactive,
+        email,
       });
-      const r = await sendEmail({ to: email, subject, html });
+      const r = await sendEmail({
+        to: email,
+        subject,
+        html,
+        unsubscribeUrl: unsubLink(SITE, email),
+      });
       if (r.ok) {
         sent++;
         await sb

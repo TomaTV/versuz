@@ -23,9 +23,12 @@ import {
 
 // ISR 60s : la landing affiche du top 10 + counts. Les counts live continuent
 // d'être rafraîchis client-side toutes les 8s via <LiveStatsGrid> → /api/stats.
-// Force-dynamic à 100k items mettait 43s en dev parce qu'il rechargeait tout
+// ISR : page cached 10 min server-side. The /api/stats poll (every 4s) keeps
+// counters live without forcing the whole page to regenerate. Below 600s,
+// cold starts add ~1s TTFB to occasional visitors — push high enough that
+// most visits hit warm cache.
 // à chaque request.
-export const revalidate = 60;
+export const revalidate = 600;
 
 export default async function LandingPage() {
   const [battle, top10, categories, rankedSkills, rankedClaudeMd, skillTopics, claudeTopics, counts] = await Promise.all([
@@ -100,7 +103,7 @@ export default async function LandingPage() {
             className="vz-hero-foot"
           >
             <div style={{ display: "flex", flexDirection: "column", gap: 32, maxWidth: 640 }}>
-              <Reveal delay={1.4} duration={0.7}>
+              <Reveal delay={0.2} duration={0.5}>
                 <div
                   style={{
                     display: "inline-flex",
@@ -126,7 +129,7 @@ export default async function LandingPage() {
                 </div>
               </Reveal>
 
-              <Reveal delay={1.55} duration={0.7}>
+              <Reveal delay={0.3} duration={0.5}>
                 <p
                   style={{
                     margin: 0,
@@ -145,7 +148,7 @@ export default async function LandingPage() {
                 </p>
               </Reveal>
 
-              <Reveal delay={1.7} duration={0.7}>
+              <Reveal delay={0.4} duration={0.5}>
                 <div
                   style={{
                     display: "flex",

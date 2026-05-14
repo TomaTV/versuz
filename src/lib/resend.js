@@ -36,7 +36,7 @@ export function isResendConfigured() {
  * @param {string} [args.replyTo] — defaults to env RESEND_REPLY_TO
  * @returns {Promise<{ok: boolean, id?: string, error?: string, skipped?: boolean}>}
  */
-export async function sendEmail({ to, subject, html, text, from, replyTo }) {
+export async function sendEmail({ to, subject, html, text, from, replyTo, unsubscribeUrl }) {
   if (!process.env.RESEND_API_KEY) {
     return { ok: false, skipped: true };
   }
@@ -58,6 +58,16 @@ export async function sendEmail({ to, subject, html, text, from, replyTo }) {
         subject,
         html,
         text: text || html.replace(/<[^>]+>/g, "").trim(),
+        // RFC 8058 / Gmail "Unsubscribe" button at the top of the email.
+        // Requires List-Unsubscribe-Post for one-click unsubscribe per Gmail.
+        ...(unsubscribeUrl
+          ? {
+              headers: {
+                "List-Unsubscribe": `<${unsubscribeUrl}>`,
+                "List-Unsubscribe-Post": "List-Unsubscribe=One-Click",
+              },
+            }
+          : {}),
       }),
     });
     const data = await res.json().catch(() => ({}));

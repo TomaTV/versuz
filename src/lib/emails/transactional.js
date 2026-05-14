@@ -1,8 +1,9 @@
 import { brandedEmail } from "./template";
+import { unsubLink } from "./unsubscribe-token";
 
 const SITE = process.env.NEXT_PUBLIC_SITE_URL || "https://versuz.dev";
 
-export function welcomeSubscribeEmail() {
+export function welcomeSubscribeEmail({ email } = {}) {
   return {
     subject: "You're in — Versuz weekly digest",
     html: brandedEmail({
@@ -12,9 +13,10 @@ export function welcomeSubscribeEmail() {
         <p style="margin:0 0 16px">Thanks for subscribing.</p>
         <p style="margin:0 0 16px">Every Friday we send a short digest — the top-ranked SKILL.md and CLAUDE.md files of the week, plus what shipped on Versuz.</p>
         <p style="margin:0 0 16px">Nothing else. No spam, no upsells.</p>
-        <p style="margin:0;color:#6b6557;font-size:14px">If this was a mistake, just hit reply and we'll remove you.</p>
+        <p style="margin:0;color:#6b6557;font-size:14px">If this was a mistake, you can unsubscribe in one click via the link at the bottom of this email.</p>
       `,
       cta: { label: "Browse the marketplace", href: `${SITE}/marketplace` },
+      unsubscribeUrl: email ? unsubLink(SITE, email) : null,
     }),
   };
 }
@@ -68,7 +70,7 @@ export function submitConfirmationEmail({ kind, slug, name }) {
   };
 }
 
-export function reengagementEmail({ githubLogin, daysInactive }) {
+export function reengagementEmail({ githubLogin, daysInactive, email }) {
   return {
     subject: "Versuz · still building with AI agents?",
     html: brandedEmail({
@@ -87,6 +89,7 @@ export function reengagementEmail({ githubLogin, daysInactive }) {
         <p style="margin:0;color:#6b6557;font-size:13px">Not interested anymore? <a href="${SITE}/profile/settings" style="color:#6b6557">unsubscribe from re-engagement here</a>.</p>
       `,
       cta: { label: "See what's new", href: `${SITE}/marketplace?sort=recent` },
+      unsubscribeUrl: email ? unsubLink(SITE, email) : null,
     }),
   };
 }

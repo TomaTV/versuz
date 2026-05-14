@@ -2,6 +2,9 @@ import { redirect } from "next/navigation";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { sendEmail } from "@/lib/resend";
 import { welcomeSubscribeEmail } from "@/lib/emails/transactional";
+import { unsubLink } from "@/lib/emails/unsubscribe-token";
+
+const SITE = process.env.NEXT_PUBLIC_SITE_URL || "https://versuz.dev";
 
 export const dynamic = "force-dynamic";
 
@@ -52,8 +55,13 @@ export async function POST(request) {
   // Best-effort welcome email. Failure is logged but doesn't break signup —
   // the row is in DB and we can resend later.
   try {
-    const { subject, html } = welcomeSubscribeEmail();
-    const r = await sendEmail({ to: email, subject, html });
+    const { subject, html } = welcomeSubscribeEmail({ email });
+    const r = await sendEmail({
+      to: email,
+      subject,
+      html,
+      unsubscribeUrl: unsubLink(SITE, email),
+    });
     if (!r.ok && !r.skipped) {
       console.warn(`[subscribe] welcome email failed: ${r.error}`);
     }
@@ -61,5 +69,6 @@ export async function POST(request) {
     console.warn(`[subscribe] sendEmail threw: ${err.message}`);
   }
 
-  redirect(backTo(request.url, "ok"));
+  // Redirect to the dedicated success page (richer than a toast).
+  redirect(`/subscribe/success?email=${encodeURIComponent(email)}`);
 }

@@ -174,7 +174,8 @@
 }
 
 .vz-fadein {
-  animation: fadein 0.22s ease-out both;
+  /* Disabled: was masking content for 220ms post-render, made TTFB feel
+     longer than it is. Per-section Reveal components handle motion. */
 }
 
 /* ----- Reusable utilities (DA primitives) ----- */

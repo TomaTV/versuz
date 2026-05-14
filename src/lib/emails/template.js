@@ -38,7 +38,7 @@ const MARK_SVG = `
  * @param {string} [args.preheader] — preview text shown in inbox before opening
  * @returns {string} full HTML email
  */
-export function brandedEmail({ title, body, cta, preheader }) {
+export function brandedEmail({ title, body, cta, preheader, unsubscribeUrl }) {
   return `<!doctype html>
 <html lang="en">
 <head>
@@ -133,6 +133,7 @@ ${preheader ? `<div style="display:none;font-size:1px;line-height:1px;max-height
           <td align="center" style="font-family:'SF Mono',Menlo,monospace;font-size:10px;letter-spacing:0.12em;color:${COLORS.inkMuted};line-height:1.6">
             Sent by Versuz · the open benchmark for AI agent skills<br />
             Reply to this email — it reaches a real human.
+            ${unsubscribeUrl ? `<br /><br /><a href="${unsubscribeUrl}" style="color:${COLORS.inkMuted};text-decoration:underline">Unsubscribe</a>` : ""}
           </td>
         </tr>
       </table>

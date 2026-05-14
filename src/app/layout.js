@@ -145,6 +145,17 @@ export default function RootLayout({ children }) {
       <head>
         <meta name="theme-color" content="#f2eee6" />
         <meta name="color-scheme" content="light" />
+        {/* Preconnect to the origins we hit before paint — saves the
+            DNS+TLS roundtrip on first fetch. ~150-200ms on cold visits. */}
+        {process.env.NEXT_PUBLIC_SUPABASE_URL && (
+          <link
+            rel="preconnect"
+            href={process.env.NEXT_PUBLIC_SUPABASE_URL}
+            crossOrigin="anonymous"
+          />
+        )}
+        <link rel="preconnect" href="https://va.vercel-scripts.com" crossOrigin="anonymous" />
+        <link rel="dns-prefetch" href="https://api.resend.com" />
         <script
           type="application/ld+json"
           dangerouslySetInnerHTML={{ __html: JSON.stringify(JSON_LD) }}
