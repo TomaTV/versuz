@@ -270,8 +270,8 @@ export function LeaderboardTable({ items }) {
         </span>
       </div>
 
-      <div style={{ border: "1px solid var(--rule-strong)", overflowX: "auto" }}>
-        <div style={{ minWidth: 880 }}>
+      <div className="vz-leaderboard-wrap" style={{ border: "1px solid var(--rule-strong)" }}>
+        <div>
           <SkillRowHeader sort={sort} onSort={setSort} />
           {ranked.length === 0 ? (
             <div

@@ -18,12 +18,13 @@ export function HeroHeadline() {
     <h1
       style={{
         fontFamily: "var(--font-display)",
-        fontSize: "clamp(72px, 11vw, 168px)",
+        fontSize: "clamp(48px, 11vw, 168px)",
         fontWeight: 400,
         letterSpacing: "-0.045em",
         lineHeight: 0.92,
         margin: 0,
         color: "var(--fg)",
+        wordBreak: "break-word",
       }}
     >
       <span style={{ display: "block" }}>

@@ -88,6 +88,15 @@
     font-weight: 400;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
+    /* Prevent horizontal scroll on mobile when a child overflows
+       (table, code block, etc). Each overflowing child needs its own
+       overflow-x:auto wrapper to remain scrollable in place. */
+    overflow-x: hidden;
+    max-width: 100vw;
+  }
+
+  html {
+    overflow-x: hidden;
   }
 
   h1,
@@ -875,6 +884,108 @@ a.vz-nav-link-minimal[aria-current="page"]::after,
   }
   .vz-mobile-menu-btn {
     display: inline-flex !important;
+  }
+}
+
+/* ─── Leaderboard SkillRow — responsive table → card ─────────────────── */
+.vz-skill-row-inner {
+  display: grid;
+  grid-template-columns: 48px minmax(0, 1.4fr) repeat(5, minmax(80px, 1fr)) 100px;
+  align-items: center;
+  gap: 12px;
+  padding: 18px 20px;
+}
+.vz-skill-rank {
+  color: var(--fg-muted);
+  font-size: 13px;
+}
+.vz-skill-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+}
+.vz-skill-axis {
+  font-family: var(--font-mono);
+}
+.vz-skill-score {
+  white-space: nowrap;
+}
+
+/* Mobile : stack as card. Axes hidden (visible on detail page). */
+@media (max-width: 768px) {
+  .vz-skill-row-inner {
+    grid-template-columns: 32px 1fr auto !important;
+    padding: 14px 14px !important;
+    gap: 10px !important;
+  }
+  .vz-skill-row-header .vz-skill-row-inner > button:not(:nth-of-type(1)):not(:last-of-type) {
+    display: none;
+  }
+  .vz-skill-rank {
+    grid-area: rank;
+    font-size: 13px;
+    align-self: start;
+    padding-top: 4px;
+  }
+  .vz-skill-meta {
+    grid-area: meta;
+    min-width: 0;
+    overflow: hidden;
+  }
+  .vz-skill-meta > div:first-child {
+    flex-wrap: wrap;
+  }
+  .vz-skill-meta > div:first-child > span:first-child {
+    font-size: 17px !important;
+    white-space: normal !important;
+    word-break: break-word;
+  }
+  .vz-skill-score {
+    grid-area: score;
+    font-size: 24px !important;
+    align-self: start;
+    padding-top: 2px;
+  }
+  /* Axes : show inline with labels, only the top 3 visible to save space */
+  .vz-skill-axis {
+    grid-area: unset;
+    display: inline-flex;
+    align-items: baseline;
+    gap: 4px;
+    font-size: 11px;
+    padding: 4px 8px;
+    background: var(--surface);
+    border-radius: 2px;
+    text-align: left !important;
+  }
+  .vz-skill-axis::before {
+    content: attr(data-label);
+    font-size: 9px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--fg-muted);
+    margin-right: 2px;
+  }
+  /* Hide axes on smallest screens — score is the main info, axes are detail */
+  .vz-skill-row-inner > .vz-skill-axis {
+    display: none;
+  }
+}
+
+/* Tablet : keep table but tighter */
+@media (max-width: 1024px) and (min-width: 769px) {
+  .vz-skill-row-inner {
+    grid-template-columns: 40px minmax(0, 1.3fr) repeat(5, minmax(60px, 1fr)) 90px;
+    padding: 14px 16px;
+    gap: 8px;
+  }
+}
+
+/* Marketplace cards : single column below 480px (very small mobile) */
+@media (max-width: 480px) {
+  .vz-mp-card {
+    padding: 14px 14px 12px !important;
   }
 }
 @media (max-width: 768px) {
