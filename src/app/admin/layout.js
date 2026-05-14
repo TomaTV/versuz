@@ -10,6 +10,7 @@ export const metadata = {
 const ADMIN_LINKS = [
   { href: "/admin", label: "Overview" },
   { href: "/admin/cycles", label: "Cycles" },
+  { href: "/admin/automation", label: "Automation" },
   { href: "/admin/skills", label: "Skills" },
   { href: "/admin/claude-md", label: "CLAUDE.md" },
   { href: "/admin/subscribers", label: "Subscribers" },
