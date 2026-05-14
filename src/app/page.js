@@ -14,11 +14,12 @@ import { Section, SectionHeader } from "@/components/section";
 import { JUDGES, judgesLabel } from "@/lib/judges";
 import {
   getFeaturedBattle,
-  getTopRankedItems,
+  getBenchedTopByCategory,
   getRankableCategories,
   getLeaderboardCategories,
   getTopTopicsByKind,
   getIndexCounts,
+  getCurrentCycle,
 } from "@/lib/queries/rankings";
 
 // ISR 60s : la landing affiche du top 10 + counts. Les counts live continuent
@@ -31,21 +32,159 @@ import {
 export const revalidate = 600;
 
 export default async function LandingPage() {
-  const [battle, top10, categories, rankedSkills, rankedClaudeMd, skillTopics, claudeTopics, counts] = await Promise.all([
+  // Fetch first wave — incl. the list of categories with ranked content
+  // so we can pick the headline category dynamically (was hardcoded to
+  // "document", which has no benched items in prod yet → empty block).
+  const [battle, categories, rankedSkills, rankedClaudeMd, skillTopics, claudeTopics, counts, cycle] = await Promise.all([
     getFeaturedBattle(),
-    getTopRankedItems("skill", "document", 10),
     getRankableCategories(),
     getLeaderboardCategories("skill"),
     getLeaderboardCategories("claude_md"),
     getTopTopicsByKind("skill", 12),
     getTopTopicsByKind("claude_md", 12),
     getIndexCounts(),
+    getCurrentCycle(),
   ]);
+
+  // Headline category — prefer "sql" since it's well-represented in the
+  // current bench data (3 benched items as of May 2026) and reads better
+  // editorially than "data" / "shell" / "web" for the hero. Fallback to
+  // any other category with bench data, else "document" (will render an
+  // empty block, hidden by the top10Ranked filter below).
+  const HEADLINE_PREFERENCE = ["sql", "web", "shell", "data"];
+  const rankedSkillsById = new Set(rankedSkills.filter((c) => c.count > 0).map((c) => c.id));
+  const headlineCategory =
+    HEADLINE_PREFERENCE.find((id) => rankedSkillsById.has(id)) ||
+    rankedSkills.find((c) => c.count > 0)?.id ||
+    "document";
+  // getBenchedTopByCategory hits `rankings` directly (cycle scope) and
+  // joins to skills metadata — handles the case where `skills.category`
+  // (native tag) differs from `rankings.category` (bench scope), e.g.
+  // peekaboo native=macos but benched under sql scope.
+  const top10Ranked = await getBenchedTopByCategory("skill", headlineCategory, 10);
+
   const totalSkills = counts.skills;
   const totalClaudeMds = counts.claudeMds;
   const rankedTotal =
     rankedSkills.reduce((s, c) => s + (c.count || 0), 0) +
     rankedClaudeMd.reduce((s, c) => s + (c.count || 0), 0);
+
+  // Live ranking block — promu en §01 au-dessus du fold. Le helper retourne
+  // déjà filtré (elo non-null), trié par score desc, et stamped (rank).
+  const cycleLabel = cycle
+    ? cycle.status === "running"
+      ? `Cycle #${cycle.id} · live`
+      : cycle.status === "completed"
+      ? `Cycle #${cycle.id} · last completed`
+      : null
+    : null;
+  const liveRankingBlock = top10Ranked.length > 0 ? (
+    <ScrollReveal direction="up" distance={32} threshold={0.1}>
+      <Section eyebrow="§ 01 — Live ranking" markerColor="var(--sage)">
+        <SectionHeader
+          title={
+            <>
+              Top 10 in <em style={{ color: "var(--accent)" }}>{headlineCategory}</em>.
+            </>
+          }
+          subtitle={
+            <>
+              You can&apos;t rank skills that don&apos;t do the same thing. Every Versuz
+              leaderboard is <em style={{ fontStyle: "italic" }}>scoped to one category</em>.
+              {cycleLabel ? <> {cycleLabel}. Cycles refresh daily at 06:00 UTC.</> : <> Cycles refresh daily at 06:00 UTC.</>}
+            </>
+          }
+        />
+
+        <Reveal delay={0.1}>
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: 8,
+              flexWrap: "wrap",
+              marginTop: 32,
+              marginBottom: 24,
+            }}
+          >
+            {categories.map((c) => {
+              const isActive = c.id === headlineCategory;
+              return (
+                <Link
+                  key={c.id}
+                  href={`/standings/${c.id}`}
+                  style={{
+                    fontFamily: "var(--font-mono)",
+                    fontSize: 11,
+                    color: isActive ? "var(--bg)" : "var(--fg-muted)",
+                    background: isActive ? "var(--fg)" : "transparent",
+                    border: isActive ? "1px solid var(--fg)" : "1px solid var(--rule)",
+                    letterSpacing: "0.06em",
+                    textTransform: "uppercase",
+                    textDecoration: "none",
+                    padding: "8px 14px",
+                    display: "inline-flex",
+                    alignItems: "center",
+                    gap: 8,
+                    transition: "color .15s ease, background .15s ease, border-color .15s ease",
+                  }}
+                  className="vz-cat-pill"
+                >
+                  {c.label}
+                  <span style={{ opacity: 0.6 }}>{c.count}</span>
+                </Link>
+              );
+            })}
+          </div>
+        </Reveal>
+
+        <RevealStagger
+          stagger={0.05}
+          amount={0.05}
+          style={{ display: "flex", flexDirection: "column" }}
+        >
+          {top10Ranked.map((skill, i) => (
+            <RevealItem key={skill.slug}>
+              <SkillRow skill={skill} leader={i === 0} />
+            </RevealItem>
+          ))}
+        </RevealStagger>
+
+        <div style={{ marginTop: 32, display: "flex", gap: 16, flexWrap: "wrap", alignItems: "center" }}>
+          <Link
+            href="/leaderboard"
+            style={{
+              display: "inline-flex",
+              alignItems: "center",
+              gap: 8,
+              padding: "12px 20px",
+              background: "var(--fg)",
+              color: "var(--bg)",
+              fontFamily: "var(--font-display)",
+              fontSize: 15,
+              letterSpacing: "-0.01em",
+              border: "1px solid var(--fg)",
+              textDecoration: "none",
+            }}
+          >
+            See the full leaderboard
+            <span>→</span>
+          </Link>
+          <span
+            style={{
+              fontFamily: "var(--font-mono)",
+              fontSize: 11,
+              color: "var(--fg-muted)",
+              letterSpacing: "0.16em",
+              textTransform: "uppercase",
+            }}
+          >
+            or <Link href="#how" style={{ color: "var(--fg)", textDecoration: "underline", textUnderlineOffset: 4 }}>how a skill earns its rank ↓</Link>
+          </span>
+        </div>
+      </Section>
+    </ScrollReveal>
+  ) : null;
 
   return (
     <div style={{ position: "relative" }}>
@@ -244,10 +383,17 @@ export default async function LandingPage() {
       </section>
 
       {/* ============================================================== */}
-      {/* §01 WHAT — c'est quoi Versuz                                    */}
+      {/* §01 LIVE RANKING — promu en haut, juste après le hero. Matérialise */}
+      {/* la promesse "Skills go in. Only one wins." en preuve immédiate    */}
+      {/* avant le manifeste éditorial.                                     */}
+      {/* ============================================================== */}
+      {liveRankingBlock}
+
+      {/* ============================================================== */}
+      {/* §02 WHAT — c'est quoi Versuz                                    */}
       {/* ============================================================== */}
       <ScrollReveal direction="up" distance={32} threshold={0.2}>
-        <Section id="what" eyebrow="§ 01 — What" markerColor="var(--azure)">
+        <Section id="what" eyebrow="§ 02 — What" markerColor="var(--azure)">
           <SectionHeader
             title={
               <>
@@ -345,10 +491,10 @@ export default async function LandingPage() {
       </ScrollReveal>
 
       {/* ============================================================== */}
-      {/* §02 WHY                                                          */}
+      {/* §03 WHY                                                          */}
       {/* ============================================================== */}
       <ScrollReveal direction="up" distance={32} threshold={0.2}>
-        <Section eyebrow="§ 02 — Why" markerColor="var(--crimson)">
+        <Section eyebrow="§ 03 — Why" markerColor="var(--crimson)">
           <SectionHeader
             title={
               <>
@@ -369,10 +515,10 @@ export default async function LandingPage() {
       </ScrollReveal>
 
       {/* ============================================================== */}
-      {/* §03 HOW IT WORKS                                                */}
+      {/* §04 HOW IT WORKS                                                */}
       {/* ============================================================== */}
       <ScrollReveal direction="up" distance={32} threshold={0.15}>
-        <Section id="how" eyebrow="§ 03 — How it works" markerColor="var(--amber)">
+        <Section id="how" eyebrow="§ 04 — How it works" markerColor="var(--amber)">
           <SectionHeader
             title={
               <>
@@ -480,11 +626,11 @@ export default async function LandingPage() {
       </ScrollReveal>
 
       {/* ============================================================== */}
-      {/* §04 EXAMPLE — un match (only when bench engine has produced one) */}
+      {/* §05 EXAMPLE — un match (only when bench engine has produced one) */}
       {/* ============================================================== */}
       {battle && (
         <ScrollReveal direction="scale" threshold={0.2}>
-          <Section eyebrow="§ 04 — Example" markerColor="var(--accent)">
+          <Section eyebrow="§ 05 — Example" markerColor="var(--accent)">
             <SectionHeader
               title={
                 <>
@@ -505,93 +651,11 @@ export default async function LandingPage() {
       )}
 
       {/* ============================================================== */}
-      {/* §05 RANKING — only render items that have actual ELO scores     */}
-      {/* from a bench cycle. Pre-bench items are excluded to keep the    */}
-      {/* landing "ranking" honest (no rows with — — — — placeholders).   */}
-      {/* ============================================================== */}
-      {(() => {
-        const top10Ranked = top10.filter(
-          (s) => Number(s.elo ?? s.eloScore ?? s.score ?? 0) > 0
-        );
-        return top10Ranked.length > 0 ? (
-        <ScrollReveal direction="up" distance={32} threshold={0.15}>
-          <Section eyebrow="§ 05 — Live ranking" markerColor="var(--sage)">
-            <SectionHeader
-              title={
-                <>
-                  Top 10 in <em style={{ color: "var(--accent)" }}>document</em>.
-                </>
-              }
-              subtitle={
-                <>
-                  You can&apos;t rank skills that don&apos;t do the same thing. Every Versuz
-                  leaderboard is <em style={{ fontStyle: "italic" }}>scoped to one category</em>.
-                  Pick a category below to see its current ranking.
-                </>
-              }
-            />
-
-            <Reveal delay={0.1}>
-              <div
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 8,
-                  flexWrap: "wrap",
-                  marginTop: 32,
-                  marginBottom: 24,
-                }}
-              >
-                {categories.map((c, i) => (
-                  <Link
-                    key={c.id}
-                    href={`/standings/${c.id}`}
-                    style={{
-                      fontFamily: "var(--font-mono)",
-                      fontSize: 11,
-                      color: i === 0 ? "var(--bg)" : "var(--fg-muted)",
-                      background: i === 0 ? "var(--fg)" : "transparent",
-                      border: i === 0 ? "1px solid var(--fg)" : "1px solid var(--rule)",
-                      letterSpacing: "0.06em",
-                      textTransform: "uppercase",
-                      textDecoration: "none",
-                      padding: "8px 14px",
-                      display: "inline-flex",
-                      alignItems: "center",
-                      gap: 8,
-                      transition: "color .15s ease, background .15s ease, border-color .15s ease",
-                    }}
-                    className="vz-cat-pill"
-                  >
-                    {c.label}
-                    <span style={{ opacity: 0.6 }}>{c.count}</span>
-                  </Link>
-                ))}
-              </div>
-            </Reveal>
-
-            <RevealStagger
-              stagger={0.05}
-              amount={0.05}
-              style={{ display: "flex", flexDirection: "column" }}
-            >
-              {top10Ranked.map((skill, i) => (
-                <RevealItem key={skill.slug}>
-                  <SkillRow skill={skill} leader={i === 0} />
-                </RevealItem>
-              ))}
-            </RevealStagger>
-          </Section>
-        </ScrollReveal>
-      ) : null;
-      })()}
-
-      {/* ============================================================== */}
-      {/* §05.5 TOPICS — 2 sections séparées, count par kind exact          */}
+      {/* §06 TOPICS — 2 sections séparées, count par kind exact          */}
       {/* ============================================================== */}
       {(skillTopics.length > 0 || claudeTopics.length > 0) && (
         <ScrollReveal direction="up" distance={28} threshold={0.15}>
-          <Section eyebrow="§ Topics" markerColor="var(--azure)">
+          <Section eyebrow="§ 06 — Topics" markerColor="var(--azure)">
             <SectionHeader
               title={
                 <>
@@ -707,10 +771,10 @@ export default async function LandingPage() {
       )}
 
       {/* ============================================================== */}
-      {/* §05.7 INSTALL — CLI + MCP server                                  */}
+      {/* §07 INSTALL — CLI + MCP server                                    */}
       {/* ============================================================== */}
       <ScrollReveal direction="up" distance={32} threshold={0.12}>
-        <Section eyebrow="§ Install" markerColor="var(--azure)">
+        <Section eyebrow="§ 07 — Install" markerColor="var(--azure)">
           <SectionHeader
             title={
               <>
@@ -903,7 +967,7 @@ $ npx versuz install pdf-generator
       </ScrollReveal>
 
       {/* ============================================================== */}
-      {/* §06 ENTER — submit + V1 monetize teaser                         */}
+      {/* §08 ENTER — submit + V1 monetize teaser                         */}
       {/* ============================================================== */}
       <ScrollReveal direction="up" distance={36} threshold={0.15}>
         <section
@@ -976,7 +1040,7 @@ $ npx versuz install pdf-generator
 
           <div style={{ position: "relative", zIndex: 1 }}>
             <Reveal>
-              <Eyebrow>§ 06 — Enter</Eyebrow>
+              <Eyebrow>§ 08 — Enter</Eyebrow>
             </Reveal>
 
             <Reveal delay={0.1}>
@@ -1075,7 +1139,7 @@ $ npx versuz install pdf-generator
                 >
                   Already listed?{" "}
                   <Link
-                    href="/marketplace?promote=intro"
+                    href="/pricing#boost"
                     style={{
                       color: "var(--accent)",
                       textDecoration: "underline",

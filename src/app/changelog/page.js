@@ -13,6 +13,29 @@ export const metadata = {
 
 const ENTRIES = [
   {
+    date: "2026-05-14",
+    title: "V1.6 — landing flip, badge V2, gamification, content drafts",
+    items: [
+      { type: "feat", body: "Live ranking promoted to §01 — the leaderboard sits right under the hero now, manifesto (What / Why / How / Example) demoted to §02-§05. Headline category picked dynamically from the bench scope (first of sql / web / shell / data with data) instead of hardcoded \"document\"." },
+      { type: "feat", body: "Live countdown in the top ticker — replaces the static \"DAILY AT 06:00 UTC\" with a live \"NEXT CYCLE IN 02:47:12 UTC\" computed client-side." },
+      { type: "feat", body: "Sticky \"Enter the Arena\" CTA — floating bottom-right after 600px of scroll, hides near the footer, suppressed on /submit / /admin / /buy / /promote / /claim / /profile." },
+      { type: "feat", body: "Badge V2 — query params on /badge/[kind]/[slug] : ?show=score|elo|prior|rank + ?style=default|terminal (full dark palette for dark READMEs). Backward-compatible with v1." },
+      { type: "feat", body: "Two new badge endpoints — /badge/author/[login] (tier progression : newcomer → veteran) and /badge/category/[cat] (count + bench coverage per category)." },
+      { type: "feat", body: "<EmbedBadgeBlock> enriched — Show / Style selectors below the tab strip, live preview updates as the user picks variants." },
+      { type: "feat", body: "Gamification — migration 0052 introduces item_achievements (triple_crown / streak_milestone / category_winner / first_blood), author_achievements (newcomer → veteran), rank_history (per-cycle × subject × category snapshot), and streak columns on skills / claude_md_files." },
+      { type: "feat", body: "scripts/bench/post-cycle-hooks.mjs — to run after each completed cycle. Snapshots rank_history (top 100/cat), inserts achievements, updates streak counters. Idempotent on rerun." },
+      { type: "feat", body: "UI : 🔥 streak chip on <SkillRow> and on the skill detail header. ♛ Triple Crown badge (gradient amber → ember) on skill detail when unlocked. getItemAchievements(kind, subjectId) query helper." },
+      { type: "feat", body: "CLI v0.2.0 — `npx versuz battle <a> vs <b>` command (head-to-head terminal viz, ember-gradient verdict box). `npx versuz submit` post-success now prints the README badge markdown + --add-badge flag shows step-by-step PR instructions." },
+      { type: "feat", body: "\"Today's Upset\" pipeline — /api/og/upset (1200×630 next/og social card) + getRecentUpsets() query helper diffing rank_history between cycles + admin dashboard /admin/content-drafts with preview cards, Copy URL, Open PNG. Pick 1-3 cards, publish, done." },
+      { type: "fix", body: "§01 Live ranking was invisible — skills.category (native taxonomy) ≠ rankings.category (bench cycle scope), e.g. `peekaboo` is native=macos but was benched under sql scope. New helper getBenchedTopByCategory() queries rankings first and joins to skills, then stamps axes + recomputed weighted composite score." },
+      { type: "fix", body: "Hydration mismatches — <NextCycleCountdown> infinite loop on useSyncExternalStore (now useState + setInterval), <HeroSearch> placeholder Math.random()-init (now deterministic SSR + useEffect rotation), <NavAuthCluster> \"Sign in\" flash for signed-in users (now opacity 0 until /api/auth/me resolves)." },
+      { type: "fix", body: "/badge/category/document returned 404 — only 4 categories benched in prod, strict avg_score check returned no rows. New logic : count registry rows from skills / claude_md_files filtered by category. Label switches from RANKED to INDEXED when benched count is 0." },
+      { type: "fix", body: "quality-judge skipped 100% of items as \"content too short\" — post-migration 0042, the bodies live in the public Storage bucket, not the inline column. New resolveItemContent() fetches from Storage as a fallback. The script now actually judges instead of skipping." },
+      { type: "fix", body: "Footer \"Boost a skill · $4.99 / 30 days\" link pointed to /marketplace?promote=intro which was never handled. Now anchors to /pricing#boost (id added, scrollMarginTop: 96 so it clears the sticky header)." },
+      { type: "content", body: "CLI v0.2.0 published with expanded npm description + keywords (claude-skills, skill-md, registry, benchmark, ranking, elo, anthropic, agent). User-Agent bumped to versuz-cli/0.2.0." },
+    ],
+  },
+  {
     date: "2026-05-13",
     title: "V1.5 — perf overhaul + legal pages",
     items: [

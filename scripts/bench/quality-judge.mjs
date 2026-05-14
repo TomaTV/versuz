@@ -409,8 +409,8 @@ async function loadCandidates(kind) {
   const table = kind === "claude_md" ? "claude_md_files" : "skills";
   const sel =
     kind === "skill"
-      ? "id, slug, name, skill_md_content, quality_score"
-      : "id, slug, content, metadata, quality_score";
+      ? "id, slug, name, skill_md_content, content_path, quality_score"
+      : "id, slug, content, content_path, metadata, quality_score";
   let q = sb.from(table).select(sel).limit(LIMIT);
   if (!REJUDGE) q = q.is("quality_score", null);
   const { data, error } = await q;
@@ -430,15 +430,51 @@ async function loadCandidates(kind) {
           : r.metadata?.author && r.metadata?.repo
             ? `${r.metadata.author}/${r.metadata.repo}`
             : r.slug,
+      // Inline content is the legacy column (skill_md_content / content),
+      // typically NULL post-migration 0042. The actual body lives in
+      // Storage bucket `content` at `content_path`. resolveContent() in
+      // judgeOne falls back to fetching from Storage when inline is empty.
       content: kind === "skill" ? r.skill_md_content : r.content,
+      contentPath: r.content_path || null,
     }));
 }
 
+// Inline equivalent of src/lib/content/storage.js#fetchContentByPath
+// (kept local to avoid importing Next.js-flavored modules into a Node
+// script). Bucket `content` is public, so no auth needed for the fetch.
+const STORAGE_BUCKET = "content";
+async function fetchFromStorage(path) {
+  if (!path) return null;
+  const base = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  if (!base) return null;
+  const url = `${base.replace(/\/$/, "")}/storage/v1/object/public/${STORAGE_BUCKET}/${path}`;
+  try {
+    const res = await fetch(url);
+    if (!res.ok) return null;
+    return await res.text();
+  } catch {
+    return null;
+  }
+}
+
+async function resolveItemContent(item) {
+  if (typeof item.content === "string" && item.content.length > 0) {
+    return item.content;
+  }
+  if (item.contentPath) {
+    return await fetchFromStorage(item.contentPath);
+  }
+  return null;
+}
+
 async function judgeOne({ kind, item }) {
-  if (!item.content || item.content.length < 50) {
+  // Storage fallback : post-migration 0042, content lives in the public
+  // `content` bucket. The inline column is NULL for most rows.
+  const body = await resolveItemContent(item);
+  if (!body || body.length < 50) {
     return { error: "content too short" };
   }
-  const prompt = buildPrompt({ kind, name: item.name, content: item.content });
+  const prompt = buildPrompt({ kind, name: item.name, content: body });
   let res;
   try {
     // callProvider injects modelId from the fallback chain. maxTokens 1500

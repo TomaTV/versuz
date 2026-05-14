@@ -9,6 +9,7 @@ import { cmdLogin } from "./commands/login.js";
 import { cmdLogout } from "./commands/logout.js";
 import { cmdWhoami } from "./commands/whoami.js";
 import { cmdSubmit } from "./commands/submit.js";
+import { cmdBattle } from "./commands/battle.js";
 import { apiBase, setApiBase } from "./api.js";
 
 /**
@@ -40,6 +41,7 @@ ${chalk.bold.white("  COMMANDS")}  ${chalk.dim("─".repeat(60))}
   ${chalk.cyan("versuz search")} ${chalk.yellow("<query>")}             ${chalk.dim("cross-kind full-text search")}
   ${chalk.cyan("versuz info")} ${chalk.yellow("<slug>")} ${chalk.dim("[--kind=claude-md]")}     ${chalk.dim("show full details")}
   ${chalk.cyan("versuz install")} ${chalk.yellow("<slug>")} ${chalk.dim("[--kind=claude-md]")}  ${chalk.dim("download to current project")}
+  ${chalk.cyan("versuz battle")} ${chalk.yellow("<a> vs <b>")} ${chalk.dim("[--kind=claude-md]")}  ${chalk.dim("head-to-head terminal viz")}
 
 ${chalk.bold.white("  PUBLISH")}   ${chalk.dim("─".repeat(60))}
 
@@ -141,7 +143,7 @@ export async function run(argv) {
   }
 
   if (args.version || args.v || cmd === "version") {
-    console.log(`${emberGradient("versuz")} ${chalk.dim("0.1.0")}`);
+    console.log(`${emberGradient("versuz")} ${chalk.dim("0.2.0")}`);
     console.log(chalk.dim(`api: ${apiBase()}`));
     return;
   }
@@ -169,6 +171,10 @@ export async function run(argv) {
     case "submit":
     case "publish":
       return cmdSubmit(args);
+    case "battle":
+    case "duel":
+    case "vs":
+      return cmdBattle(args);
     case undefined:
       return interactive();
     default:

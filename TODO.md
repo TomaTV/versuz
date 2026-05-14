@@ -3,7 +3,37 @@
 Tout ce qui est `[x]` archivé vit dans [CHANGELOG.md](./CHANGELOG.md) (en anglais — public).
 Ce fichier ne garde que les `[ ]` actifs.
 
-Dernière mise à jour : **2026-05-14 (late — recovery + V1.5 features done)**
+Dernière mise à jour : **2026-05-14 (V1.6 — landing flip + badge V2 + gamification + content automation)**
+
+---
+
+## 🎯 V1.6 — Sprint social (18 mai → 16 juin)
+
+Tout le code V1.6 est shippé (PHASE 0 à PHASE 4). Ce qui reste = humain + ops.
+
+### À publier sur npm
+- [ ] `cd cli && npm publish` — v0.2.0 (badge handoff + `versuz battle` command, description SEO + keywords étendus)
+- [ ] `cd mcp-server && npm publish` — bump description + keywords (cf [.distribution/npm-submissions.md](./.distribution/npm-submissions.md))
+
+### À submit sur les directories (toi)
+Voir [.distribution/STEP-BY-STEP.md](./.distribution/STEP-BY-STEP.md) pour le pas-à-pas (2 exemples concrets) :
+
+- [ ] **GitHub release v0.1.0** sur `TomaTV/versuz` ([.distribution/release-notes.md](./.distribution/release-notes.md))
+- [ ] **6 MCP directories** : mcp.so, smithery.ai, glama (awesome-mcp-servers), pulsemcp, modelcontextprotocol/servers, mcpmarket
+- [ ] **NPM** : openbase, socket.dev, libraries.io (auto-indexés, juste vérifier après 48h)
+- [ ] **Awesome-lists PRs** : awesome-claude-code, awesome-ai-agents, awesome-mcp-servers, awesome-llm-apps, awesome-cursor, etc.
+
+### Pipeline ops après chaque cycle
+- [ ] Brancher `post-cycle-hooks.mjs` dans `bench-runner.yml` (auto après cycle completed)
+- [ ] OU le faire manuellement : `node scripts/bench/post-cycle-hooks.mjs` après chaque cycle
+- [ ] Workflow social : ouvrir `/admin/content-drafts` → pick 1-3 upsets → publier
+
+### Sprint social — 15 posts (18 mai → 16 juin)
+- [ ] Vague 1 (J1-J5) — teasing : Twitter thread launch annonce + LinkedIn carousel méthodologie + TikTok/Reel `npx versuz` 20s
+- [ ] Vague 2 (J7-J21) — daily drops & upsets : 8 posts mix Twitter / TikTok / LinkedIn / Instagram (cf brief Claude)
+- [ ] Vague 3 (J23-J29) — crescendo : Launch Week format Supabase + Battle of the Month reel + LinkedIn rapport-style + peak day 16/06 (Twitter Space + Product Hunt + LinkedIn fondateur + TikTok victory lap)
+- [ ] DM 5 amplificateurs J1 : @theo, @rauchg, @swyx, @transitive_bs, 1 français Claude Code (avec accès anticipé + données exclusives leaderboard)
+- [ ] Tournage 6× **Bench Drop** vidéos terminal 20-30s 9:16 via `npx versuz battle <a> vs <b>` screencast
 
 ---
 
@@ -223,11 +253,18 @@ Helpers cinématiques en place dans `.ads/versuz-ads-scenes-3.jsx` : `breathe()`
 - [ ] Cap dur "max 5 items du même repo" en marketplace
 - [ ] Page repo : améliorer la design (responsive, search dans le bundle)
 
-### CLI/MCP v0.2
+### CLI/MCP v0.3 (après v0.2.0 publié)
 - [ ] `GET /api/v1/skills/<slug>/bundle.zip` endpoint
-- [ ] GitHub Device Flow dans CLI (au lieu de PAT manuel)
+- [ ] GitHub Device Flow dans CLI (au lieu de PAT manuel) → débloque `--add-badge` PR auto
 - [ ] Premium auth CLI/MCP (vérif via `purchases` table)
-- [ ] MCP tool `versuz_submit`
+- [ ] MCP tool `versuz_submit` (mirror CLI submit)
+- [ ] MCP tool `versuz_battle` (mirror nouveau CLI battle)
+
+### Gamification refinements (V1.6+)
+- [ ] Triple Crown vraie unanimité (3 juges votent #1 sur le même skill) au lieu du proxy `avg_score >= 85`
+- [ ] Surface achievements collection sur `/u/[login]` profile public
+- [ ] Notif email/Discord quand un author hit un milestone (Champion, Veteran, Triple Crown)
+- [ ] Page `/achievements` publique pour browse les meilleurs cumulards
 
 ### Data quality (long-term)
 - [ ] SimHash / MinHash sur description pour near-dups fuzzy

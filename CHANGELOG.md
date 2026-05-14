@@ -4,6 +4,56 @@ Format: date · cluster · what shipped. Newest first.
 
 ---
 
+## 2026-05-14 (late) — V1.6 — landing flip, badge V2, gamification + content automation
+
+The biggest UX shift since launch: every audit (Perplexity, ChatGPT, Gemini, Claude) said the same thing — the live leaderboard belonged above the fold, not under five sections of editorial copy. So we flipped it.
+
+### Landing — proof-first hero
+- **Live ranking promoted to §01** (was §05). Top 10 in document + category pills + cycle context + secondary CTAs (full leaderboard, methodology). Editorial manifesto (What / Why / How / Example) demoted to §02-§05.
+- **`<NextCycleCountdown>`** in `<VzTicker>` (top status bar) — replaces the static `NEXT CYCLE · DAILY AT 06:00 UTC` with a live `NEXT CYCLE IN 02:47:12 UTC`. Client-side `useState + useEffect + setInterval`, server snapshot is `—:—:—`.
+- **`<ArenaStickyCTA>`** — floating bottom-right "Enter the Arena" CTA. Appears after 600px scroll, hides near the footer (`§08` already has the same CTA), suppressed on `/submit`, `/admin`, `/buy`, `/promote`, `/claim`, `/profile`, `/success`.
+- Hero data fetch now includes `getCurrentCycle()` to feed the leaderboard subtitle.
+
+### Badge V2 — variants + new endpoints
+- **`/badge/[kind]/[slug]`** — query params : `?show=score|elo|prior|rank` and `?style=default|terminal` (full dark palette for dark READMEs). `?show=rank` resolves the category position via `getTopRankedItems` and renders `#1 / DOCUMENT`. Backward-compatible — empty querystring = v1 behaviour.
+- **`/badge/author/[login]`** (new) — tier-based author badge. Newcomer / Challenger / Contender / Champion / Veteran computed from contribution count + benched count. Matches by `github_url ILIKE 'https://github.com/<login>/%'` so it works for any GitHub login, claimed or not.
+- **`/badge/category/[cat]`** (new) — leaderboard badge per category. Counts registry size (skills + claude_md filtered by `category`), label dynamic : `RANKED` when ≥1 benched, `INDEXED` otherwise. Color stripe per category family (V0/V1 ember · agent-specific azure · V1.5 broader sage · wrappers amber).
+- **`<EmbedBadgeBlock>`** enriched — Show/Style selectors below the tab strip, snippet + preview refresh live as the user picks variants.
+
+### Gamification — migration 0052
+- **New columns** on `skills` and `claude_md_files` : `top_rank_streak_days`, `top_rank_streak_category`, `top_rank_streak_started_at`. Indexed on `WHERE top_rank_streak_days > 0`.
+- **`item_achievements`** table — unified ledger across skill + claude_md via `subject_kind XOR` constraint. 4 types : `triple_crown`, `streak_milestone`, `category_winner`, `first_blood`. Partial unique indexes for idempotent inserts (rerunnable hooks).
+- **`author_achievements`** table — tier progression (newcomer → veteran), one row per (login, tier).
+- **`rank_history`** table — per-cycle × subject × category snapshot. Unlocks delta-rank computation between cycles + powers the "Today's Upset" pipeline.
+- **`scripts/bench/post-cycle-hooks.mjs`** — hooks runner. After each completed cycle : snapshot rank_history (top 100/category), insert achievements (first_blood / category_winner / triple_crown ≥85), update streak counters. Idempotent on rerun.
+- **UI** : 🔥 streak chip (orange ember) on `<SkillRow>` and on the skill detail header. ♛ Triple Crown badge (gradient amber→ember) on skill detail when unlocked. `getItemAchievements(kind, subjectId)` query helper.
+
+### CLI v0.2.0 — `versuz battle` + badge handoff
+- **`npx versuz submit`** post-success block — prints the ready-to-paste markdown badge for the README + `--add-badge` flag shows step-by-step PR instructions (URL to `github.com/<repo>/edit/main/README.md` + suggested commit message). Footer with countdown to next cycle.
+- **`npx versuz battle <a> vs <b> [--kind=claude-md]`** (new) — head-to-head terminal viz, designed for social videos. Split 2-column render with category/stars/tier/score, ember-gradient verdict box with winner + install command + transparency note (benched vs prior).
+- Aliases : `duel`, `vs`.
+- Description SEO-rewritten + keywords expanded (claude-skills, skill-md, registry, benchmark, ranking, elo, anthropic, agent, ai-agent). User-Agent bumped to `versuz-cli/0.2.0`.
+
+### Content automation — "Today's Upset" pipeline
+- **`/api/og/upset`** (new) — 1200×630 social card with `next/og`. Query params : `kind`, `category`, `challenger`, `delta`. Renders top 5 leaderboard with challenger row highlighted in ember band, headline italic ember, optional delta indicator (sage `↑ +N places` or crimson `↓ -N`), brand stripe + judges footer. Fallback to "Top 5 in {category}" when no challenger data.
+- **`getRecentUpsets({ kind, minDelta, limit })`** — query helper that diffs `rank_history` between the current and previous cycle, returns enriched rows (subjectId, slug, name, category, currentRank, prevRank, delta, elo). Returns `[]` when rank_history isn't populated yet.
+- **`/admin/content-drafts`** (new) — editorial dashboard. Stats tiles + threshold filter (≥1/3/5/10), upset cards with chip (↑ Upset sage / ↓ Drop crimson), cycle context, rank delta, View item / Open PNG (1200×630) / Copy URL buttons, and a live thumbnail rendered from the OG endpoint. Empty state explains the post-cycle-hooks workflow.
+
+### Bug fixes
+- **`<NextCycleCountdown>` hydration loop** — refactored away from `useSyncExternalStore` (was returning a fresh object per `getServerSnapshot()` call, infinite loop). `useState + useEffect + setInterval` instead, `suppressHydrationWarning` on the rendered span.
+- **`<HeroSearch>` hydration mismatch** — `useState(() => PLACEHOLDERS[Math.floor(Math.random()...)])` ran on the server and re-randomised on the client. Deterministic initial value (`PLACEHOLDERS[0]`) + `useEffect` rotation after mount.
+- **`<NavAuthCluster>` "Sign in" flash** — initial `user: null` made signed-in users see "Sign in" for ~200 ms while `/api/auth/me` resolved. Reserved `min-width: 100px`, `opacity: 0 + pointer-events: none` until the API responds, then fade-in.
+- **`/badge/category/document` returned 404** — only 4 categories are benched in prod (data, shell, sql, web). Strict `rankings.avg_score IS NOT NULL` check returned no rows for "document". New logic : count registry rows from `skills` / `claude_md_files` filtered by `category`. Right column label switches from `RANKED` to `INDEXED` when benched count is 0.
+- **`quality-judge` skipped 100% of items as "content too short"** — post-migration 0042, `skill_md_content` and `content` columns are NULL because the bodies live in the public Storage bucket `content`. New `resolveItemContent()` helper fetches from `https://<supabase>/storage/v1/object/public/content/<content_path>` when the inline column is empty. Run `node scripts/bench/quality-judge.mjs --limit=50000` now actually judges instead of skipping.
+- **§01 Live ranking on the home was invisible** — `skills.category` (native taxonomy) ≠ `rankings.category` (cycle scope), e.g. `peekaboo` has `skill.category='macos'` but was benched under the `sql` cycle scope. Hardcoded category `"document"` + `WHERE skills.category=$cat` returned 0 rows. New helper `getBenchedTopByCategory(kind, category, limit)` in [rankings.js](src/lib/queries/rankings.js) : queries `rankings` first by bench scope, then joins to `skills` / `claude_md_files` for metadata, stamps axes (via `axes_by_subject` RPC) + recomputed weighted composite (instruction 0.35 / correctness 0.30 / completeness 0.20 / usefulness 0.10 / safety 0.05) + `signal: "bench"`. Headline category picked dynamically from a preference list `["sql", "web", "shell", "data"]`. Pill highlight in the leaderboard now follows the active category (was hardcoded `i === 0`).
+- **`href="/marketplace?promote=intro"` in §08 Enter pointed to nothing** — the `?promote=intro` querystring was never handled. Replaced with `href="/pricing#boost"` ; added `id="boost"` + `scrollMarginTop: 96` on the Boost section of [pricing/page.js](src/app/pricing/page.js) so the anchor scrolls into view below the sticky header.
+
+### Admin
+- New "Content drafts" tab in the admin nav (between Subscribers and Task Proposals).
+
+### Files touched
+16 modified, 7 new + 1 new helper. **Modified** : `src/app/page.js`, `src/app/layout.js`, `src/app/pricing/page.js`, `src/components/site/vz-ticker.jsx`, `src/components/site/nav-auth-cluster.jsx`, `src/components/skill-row.jsx`, `src/components/hero-search.jsx`, `src/components/embed-badge-block.jsx`, `src/app/skills/[slug]/page.js`, `src/app/badge/[kind]/[slug]/route.js`, `src/app/badge/category/[cat]/route.js`, `src/lib/queries/rankings.js` (new helper `getBenchedTopByCategory`), `scripts/bench/quality-judge.mjs`, `cli/src/commands/submit.js`, `cli/src/index.js`, `cli/src/api.js`, `cli/package.json`. **New** : `src/components/next-cycle-countdown.jsx`, `src/components/arena-sticky-cta.jsx`, `src/app/badge/author/[login]/route.js`, `src/app/badge/category/[cat]/route.js`, `src/app/api/og/upset/route.js`, `src/app/admin/content-drafts/page.js` + `copy-url-button.jsx`, `cli/src/commands/battle.js`, `scripts/bench/post-cycle-hooks.mjs`, `supabase/migrations/0052_achievements.sql`.
+
 ## 2026-05-13 (late) — public pages + legal + nav polish
 
 - **5 legal pages**: Terms of Service, Privacy Policy (GDPR-compliant), Refund Policy, DMCA / Takedown, Imprint (LCEN-compliant). Shared `<LegalLayout>` with sticky navigation sidebar + `<LegalPage>` / `<LegalSection>` primitives.

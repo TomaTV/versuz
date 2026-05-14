@@ -292,6 +292,7 @@ export default function PricingPage() {
         {/* Boost section — separate concept */}
         <Reveal>
           <div
+            id="boost"
             style={{
               padding: "32px 32px",
               border: "1px solid var(--amber)",
@@ -300,6 +301,7 @@ export default function PricingPage() {
               gridTemplateColumns: "1fr 1fr",
               gap: 40,
               alignItems: "start",
+              scrollMarginTop: 96,
             }}
             className="vz-pricing-boost"
           >

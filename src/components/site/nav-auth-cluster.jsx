@@ -9,9 +9,11 @@ import { signOut } from "@/lib/auth/actions";
 
 // Client-side auth slot. Fetches /api/auth/me on mount so the surrounding
 // layout/page can stay statically rendered (no cookies() call in the server
-// tree → ISR works). Anonymous visitors see "Sign in" immediately; logged-in
-// users see a brief flash before the user state hydrates — acceptable
-// trade-off for cache HIT on the rest of the page.
+// tree → ISR works). To avoid the "Sign in flashes for logged-in users"
+// problem, we keep the auth slot invisible (reserved width via fixed
+// min-width on the container) until the API responds. After load, the
+// real button fades in. Trade-off : anonymous users wait ~200ms before
+// seeing the Sign-in CTA — the Submit button is always visible.
 export function NavAuthCluster({ links }) {
   const [state, setState] = useState({ loading: true, user: null });
 
@@ -30,7 +32,7 @@ export function NavAuthCluster({ links }) {
     };
   }, []);
 
-  const { user } = state;
+  const { user, loading } = state;
   const userActions = user
     ? [
         { id: "profile", label: `@${user.login || user.email}`, href: "/profile" },
@@ -48,36 +50,52 @@ export function NavAuthCluster({ links }) {
     <div style={{ display: "inline-flex", alignItems: "center", gap: 10, justifySelf: "end" }}>
       <MobileNavMenu links={links} userActions={userActions} signOutAction={user ? signOut : null} />
       <CmdKHint />
-      <span className="vz-nav-user-cluster" style={{ display: "inline-flex", alignItems: "center", gap: 10 }}>
-        {user ? (
-          <UserMenu
-            label={user.login ? `@${user.login}` : user.email || "Profile"}
-            isAdmin={user.isAdmin}
-            signOutAction={signOut}
-          />
-        ) : (
-          <Link
-            href="/login"
-            className="vz-nav-signin-ink"
-            style={{
-              padding: "9px 18px",
-              fontSize: 13,
-              fontFamily: "var(--font-sans)",
-              fontWeight: 600,
-              textDecoration: "none",
-              background: "var(--ink)",
-              color: "var(--bone)",
-              display: "inline-flex",
-              alignItems: "center",
-              gap: 8,
-              letterSpacing: "-0.005em",
-              transition: "transform 0.18s ease, box-shadow 0.18s ease",
-              boxShadow: "0 0 0 1px var(--ink), inset 0 -2px 0 color-mix(in oklab, black 30%, transparent)",
-            }}
-          >
-            Sign in
-          </Link>
-        )}
+      <span className="vz-nav-user-cluster" style={{ display: "inline-flex", alignItems: "center", gap: 10, minWidth: 100 }}>
+        {/* During loading, reserve the auth-slot width but render nothing
+            visible. Once /api/auth/me resolves, swap to UserMenu (logged in)
+            or Sign-in link (anonymous). Avoids the "Sign in" flash for
+            authenticated users. */}
+        <span
+          style={{
+            display: "inline-flex",
+            alignItems: "center",
+            opacity: loading ? 0 : 1,
+            transition: "opacity 0.15s ease",
+            pointerEvents: loading ? "none" : "auto",
+          }}
+          aria-hidden={loading}
+        >
+          {user ? (
+            <UserMenu
+              label={user.login ? `@${user.login}` : user.email || "Profile"}
+              isAdmin={user.isAdmin}
+              signOutAction={signOut}
+            />
+          ) : (
+            <Link
+              href="/login"
+              className="vz-nav-signin-ink"
+              style={{
+                padding: "9px 18px",
+                fontSize: 13,
+                fontFamily: "var(--font-sans)",
+                fontWeight: 600,
+                textDecoration: "none",
+                background: "var(--ink)",
+                color: "var(--bone)",
+                display: "inline-flex",
+                alignItems: "center",
+                gap: 8,
+                letterSpacing: "-0.005em",
+                transition: "transform 0.18s ease, box-shadow 0.18s ease",
+                boxShadow: "0 0 0 1px var(--ink), inset 0 -2px 0 color-mix(in oklab, black 30%, transparent)",
+              }}
+              tabIndex={loading ? -1 : 0}
+            >
+              Sign in
+            </Link>
+          )}
+        </span>
         <Link
           href="/submit"
           className="vz-nav-submit-ember"

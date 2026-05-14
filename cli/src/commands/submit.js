@@ -4,6 +4,7 @@ import ora from "ora";
 import prompts from "prompts";
 import { readAuth } from "../auth.js";
 import { submit, apiBase } from "../api.js";
+import { emberGradient } from "../ui/logo.js";
 
 export async function cmdSubmit(args) {
   const auth = await readAuth();
@@ -70,6 +71,36 @@ export async function cmdSubmit(args) {
         viaLabel,
       { padding: 1, borderStyle: "round", borderColor: "green", margin: { top: 1, bottom: 1, left: 0, right: 0 } }
     ));
+
+    // ──────────────────────────────────────────────────────────────────
+    // Badge handoff — print copy-paste markdown so the creator can stamp
+    // their README. The badge URL refreshes every ~5 min server-side, so
+    // a single line in the README always reflects current rank. This is
+    // the cheapest viral loop we have : every fork is a free backlink.
+    // ──────────────────────────────────────────────────────────────────
+    const badgeUrl = `${apiBase()}/badge/${kind === "claude_md" ? "claude-md" : "skill"}/${res.slug}`;
+    const detailUrl = res.view_url || `${apiBase()}/${kind === "claude_md" ? "claude-md" : "skills"}/${res.slug}`;
+    const badgeName = res.slug;
+    const markdown = `[![Versuz · ${badgeName}](${badgeUrl})](${detailUrl})`;
+
+    console.log(chalk.dim("\n  Add this badge to your README to track your rank live :\n"));
+    console.log("  " + chalk.white(markdown) + "\n");
+
+    if (args["add-badge"] || args.addBadge) {
+      // V2 will do an automated PR via OAuth — for now we just guide the
+      // creator through the manual one-liner, which keeps the CLI dep-free
+      // (no octokit) and avoids requiring write-scope tokens.
+      const repoSlug = (url || "").replace(/^https?:\/\/(www\.)?github\.com\//, "").replace(/\/$/, "");
+      const repoBase = repoSlug.split("/").slice(0, 2).join("/");
+      console.log(chalk.bold.white("\n  → Add badge to your repo README"));
+      console.log(chalk.dim("    1.") + ` Open ${chalk.blueBright(`https://github.com/${repoBase}/edit/main/README.md`)}`);
+      console.log(chalk.dim("    2.") + ` Paste the markdown line above near the top of the file`);
+      console.log(chalk.dim("    3.") + ` Commit ${chalk.dim("(suggested message:")} ${chalk.cyan(`"docs: add Versuz rank badge"`)}${chalk.dim(")")}\n`);
+    } else {
+      console.log(chalk.dim(`  Tip : pass --add-badge to see step-by-step instructions for your repo.\n`));
+    }
+
+    console.log("  " + emberGradient("◆") + chalk.dim(`  Next cycle starts at 06:00 UTC. Watch your rank at ${chalk.blueBright(detailUrl)}\n`));
   } catch (err) {
     spinner.fail(chalk.red(`Submit failed : ${err.message}`));
     if (err.status === 401) {

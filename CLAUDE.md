@@ -9,7 +9,7 @@ Roadmap active : [`TODO.md`](./TODO.md). Historique : [`CHANGELOG.md`](./CHANGEL
 Direction visuelle : [`.ui/README.md`](./.ui/README.md). Tokens mappés à
 Tailwind v4 dans `src/app/globals.css` via `@theme inline`.
 
-## Strategic posture (mai 2026, V1.5)
+## Strategic posture (mai 2026, V1.6)
 
 Marketplace-first, judging-second. Versuz est une marketplace de SKILL.md et
 CLAUDE.md, avec vérification progressive (5 niveaux), modèle commercial
@@ -33,6 +33,38 @@ Storage offload (mig 0042) : `skill_md_content` et `content` body sont sur
 Supabase Storage bucket `content/{kind}/{slug}.md` (public). Colonne
 `content_path` pointe vers le file. Le code de read a un fallback inline
 pour les ~66 rows que Cloudflare WAF refuse (skills security/pentest).
+Important : tout script qui lit le content body (quality-judge.mjs,
+post-cycle-hooks.mjs, etc.) DOIT fallback sur Storage via
+`content_path` quand la colonne inline est NULL — sinon il skip 99% des
+rows.
+
+## Gamification (V1.6, migration 0052)
+
+Pipeline : `bench cycle complete` → `scripts/bench/post-cycle-hooks.mjs`
+→ achievements + streaks + rank_history snapshot → UI surfaces.
+
+- `item_achievements` — types `triple_crown` (3 juges sur #1, proxy
+  `avg_score >= 85`), `streak_milestone` (7/30/100 jours), `category_winner`
+  (1ᵉʳ #1 jamais), `first_blood` (1ʳᵉ entrée ranking). Partial unique
+  indexes → idempotent.
+- `author_achievements` — newcomer / challenger / contender / champion /
+  veteran, basé sur contribution count.
+- `rank_history` — snapshot par (cycle × subject × category). Source
+  unique pour les deltas et "Today's Upset" pipeline.
+- Streak cols sur `skills` + `claude_md_files` :
+  `top_rank_streak_days`, `top_rank_streak_category`,
+  `top_rank_streak_started_at`. Reset si leader change, increment sinon.
+
+UI : chip 🔥 dans `<SkillRow>` + badge ♛ Triple Crown sur fiche skill.
+Query helper : `getItemAchievements(kind, subjectId)`.
+
+## Content automation — "Today's Upset"
+
+- `getRecentUpsets({ kind, minDelta, limit })` ([src/lib/queries/rankings.js](./src/lib/queries/rankings.js))
+  diff rank_history entre cycles N et N-1, returns rows enrichis.
+- `/api/og/upset` — `next/og` 1200×630 prêt pour share Twitter/LinkedIn.
+- `/admin/content-drafts` — éditorial dashboard (preview cards, copy URL,
+  download PNG). Pipeline manuel-assisté : tu valides, tu publies.
 
 ## Heads-up — Next 16
 
@@ -88,11 +120,14 @@ jamais hardcode.
   - Buyer/seller : `/buy/[kind]/[slug]` (+ /success), `/promote/[kind]/[slug]` (+ /success), `/submit`, `/claim/[kind]/[slug]`, `/profile`, `/profile/settings`, `/profile/earnings`, `/profile/items/[kind]/[slug]`
   - Admin : `/admin/*` (allowlist GitHub via env)
   - Legal : `/legal/terms`, `/legal/privacy`, `/legal/refund`, `/legal/dmca`, `/legal/imprint` (shared `<LegalLayout>` avec sidebar sticky)
-  - API : `/api/v1/skills`, `/api/v1/claude-md`, `/api/v1/submit`, `/api/stats`, `/api/subscribe`, `/api/webhooks/stripe`, `/api/cron/*`, `/badge/[kind]/[slug]`
+  - API : `/api/v1/skills`, `/api/v1/claude-md`, `/api/v1/submit`, `/api/stats`, `/api/subscribe`, `/api/webhooks/stripe`, `/api/cron/*`, `/badge/[kind]/[slug]`, `/badge/author/[login]`, `/badge/category/[cat]`, `/api/og/upset`
+  - Admin : `/admin/content-drafts` (V1.6 — éditorial dashboard "Today's Upset")
 - `src/components/marketplace/` — MarketplaceCard, MarketplaceGrid (client),
   TierBadge, VerificationBadge, OfficialBadge
 - `src/components/repo/` — RepoSkillCard (page `/repo/[owner]/[repo]`)
-- `src/components/embed-badge-block.jsx` — 3 tabs (markdown/html/url) + 1-click copy. SVG badge `<img src="/badge/{kind}/{slug}">` portable Notion/Linear/Discord.
+- `src/components/embed-badge-block.jsx` — 3 tabs (markdown/html/url) + 1-click copy + V1.6 selectors Show/Style. SVG badge `<img src="/badge/{kind}/{slug}">` portable Notion/Linear/Discord. Query params : `?show=score|elo|prior|rank`, `?style=default|terminal`.
+- `src/components/next-cycle-countdown.jsx` (V1.6) — countdown live vers `06:00 UTC`. Variants `long` / `short` pour `<VzTicker>`.
+- `src/components/arena-sticky-cta.jsx` (V1.6) — floating CTA "Enter the Arena", suppressed sur `/submit`, `/admin`, `/buy`, `/promote`, `/claim`, `/profile`, `/success`.
 - `src/components/copy-content-button.jsx` — bouton copy absolu top-right, utilisé inline dans les `CommandBlock` des detail pages.
 - `src/components/site/` — VzNav (mark seul 64px), VzFooter (5 colonnes : Project / Open data / Tools / Legal / Subscribe), MobileNavMenu, BackButton, VzTicker, CmdKHint
 - `src/components/brand/` — VersuzMark (SVG 2-flammes officiel), VersuzWordmark, Eyebrow, FigureNumber, SkillGlyph, StencilGlyph
@@ -100,7 +135,10 @@ jamais hardcode.
 - `src/lib/queries/rankings.js` — server-side data access cachées via React.cache().
   Fonctions clés : `getPaginatedItems`, `getTopRankedItems`, `liveSkills` (cap 2000),
   `liveClaudeMds` (cap 2000), `getCategoryCounts`, `getTopTopicsByKind` (RPC SQL),
-  `applyRepoSkillCount` (dampening 1/sqrt(N) sur mega-repos).
+  `applyRepoSkillCount` (dampening 1/sqrt(N) sur mega-repos),
+  `getRecentUpsets({ kind, minDelta, limit })` (V1.6 — diff rank_history pour
+  "Today's Upset"), `getItemAchievements(kind, subjectId)` (V1.6 — Triple
+  Crown / category_winner / streak_milestone / first_blood ledger).
 - `src/lib/content/storage.js` — helpers Supabase Storage bucket `content` (public). Fetch SKILL.md / CLAUDE.md depuis Storage avec fallback inline DB (migration 0042).
 - `src/lib/auth/`, `src/lib/profiles/`, `src/lib/purchases/`, `src/lib/stripe/`,
   `src/lib/premium/`, `src/lib/resend.js` (default from `Versuz <contact@flukxstudio.fr>`), `src/lib/submit/`, `src/lib/claim/`,
@@ -125,14 +163,24 @@ jamais hardcode.
 - `scripts/migrate-stragglers.mjs` — UUID-based path retry pour les ~66 skills Cloudflare-blocked
 - `scripts/bench/` — orchestrator + agent + judge + runner + enqueue +
   rate-limit + 102 built-in tasks + providers/{anthropic, openai, deepseek,
-  google, groq, mistral, openrouter}
-- `supabase/migrations/` — **0001 → 0048**. Au launch :
+  google, groq, mistral, openrouter} + `post-cycle-hooks.mjs` (V1.6 —
+  achievements + rank_history snapshot, idempotent, à lancer après chaque
+  cycle completed).
+- `supabase/migrations/` — **0001 → 0052**. Au launch :
   - 0037 marketplace indexes, 0038 license, 0039 desc_hash, 0040 multi_category,
     0041 archive, 0042 content_storage, 0043 RLS perf wrap (auth.uid()),
     0044 is_bundled gen col, 0045 widen category check (writing/design/etc.),
     0046 repo_skill_count denormalized, 0047 widen v2 (api-integration/macos/...),
-    0048 byte_count gen col
+    0048 byte_count gen col, 0049 cycle_actual_cost, 0050 email_engagement,
+    0051 rankings_score_idx, 0052 achievements (V1.6 — item_achievements +
+    author_achievements + rank_history + streak cols)
   - Toutes appliquées sur la prod via MCP supabase (`mcp__supabase-versuz__apply_migration`).
+- `cli/` — CLI npm `versuz` v0.2.0 (V1.6). Commands : `search`, `list`,
+  `info`, `install`, `submit` (avec `--add-badge` instructions PR), `login`,
+  `logout`, `whoami`, `battle <a> vs <b>` (V1.6 — head-to-head terminal
+  viz pour social videos). Default API : `https://versuz.dev`.
+- `mcp-server/` — MCP server `@versuz/mcp` v0.1.0. 5 tools : `versuz_search`,
+  `versuz_list_skills`, `versuz_list_claude_md`, `versuz_get`, `versuz_install`.
 
 ## Scripts npm
 

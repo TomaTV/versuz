@@ -1,7 +1,7 @@
 {
   "name": "versuz",
-  "version": "0.1.0",
-  "description": "Browse, search, and install Claude skills + CLAUDE.md from the Versuz marketplace",
+  "version": "0.2.0",
+  "description": "CLI for the Versuz marketplace — browse, search, install, submit, and battle Claude skills + CLAUDE.md from the terminal. 100k+ ranked SKILL.md files, daily benchmark.",
   "type": "module",
   "bin": {
     "versuz": "bin/versuz.js"
@@ -21,10 +21,19 @@
   "keywords": [
     "claude",
     "claude-code",
-    "skills",
+    "claude-skills",
+    "skill",
+    "skill-md",
     "marketplace",
+    "registry",
+    "benchmark",
+    "ranking",
+    "elo",
     "ai",
-    "cli"
+    "cli",
+    "anthropic",
+    "agent",
+    "ai-agent"
   ],
   "homepage": "https://versuz.dev",
   "repository": {

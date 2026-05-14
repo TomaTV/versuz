@@ -7,6 +7,7 @@ import { VzTicker } from "@/components/site/vz-ticker";
 import { VzFooter } from "@/components/site/vz-footer";
 import { CmdKSearch } from "@/components/site/cmd-k-search";
 import { SubscribeToast } from "@/components/site/subscribe-toast";
+import { ArenaStickyCTA } from "@/components/arena-sticky-cta";
 
 const geist = Geist({
   subsets: ["latin"],
@@ -173,6 +174,7 @@ export default function RootLayout({ children }) {
         <VzFooter />
         <CmdKSearch />
         <SubscribeToast />
+        <ArenaStickyCTA />
         <Analytics />
         <SpeedInsights />
       </body>

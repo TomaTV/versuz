@@ -205,7 +205,10 @@ versuz/
 - `/feed/skills` + `/feed/claude-md` — RSS 2.0 XML par catégorie (`?category=`)
 - `/api/v1/skills` + `/api/v1/claude-md` — JSON read-only, paginé, filtré
 - `/api/v1/skills/[slug]` + `/api/v1/claude-md/[slug]` — single item
-- `/badge/[kind]/[slug]` — SVG embed badge (420×62, 4-color top stripe, single SCORE column right, tier dot)
+- `/badge/[kind]/[slug]` — SVG embed badge (420×62, 4-color top stripe, single SCORE column right, tier dot). V1.6 : query params `?show=score|elo|prior|rank` + `?style=default|terminal`
+- `/badge/author/[login]` (V1.6) — author tier badge (newcomer → veteran)
+- `/badge/category/[cat]?kind=skill|claude_md` (V1.6) — leaderboard badge per category
+- `/api/og/upset` (V1.6) — 1200×630 social card "Today's Upset"
 - `/api/search?q=` — backing pour le Cmd+K search modal
 - `/api/subscribe` — newsletter footer email POST
 - `/api/cron/bench` + `/api/cron/refresh-rankings` — Vercel crons (gated par `CRON_SECRET`)
@@ -224,6 +227,7 @@ versuz/
 - `/admin` — overview compteurs (skills, claude_md, pending proposals, live tasks)
 - `/admin/task-proposals` — approve/reject/promote tasks générées par Gemini Flash
 - `/admin/skills` + `/admin/claude-md` — éditer verification_level, tier, delete
+- `/admin/content-drafts` (V1.6) — pipeline éditorial "Today's Upset" : preview cards 1200×630, copy URL, download PNG (alimenté par `getRecentUpsets()` via `rank_history`)
 
 **Marketplace vs Leaderboard — distinction**
 - **Marketplace** = directory pour browser et filtrer (l'expérience principale en V0, parce que le judging n'est pas encore actif)
@@ -252,6 +256,7 @@ versuz/
 - `npm run generate-tasks` — Gemini Flash drafts new task_proposals → `/admin/task-proposals`
 - **`npm run pipeline:full`** — batch complet : scrape exhaustif (169 niches) → quality → bench. Une nuit/week-end pour maximiser la découverte.
 - **`npm run pipeline:hot`** — vagues rapides 5 items : scrape → quality → bench par lots. ~8 min/vague, résultats live rapidement. Options : `--wave-size=N`, `--min-stars=0`, `--vagues=N`
+- **`node scripts/bench/post-cycle-hooks.mjs`** (V1.6) — à lancer après chaque cycle completed. Snapshot `rank_history`, insert achievements (Triple Crown / category_winner / first_blood), update streak counters. Idempotent (unique partial indexes sur `item_achievements`). Args : `--cycle=<id>` ou `--dry-run`.
 
 > Note PowerShell : `npm run X -- --flag` est cassé sur Windows. Lancer via `node scripts/bench/X.mjs --flag=...`.
 

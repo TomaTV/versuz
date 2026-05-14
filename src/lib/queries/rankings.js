@@ -124,6 +124,9 @@ function mapSkillRow(row) {
     categories: Array.isArray(row.categories) && row.categories.length > 0
       ? row.categories
       : (row.category ? [row.category] : []),
+    streakDays: row.top_rank_streak_days || 0,
+    streakCategory: row.top_rank_streak_category || null,
+    streakStartedAt: row.top_rank_streak_started_at || null,
   });
   base.prior = computePrior(base);
   base.isBoosted = base.promotedUntil ? new Date(base.promotedUntil) > new Date() : false;
@@ -167,6 +170,9 @@ function mapClaudeMdRow(row) {
     categories: Array.isArray(row.categories) && row.categories.length > 0
       ? row.categories
       : (row.project_category ? [row.project_category] : []),
+    streakDays: row.top_rank_streak_days || 0,
+    streakCategory: row.top_rank_streak_category || null,
+    streakStartedAt: row.top_rank_streak_started_at || null,
   };
   base.prior = computePrior(base);
   base.isBoosted = base.promotedUntil ? new Date(base.promotedUntil) > new Date() : false;
@@ -253,8 +259,8 @@ export async function getPaginatedItems(kind = "skill", params = {}) {
   const page = Math.max(1, Number(params.page) || 1);
   const table = kind === "skill" ? "skills" : "claude_md_files";
   const select = kind === "skill"
-    ? "id, slug, name, description, category, github_url, github_stars, byte_count, tier, price_usd, verification_level, is_official, source, license_spdx, metadata, promoted_until, quality_score, quality_rationale, bench_tier"
-    : "id, slug, description, project_category, github_url, github_stars, word_count, byte_count, tier, price_usd, verification_level, is_official, source, license_spdx, metadata, promoted_until, quality_score, quality_rationale, bench_tier";
+    ? "id, slug, name, description, category, github_url, github_stars, byte_count, tier, price_usd, verification_level, is_official, source, license_spdx, metadata, promoted_until, quality_score, quality_rationale, bench_tier, top_rank_streak_days, top_rank_streak_category, top_rank_streak_started_at"
+    : "id, slug, description, project_category, github_url, github_stars, word_count, byte_count, tier, price_usd, verification_level, is_official, source, license_spdx, metadata, promoted_until, quality_score, quality_rationale, bench_tier, top_rank_streak_days, top_rank_streak_category, top_rank_streak_started_at";
 
   let q = sb.from(table).select(select, { count: "exact" });
 
@@ -481,9 +487,9 @@ export async function getRegistryByRepo(ownerRaw, repoRaw) {
   if (!sb) return { skills: [], claudeMds: [], owner, repo };
 
   const skillSel =
-    "id, slug, name, description, category, github_url, github_stars, byte_count, tier, price_usd, verification_level, is_official, source, license_spdx, metadata, promoted_until, quality_score, quality_rationale, bench_tier";
+    "id, slug, name, description, category, github_url, github_stars, byte_count, tier, price_usd, verification_level, is_official, source, license_spdx, metadata, promoted_until, quality_score, quality_rationale, bench_tier, top_rank_streak_days, top_rank_streak_category, top_rank_streak_started_at";
   const claudeSel =
-    "id, slug, description, project_category, github_url, github_stars, word_count, byte_count, tier, price_usd, verification_level, is_official, source, license_spdx, metadata, promoted_until, quality_score, quality_rationale, bench_tier";
+    "id, slug, description, project_category, github_url, github_stars, word_count, byte_count, tier, price_usd, verification_level, is_official, source, license_spdx, metadata, promoted_until, quality_score, quality_rationale, bench_tier, top_rank_streak_days, top_rank_streak_category, top_rank_streak_started_at";
 
   const ghLike = `%github.com/${owner}/${repo}%`;
 
@@ -636,7 +642,7 @@ const liveSkills = cache(async () => {
   const { data, error } = await sb
     .from("skills")
     .select(
-      "id, slug, name, description, category, github_url, github_stars, byte_count, tier, price_usd, verification_level, is_official, license_spdx, metadata, promoted_until, quality_score, quality_rationale, bench_tier"
+      "id, slug, name, description, category, github_url, github_stars, byte_count, tier, price_usd, verification_level, is_official, license_spdx, metadata, promoted_until, quality_score, quality_rationale, bench_tier, top_rank_streak_days, top_rank_streak_category, top_rank_streak_started_at"
     )
     .order("promoted_until", { ascending: false, nullsFirst: false })
     .order("verification_level", { ascending: false })
@@ -657,7 +663,7 @@ const liveClaudeMds = cache(async () => {
   const { data, error } = await sb
     .from("claude_md_files")
     .select(
-      "id, slug, description, project_category, github_url, github_stars, word_count, byte_count, tier, price_usd, verification_level, is_official, license_spdx, metadata, promoted_until, quality_score, quality_rationale, bench_tier"
+      "id, slug, description, project_category, github_url, github_stars, word_count, byte_count, tier, price_usd, verification_level, is_official, license_spdx, metadata, promoted_until, quality_score, quality_rationale, bench_tier, top_rank_streak_days, top_rank_streak_category, top_rank_streak_started_at"
     )
     .or("word_count.gte.40,word_count.is.null")
     .order("promoted_until", { ascending: false, nullsFirst: false })
@@ -678,6 +684,89 @@ const liveClaudeMds = cache(async () => {
  * filtered + ORDER BY indexed (migration 0037 skills_marketplace_default_idx).
  * Utilisé par page.js qui faisait `getStandings("document").slice(0, 10)`.
  */
+/**
+ * Pull the top N items that were *actually benched* in a given category scope.
+ * Critical distinction vs getTopRankedItems : the cycle scope category in the
+ * `rankings` materialized view is INDEPENDENT from the skill's primary
+ * `skills.category` (e.g. peekaboo has skill.category='macos' but was
+ * benched under cycle scope 'sql'). For the home leaderboard we want skills
+ * grouped by bench scope, not native taxonomy.
+ *
+ * Returns enriched skill rows ordered by avg_score desc, with elo stamped.
+ */
+export async function getBenchedTopByCategory(kind = "skill", category, limit = 10) {
+  if (!HAS_SUPABASE || !category) return [];
+  const sb = createSupabasePublicClient();
+  if (!sb) return [];
+
+  // 1. Pull ranking rows for this bench scope, sorted by score.
+  const idCol = kind === "skill" ? "skill_id" : "claude_md_id";
+  const { data: rows } = await sb
+    .from("rankings")
+    .select(`${idCol}, avg_score, task_count`)
+    .eq("subject_kind", kind)
+    .eq("category", category)
+    .not("avg_score", "is", null)
+    .order("avg_score", { ascending: false })
+    .limit(limit);
+  if (!rows || rows.length === 0) return [];
+
+  // 2. Fetch the skill / claude_md metadata for those ids.
+  const ids = rows.map((r) => r[idCol]).filter(Boolean);
+  if (ids.length === 0) return [];
+  const table = kind === "skill" ? "skills" : "claude_md_files";
+  const sel = kind === "skill"
+    ? "id, slug, name, description, category, github_url, github_stars, byte_count, tier, price_usd, verification_level, is_official, source, license_spdx, metadata, promoted_until, quality_score, quality_rationale, bench_tier, top_rank_streak_days, top_rank_streak_category, top_rank_streak_started_at"
+    : "id, slug, description, project_category, github_url, github_stars, word_count, byte_count, tier, price_usd, verification_level, is_official, source, license_spdx, metadata, promoted_until, quality_score, quality_rationale, bench_tier, top_rank_streak_days, top_rank_streak_category, top_rank_streak_started_at";
+  const { data: details } = await sb
+    .from(table)
+    .select(sel)
+    .in("id", ids)
+    .eq("is_archived", false);
+  if (!details) return [];
+
+  // 3. Pull per-axis breakdown so the leaderboard rows can show the
+  // Instruction / Correctness / Completeness / Usefulness / Safety values
+  // (otherwise SkillRow renders "—" in those columns).
+  const axesById = await getAxesAvgBySubject(sb, kind);
+
+  // 4. Map + stamp elo + axes + recomputed composite score, ordered by
+  // bench score desc.
+  const mapper = kind === "skill" ? mapSkillRow : mapClaudeMdRow;
+  const byId = new Map(details.map((d) => [d.id, mapper(d)]));
+  const W = { instruction_following: 0.35, correctness: 0.3, completeness: 0.2, usefulness: 0.1, safety: 0.05 };
+  return rows
+    .map((r, i) => {
+      const item = byId.get(r[idCol]);
+      if (!item) return null;
+      const axes = axesById.get(r[idCol]) || null;
+      let composite = Number(r.avg_score) || 0;
+      if (axes) {
+        let s = 0;
+        let wsum = 0;
+        for (const k of Object.keys(W)) {
+          if (axes[k] != null && Number.isFinite(axes[k])) {
+            s += axes[k] * W[k];
+            wsum += W[k];
+          }
+        }
+        if (wsum > 0) composite = s / wsum;
+      }
+      const elo = Math.round(composite * 100) / 100;
+      return {
+        ...item,
+        elo,
+        score: elo,
+        avg_score: elo,
+        axes,
+        signal: "bench",
+        benchTaskCount: r.task_count || 0,
+        rank: i + 1,
+      };
+    })
+    .filter(Boolean);
+}
+
 export async function getTopRankedItems(kind = "skill", category = null, limit = 10) {
   if (!HAS_SUPABASE) {
     const list = kind === "skill" ? SKILLS.map(withTierDefaults) : CLAUDE_MD_FILES;
@@ -692,8 +781,8 @@ export async function getTopRankedItems(kind = "skill", category = null, limit =
   if (!sb) return [];
   const table = kind === "skill" ? "skills" : "claude_md_files";
   const sel = kind === "skill"
-    ? "id, slug, name, description, category, github_url, github_stars, byte_count, tier, price_usd, verification_level, is_official, source, license_spdx, metadata, promoted_until, quality_score, quality_rationale, bench_tier"
-    : "id, slug, description, project_category, github_url, github_stars, word_count, byte_count, tier, price_usd, verification_level, is_official, source, license_spdx, metadata, promoted_until, quality_score, quality_rationale, bench_tier";
+    ? "id, slug, name, description, category, github_url, github_stars, byte_count, tier, price_usd, verification_level, is_official, source, license_spdx, metadata, promoted_until, quality_score, quality_rationale, bench_tier, top_rank_streak_days, top_rank_streak_category, top_rank_streak_started_at"
+    : "id, slug, description, project_category, github_url, github_stars, word_count, byte_count, tier, price_usd, verification_level, is_official, source, license_spdx, metadata, promoted_until, quality_score, quality_rationale, bench_tier, top_rank_streak_days, top_rank_streak_category, top_rank_streak_started_at";
   let q = sb.from(table).select(sel);
   if (category) {
     q = q.eq(kind === "skill" ? "category" : "project_category", category);
@@ -1359,7 +1448,7 @@ export async function getSkillBySlug(slug) {
       const { data, error } = await sb
         .from("skills")
         .select(
-          "id, slug, name, description, category, github_url, github_stars, byte_count, tier, price_usd, verification_level, is_official, license_spdx, metadata, skill_md_content, content_path, scraped_at, private_storage_path, promoted_until, quality_score, quality_rationale"
+          "id, slug, name, description, category, github_url, github_stars, byte_count, tier, price_usd, verification_level, is_official, license_spdx, metadata, skill_md_content, content_path, scraped_at, private_storage_path, promoted_until, quality_score, quality_rationale, top_rank_streak_days, top_rank_streak_category, top_rank_streak_started_at"
         )
         .eq("slug", slug)
         .maybeSingle();
@@ -1422,6 +1511,143 @@ export async function getFeaturedBattle() {
   return HAS_SUPABASE ? null : FEATURED_BATTLE;
 }
 
+/**
+ * Detect the biggest rank changes between the current cycle and the
+ * previous one for a given (kind, category). Returns the candidates
+ * sorted by absolute delta desc.
+ *
+ * Requires rank_history populated by post-cycle-hooks.mjs. Returns []
+ * when the table is empty or the cycle has no comparable predecessor.
+ *
+ * Each row : { subjectId, slug, name, category, currentRank, prevRank,
+ *              delta, elo, kind }
+ */
+export async function getRecentUpsets({ cycleId, kind = "skill", minDelta = 3, limit = 20 } = {}) {
+  if (!HAS_SUPABASE) return [];
+  const sb = createSupabasePublicClient();
+  if (!sb) return [];
+
+  // Pick current cycle if not provided — latest snapshot in rank_history.
+  let currentId = cycleId;
+  if (!currentId) {
+    const { data: latest } = await sb
+      .from("rank_history")
+      .select("cycle_id")
+      .eq("subject_kind", kind)
+      .order("cycle_id", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (!latest) return [];
+    currentId = latest.cycle_id;
+  }
+
+  // Predecessor cycle — the highest cycle_id strictly less than current.
+  const { data: prevCycle } = await sb
+    .from("rank_history")
+    .select("cycle_id")
+    .eq("subject_kind", kind)
+    .lt("cycle_id", currentId)
+    .order("cycle_id", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  if (!prevCycle) return [];
+  const prevId = prevCycle.cycle_id;
+
+  const idCol = kind === "claude_md" ? "claude_md_id" : "skill_id";
+
+  // Pull both snapshots in one go each.
+  const [{ data: current }, { data: previous }] = await Promise.all([
+    sb
+      .from("rank_history")
+      .select(`${idCol}, category, rank, elo`)
+      .eq("subject_kind", kind)
+      .eq("cycle_id", currentId),
+    sb
+      .from("rank_history")
+      .select(`${idCol}, category, rank`)
+      .eq("subject_kind", kind)
+      .eq("cycle_id", prevId),
+  ]);
+
+  if (!current?.length || !previous?.length) return [];
+
+  // Build a lookup of previous rank per (subject, category).
+  const prevByKey = new Map();
+  for (const r of previous) {
+    prevByKey.set(`${r[idCol]}:${r.category}`, r.rank);
+  }
+
+  // Compute deltas. Positive delta = rank improved (moved up).
+  const deltas = [];
+  for (const r of current) {
+    const prevRank = prevByKey.get(`${r[idCol]}:${r.category}`);
+    if (prevRank == null) continue; // brand new — skip (first_blood, not an upset)
+    const delta = prevRank - r.rank; // positive when climbed
+    if (Math.abs(delta) < minDelta) continue;
+    deltas.push({
+      subjectId: r[idCol],
+      category: r.category,
+      currentRank: r.rank,
+      prevRank,
+      delta,
+      elo: r.elo != null ? Number(r.elo) : null,
+      kind,
+    });
+  }
+
+  // Sort by absolute delta desc, take top N.
+  deltas.sort((a, b) => Math.abs(b.delta) - Math.abs(a.delta));
+  const top = deltas.slice(0, limit);
+
+  // Enrich with name/slug for the UI / OG card.
+  if (top.length === 0) return [];
+  const ids = Array.from(new Set(top.map((d) => d.subjectId)));
+  const table = kind === "claude_md" ? "claude_md_files" : "skills";
+  const sel = kind === "claude_md"
+    ? "id, slug, metadata"
+    : "id, slug, name";
+  const { data: details } = await sb.from(table).select(sel).in("id", ids);
+  const detailById = new Map((details || []).map((d) => [d.id, d]));
+
+  return top.map((d) => {
+    const detail = detailById.get(d.subjectId);
+    const name = detail
+      ? kind === "claude_md"
+        ? (detail.metadata?.author && detail.metadata?.repo
+            ? `${detail.metadata.author}/${detail.metadata.repo}`
+            : detail.slug)
+        : detail.name
+      : "—";
+    return { ...d, slug: detail?.slug, name, cycleId: currentId, prevCycleId: prevId };
+  });
+}
+
+/**
+ * Item achievements (Triple Crown, category_winner, streak_milestone,
+ * first_blood) for a single subject. Returns the list of achievement
+ * rows, sorted by most-recent first. Empty array if Supabase not
+ * configured or none unlocked.
+ *
+ * Populated by scripts/bench/post-cycle-hooks.mjs after each bench cycle.
+ */
+export async function getItemAchievements(kind, subjectId) {
+  if (!HAS_SUPABASE || !subjectId) return [];
+  const sb = createSupabasePublicClient();
+  if (!sb) return [];
+  const col = kind === "claude_md" ? "claude_md_id" : "skill_id";
+  const { data, error } = await sb
+    .from("item_achievements")
+    .select("id, type, category, cycle_id, metadata, unlocked_at")
+    .eq(col, subjectId)
+    .order("unlocked_at", { ascending: false })
+    .limit(50);
+  if (error) {
+    console.warn(`[rankings] getItemAchievements failed: ${error.message}`);
+    return [];
+  }
+  return data || [];
+}
+
 export async function getBenchmarkMatrix() {
   if (HAS_SUPABASE) return { skills: [], suites: [] };
   return { skills: BENCHMARK_MATRIX, suites: TASK_SUITES };
@@ -1466,7 +1692,7 @@ export async function getClaudeMdBySlug(slug) {
       const { data, error } = await sb
         .from("claude_md_files")
         .select(
-          "id, slug, description, project_category, github_url, github_stars, word_count, byte_count, tier, price_usd, verification_level, is_official, license_spdx, metadata, content, content_path, scraped_at, quality_score, quality_rationale, promoted_until, private_storage_path"
+          "id, slug, description, project_category, github_url, github_stars, word_count, byte_count, tier, price_usd, verification_level, is_official, license_spdx, metadata, content, content_path, scraped_at, quality_score, quality_rationale, promoted_until, private_storage_path, top_rank_streak_days, top_rank_streak_category, top_rank_streak_started_at"
         )
         .eq("slug", slug)
         .maybeSingle();

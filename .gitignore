@@ -149,6 +149,9 @@ emergency-backup-*.dump
 # Voiceover scripts — local-only, never in repo
 docs/ads-voiceover/
 
+# Distribution kit (templates for npm/MCP/awesome-lists submissions — local-only)
+.distribution/
+
 # Any rendered media file — never commit these
 *.mp4
 *.mov

@@ -1,4 +1,5 @@
 import { getCurrentCycle } from "@/lib/queries/rankings";
+import { NextCycleCountdown } from "@/components/next-cycle-countdown";
 
 export async function VzTicker() {
   const cycle = await getCurrentCycle();
@@ -120,8 +121,12 @@ export async function VzTicker() {
             </span>
             <span style={{ flex: 1 }} />
             <span className="vz-ticker-secondary" style={{ whiteSpace: "nowrap" }}>
-              <span className="vz-ticker-long">NEXT CYCLE · DAILY AT 06:00 UTC</span>
-              <span className="vz-ticker-short">NEXT · 06:00 UTC</span>
+              <span className="vz-ticker-long">
+                <NextCycleCountdown variant="long" />
+              </span>
+              <span className="vz-ticker-short">
+                <NextCycleCountdown variant="short" />
+              </span>
             </span>
           </>
         )}

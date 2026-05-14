@@ -19,7 +19,7 @@ async function getJson(path, params = {}) {
   let res;
   try {
     res = await fetch(url, {
-      headers: { Accept: "application/json", "User-Agent": "versuz-cli/0.1.0" },
+      headers: { Accept: "application/json", "User-Agent": "versuz-cli/0.2.0" },
     });
   } catch (netErr) {
     // Network-level failure (DNS, refused, timeout) — donner un message clair
@@ -78,7 +78,7 @@ async function postJson(path, body, { token } = {}) {
   const headers = {
     Accept: "application/json",
     "Content-Type": "application/json",
-    "User-Agent": "versuz-cli/0.1.0",
+    "User-Agent": "versuz-cli/0.2.0",
   };
   if (token) headers.Authorization = `Bearer ${token}`;
   let res;

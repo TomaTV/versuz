@@ -13,6 +13,7 @@ import {
   getSkillBySlug,
   getSiblingSkills,
   getJudgeDisagreement,
+  getItemAchievements,
   getRegistryByRepo,
 } from "@/lib/queries/rankings";
 import { approximateTokens, formatTokenCount } from "@/lib/utils";
@@ -867,13 +868,18 @@ export default async function SkillDetailPage({ params }) {
   const meta = detail.metadata || {};
   
   // Fetch remaining data in parallel
-  const [siblings, disagreement, repoRegistry, owned, authored] = await Promise.all([
+  const [siblings, disagreement, repoRegistry, owned, authored, achievements] = await Promise.all([
     getSiblingSkills(slug, 3),
     getJudgeDisagreement({ kind: "skill", subjectId: detail.id }),
     meta.owner && meta.repo ? getRegistryByRepo(meta.owner, meta.repo) : Promise.resolve(null),
     getOwnedSlugs(user?.id),
     getAuthoredSlugs(user?.id),
+    getItemAchievements("skill", detail.id),
   ]);
+  const hasTripleCrown = achievements.some((a) => a.type === "triple_crown");
+  const tripleCrownCategories = new Set(
+    achievements.filter((a) => a.type === "triple_crown").map((a) => a.category).filter(Boolean)
+  );
   
   const repoBundleHref =
     repoRegistry &&
@@ -1032,6 +1038,49 @@ export default async function SkillDetailPage({ params }) {
                 >
                   <span aria-hidden style={{ width: 6, height: 6, background: "var(--bg)" }} />
                   Boosted
+                </span>
+              )}
+              {detail.streakDays > 0 && (
+                <span
+                  title={`At #1 in ${detail.streakCategory || detail.category} for ${detail.streakDays} consecutive cycle${detail.streakDays > 1 ? "s" : ""}`}
+                  style={{
+                    display: "inline-flex",
+                    alignItems: "center",
+                    gap: 6,
+                    padding: "4px 10px",
+                    fontFamily: "var(--font-mono)",
+                    fontSize: 11,
+                    color: "var(--accent)",
+                    letterSpacing: "0.04em",
+                    background: "color-mix(in oklab, var(--accent) 10%, transparent)",
+                    border: "1px solid color-mix(in oklab, var(--accent) 40%, transparent)",
+                    fontWeight: 600,
+                    fontVariantNumeric: "tabular-nums",
+                  }}
+                >
+                  <span aria-hidden>🔥</span>
+                  {detail.streakDays}-day streak
+                </span>
+              )}
+              {hasTripleCrown && (
+                <span
+                  title={`Triple Crown · won #1 in ${tripleCrownCategories.size > 1 ? `${tripleCrownCategories.size} categories` : Array.from(tripleCrownCategories)[0] || "a category"} with all three judges aligned`}
+                  style={{
+                    display: "inline-flex",
+                    alignItems: "center",
+                    gap: 6,
+                    padding: "4px 10px",
+                    fontFamily: "var(--font-mono)",
+                    fontSize: 10,
+                    color: "var(--bg)",
+                    letterSpacing: "0.18em",
+                    textTransform: "uppercase",
+                    background: "linear-gradient(135deg, var(--amber) 0%, var(--accent) 100%)",
+                    fontWeight: 700,
+                  }}
+                >
+                  <span aria-hidden>♛</span>
+                  Triple Crown
                 </span>
               )}
             </div>

@@ -158,6 +158,28 @@ export function SkillRow({ skill, leader = false }) {
                 ★
               </span>
             )}
+            {skill.streakDays > 0 && (
+              <span
+                title={`At #1 in ${skill.streakCategory || skill.category} for ${skill.streakDays} consecutive cycle${skill.streakDays > 1 ? "s" : ""}`}
+                style={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: 4,
+                  padding: "2px 7px",
+                  fontSize: 10,
+                  color: "var(--accent)",
+                  background: "color-mix(in oklab, var(--accent) 10%, transparent)",
+                  border: "1px solid color-mix(in oklab, var(--accent) 40%, transparent)",
+                  letterSpacing: "0.04em",
+                  fontFamily: "var(--font-mono)",
+                  fontWeight: 600,
+                  fontVariantNumeric: "tabular-nums",
+                }}
+              >
+                <span aria-hidden>🔥</span>
+                {skill.streakDays}d
+              </span>
+            )}
           </div>
           <span style={{ fontSize: 10, color: "var(--fg-muted)", letterSpacing: "0.02em", marginTop: 3 }}>
             {skill.author} · {skill.category}

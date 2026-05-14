@@ -1,7 +1,7 @@
 {
   "name": "@versuz/mcp",
-  "version": "0.1.0",
-  "description": "MCP server exposing the Versuz marketplace — search, install Claude skills + CLAUDE.md directly from Claude Code",
+  "version": "0.1.1",
+  "description": "MCP server for Claude Code — expose the Versuz marketplace as native tools. Search, inspect, install 100k+ ranked SKILL.md and CLAUDE.md files inline. Daily benchmark with 3 frontier judges.",
   "type": "module",
   "bin": {
     "versuz-mcp": "bin/server.js"
@@ -23,8 +23,17 @@
     "model-context-protocol",
     "claude",
     "claude-code",
+    "claude-skills",
     "skills",
-    "versuz"
+    "skill-md",
+    "marketplace",
+    "registry",
+    "benchmark",
+    "ranking",
+    "anthropic",
+    "versuz",
+    "ai-tools",
+    "agent"
   ],
   "homepage": "https://versuz.dev",
   "repository": {

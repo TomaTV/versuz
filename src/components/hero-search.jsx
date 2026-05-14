@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 
 const PLACEHOLDERS = [
@@ -22,10 +22,13 @@ const PLACEHOLDERS = [
 export function HeroSearch({ totalItems }) {
   const router = useRouter();
   const [q, setQ] = useState("");
-  // Pick a deterministic placeholder per session render
-  const [placeholder] = useState(
-    () => PLACEHOLDERS[Math.floor(Math.random() * PLACEHOLDERS.length)]
-  );
+  // SSR renders PLACEHOLDERS[0] deterministically; we rotate to a random
+  // pick only after hydration to avoid the server/client mismatch React
+  // throws otherwise (Math.random() returns different values per render).
+  const [placeholder, setPlaceholder] = useState(PLACEHOLDERS[0]);
+  useEffect(() => {
+    setPlaceholder(PLACEHOLDERS[Math.floor(Math.random() * PLACEHOLDERS.length)]);
+  }, []);
 
   function submit(e) {
     e?.preventDefault?.();

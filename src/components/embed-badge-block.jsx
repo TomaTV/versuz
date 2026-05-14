@@ -11,12 +11,38 @@ const subscribeOrigin = () => () => {};
 const getOrigin = () =>
   typeof window !== "undefined" ? window.location.origin : PROD_BASE;
 
+// Badge V2 variants — surfaced as selectors so creators can pick the
+// signal they want to advertise on their README without typing query
+// params manually. Defaults match the v1 endpoint behaviour (score+default).
+const SHOW_OPTIONS = [
+  { id: "score", label: "Score" },
+  { id: "elo", label: "Elo" },
+  { id: "prior", label: "Prior" },
+  { id: "rank", label: "Rank" },
+];
+
+const STYLE_OPTIONS = [
+  { id: "default", label: "Light" },
+  { id: "terminal", label: "Dark" },
+];
+
+function buildQueryString({ show, style }) {
+  const params = new URLSearchParams();
+  if (show && show !== "score") params.set("show", show);
+  if (style && style !== "default") params.set("style", style);
+  const q = params.toString();
+  return q ? `?${q}` : "";
+}
+
 export function EmbedBadgeBlock({ kind, slug, name }) {
   const previewBase = useSyncExternalStore(subscribeOrigin, getOrigin, () => PROD_BASE);
+  const [show, setShow] = useState("score");
+  const [style, setStyle] = useState("default");
 
-  const badgeUrl = `${PROD_BASE}/badge/${kind}/${slug}`;
+  const qs = buildQueryString({ show, style });
+  const badgeUrl = `${PROD_BASE}/badge/${kind}/${slug}${qs}`;
   const detailUrl = `${PROD_BASE}/${kind === "claude-md" ? "claude-md" : "skills"}/${slug}`;
-  const previewBadgeUrl = `${previewBase}/badge/${kind}/${slug}`;
+  const previewBadgeUrl = `${previewBase}/badge/${kind}/${slug}${qs}`;
   const markdown = `[![Versuz · ${name}](${badgeUrl})](${detailUrl})`;
   const html = `<a href="${detailUrl}"><img src="${badgeUrl}" alt="Versuz · ${name}" /></a>`;
 
@@ -97,6 +123,30 @@ export function EmbedBadgeBlock({ kind, slug, name }) {
         </div>
       </div>
 
+      {/* Variant selectors — Show (what number to feature) + Style (light/dark) */}
+      <div
+        style={{
+          display: "flex",
+          flexWrap: "wrap",
+          gap: 16,
+          paddingBottom: 4,
+          borderBottom: "1px dashed var(--rule)",
+        }}
+      >
+        <VariantGroup
+          label="Show"
+          options={SHOW_OPTIONS}
+          value={show}
+          onChange={setShow}
+        />
+        <VariantGroup
+          label="Style"
+          options={STYLE_OPTIONS}
+          value={style}
+          onChange={setStyle}
+        />
+      </div>
+
       {/* Preview — fixed aspect ratio frame so the SVG never overflows. */}
       <a
         href={`/${kind === "claude-md" ? "claude-md" : "skills"}/${slug}`}
@@ -171,6 +221,52 @@ export function EmbedBadgeBlock({ kind, slug, name }) {
         >
           {copied ? "✓ Copied" : "Copy"}
         </button>
+      </div>
+    </div>
+  );
+}
+
+function VariantGroup({ label, options, value, onChange }) {
+  return (
+    <div style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
+      <span
+        style={{
+          fontFamily: "var(--font-mono)",
+          fontSize: 10,
+          color: "var(--fg-muted)",
+          letterSpacing: "0.16em",
+          textTransform: "uppercase",
+        }}
+      >
+        {label}
+      </span>
+      <div
+        style={{
+          display: "inline-flex",
+          border: "1px solid var(--rule)",
+          background: "var(--bg)",
+        }}
+      >
+        {options.map((opt) => (
+          <button
+            key={opt.id}
+            type="button"
+            onClick={() => onChange(opt.id)}
+            style={{
+              padding: "4px 9px",
+              fontFamily: "var(--font-mono)",
+              fontSize: 10,
+              letterSpacing: "0.06em",
+              textTransform: "uppercase",
+              background: value === opt.id ? "var(--fg)" : "transparent",
+              color: value === opt.id ? "var(--bg)" : "var(--fg-muted)",
+              border: "none",
+              cursor: "pointer",
+            }}
+          >
+            {opt.label}
+          </button>
+        ))}
       </div>
     </div>
   );
