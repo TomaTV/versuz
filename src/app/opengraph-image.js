@@ -83,17 +83,20 @@ export default async function Image() {
           style={{
             display: "flex",
             flexDirection: "column",
-            marginTop: 90,
+            marginTop: 80,
             flex: 1,
           }}
         >
           <div
             style={{
+              display: "flex",
               fontFamily: "Instrument Serif",
-              fontSize: 152,
-              lineHeight: 1.05,
+              fontSize: 140,
+              lineHeight: 1,
               letterSpacing: "-0.02em",
               color: "#14120e",
+              height: 150,
+              alignItems: "center",
             }}
           >
             Skills go in.
@@ -101,12 +104,14 @@ export default async function Image() {
           <div
             style={{
               display: "flex",
+              alignItems: "center",
               fontFamily: "Instrument Serif",
               fontStyle: "italic",
-              fontSize: 152,
-              lineHeight: 1.05,
+              fontSize: 140,
+              lineHeight: 1,
               letterSpacing: "-0.02em",
-              marginTop: 8,
+              height: 150,
+              marginTop: 24,
             }}
           >
             <span style={{ color: "#14120e" }}>Only&nbsp;</span>
@@ -120,7 +125,7 @@ export default async function Image() {
               lineHeight: 1.5,
               color: "#14120e",
               opacity: 0.75,
-              marginTop: 44,
+              marginTop: 48,
               marginBottom: 32,
               maxWidth: 980,
             }}

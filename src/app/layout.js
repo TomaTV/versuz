@@ -86,6 +86,9 @@ export const metadata = {
   },
   verification: {
     google: process.env.NEXT_PUBLIC_GOOGLE_SITE_VERIFICATION || undefined,
+    other: {
+      "msvalidate.01": "EDD2BAF9562347194866C68CDB7129D3",
+    },
   },
   category: "technology",
 };
