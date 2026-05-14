@@ -9,16 +9,16 @@ on:
       mode:
         description: "Quel scrape lancer ?"
         required: true
-        default: "codesearch"
+        default: "all"
         type: choice
         options:
-          - codesearch   # single-pass Sourcegraph + grep.app — modéré, bon pour daily
-          - all          # github + aggregators + codesearch séquentiel — plus lourd
+          - all          # github + aggregators + codesearch sériel — défaut daily
+          - codesearch   # Sourcegraph + grep.app uniquement — lighter
           - max          # exhaustive (40 sub-queries × 2 kinds) — manuel only
       max_new:
-        description: "Cap nouveaux items par run (défaut 1000)"
+        description: "Cap nouveaux items par run (défaut 2000)"
         required: false
-        default: "1000"
+        default: "2000"
 
 jobs:
   scrape:
@@ -39,15 +39,15 @@ jobs:
           SCRAPE_BATCH_SIZE: "10"          # flushe DB tous les 10 items
           SCRAPE_CONCURRENCY: "2"
           SCRAPE_USE_STORAGE: "1"          # write to Storage bucket directly
-          SCRAPE_MAX_NEW: ${{ inputs.max_new || '1000' }}
+          SCRAPE_MAX_NEW: ${{ inputs.max_new || '2000' }}
         run: |
-          MODE="${{ inputs.mode || 'codesearch' }}"
+          MODE="${{ inputs.mode || 'all' }}"
           echo "Running scrape mode=$MODE with SCRAPE_MAX_NEW=$SCRAPE_MAX_NEW"
           case "$MODE" in
             max)        npm run scrape:max ;;
-            all)        npm run scrape ;;             # unified scraper, all sources serial
+            all)        npm run scrape ;;             # unified scraper, all sources serial — default
             codesearch) npm run scrape:codesearch ;;
-            *)          npm run scrape:codesearch ;;
+            *)          npm run scrape ;;
           esac
 
       - name: Backfill byte counts
@@ -60,6 +60,6 @@ jobs:
       - name: Summary
         if: always()
         run: |
-          echo "Scrape mode : ${{ inputs.mode || 'codesearch' }}"
-          echo "Max new : ${{ inputs.max_new || '1000' }}"
+          echo "Scrape mode : ${{ inputs.mode || 'all' }}"
+          echo "Max new : ${{ inputs.max_new || '2000' }}"
           echo "Done at : $(date -u +%Y-%m-%dT%H:%M:%SZ)"

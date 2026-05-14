@@ -5,7 +5,7 @@ export const GH_WORKFLOWS = [
     id: "scrape-daily.yml",
     name: "Scrape daily",
     schedule: "0 2 * * *",
-    description: "Sourcegraph + grep.app → adds 30–300 new items/day. Caps at SCRAPE_MAX_NEW=1000.",
+    description: "All 4 sources sequential (github + aggregators + codesearch). Caps at SCRAPE_MAX_NEW=2000.",
     cost: "$0 (GitHub Actions)",
   },
   {

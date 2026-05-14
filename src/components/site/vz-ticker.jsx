@@ -12,13 +12,14 @@ export async function VzTicker() {
       }}
     >
       <div
+        className="vz-ticker"
         style={{
           maxWidth: 1440,
           margin: "0 auto",
-          padding: "12px 64px",
+          padding: "12px clamp(14px, 4.5vw, 64px)",
           display: "flex",
           alignItems: "center",
-          gap: 32,
+          gap: "clamp(12px, 3vw, 32px)",
           fontFamily: "var(--font-mono)",
           fontSize: 11,
           color: "var(--fg-muted)",
@@ -59,7 +60,10 @@ export async function VzTicker() {
                 ))}
               </span>
             </span>
-            <span style={{ whiteSpace: "nowrap" }}>JUDGING · LIVE</span>
+            <span className="vz-ticker-secondary" style={{ whiteSpace: "nowrap" }}>
+              <span className="vz-ticker-long">JUDGING · LIVE</span>
+              <span className="vz-ticker-short">LIVE</span>
+            </span>
           </>
         ) : cycle && cycle.status === "completed" ? (
           <>
@@ -92,8 +96,13 @@ export async function VzTicker() {
                 ))}
               </span>
             </span>
-            <span style={{ whiteSpace: "nowrap" }} suppressHydrationWarning>
-              FINISHED · {cycle.completedAt ? new Date(cycle.completedAt).toISOString().slice(11, 16) + " UTC" : "—"}
+            <span className="vz-ticker-secondary" style={{ whiteSpace: "nowrap" }} suppressHydrationWarning>
+              <span className="vz-ticker-long">
+                FINISHED · {cycle.completedAt ? new Date(cycle.completedAt).toISOString().slice(11, 16) + " UTC" : "—"}
+              </span>
+              <span className="vz-ticker-short">
+                ✓ {cycle.completedAt ? new Date(cycle.completedAt).toISOString().slice(11, 16) : "—"}
+              </span>
             </span>
           </>
         ) : (
@@ -110,7 +119,10 @@ export async function VzTicker() {
               BENCH ENGINE · IDLE
             </span>
             <span style={{ flex: 1 }} />
-            <span style={{ whiteSpace: "nowrap" }}>NEXT CYCLE · DAILY AT 06:00 UTC</span>
+            <span className="vz-ticker-secondary" style={{ whiteSpace: "nowrap" }}>
+              <span className="vz-ticker-long">NEXT CYCLE · DAILY AT 06:00 UTC</span>
+              <span className="vz-ticker-short">NEXT · 06:00 UTC</span>
+            </span>
           </>
         )}
       </div>

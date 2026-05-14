@@ -13,7 +13,6 @@ import {
   prevRun,
   formatRelative,
   formatRelativeLong,
-  formatUTC,
   formatParis,
   progressBetween,
 } from "@/lib/admin/cron-utils";
@@ -304,7 +303,7 @@ function NextRunCountdown({ nextRunAt, schedule }) {
         />
       </div>
       <div style={{ ...styles.mono, fontSize: 10, marginTop: 6 }}>
-        {formatUTC(nextRunAt)} · {formatParis(nextRunAt)}
+        {formatParis(nextRunAt)}
       </div>
     </div>
   );
@@ -419,104 +418,202 @@ function HeartbeatBanner({ heartbeat, now }) {
 // every scheduled occurrence today by time, splits into "upcoming" and
 // "past" buckets, highlights the next imminent run.
 
-function AgendaRow({ item, isNext, now }) {
-  const past = item.runAt < now;
-  const rel = formatRelativeLong(item.runAt, now);
-  const isGh = item.source === "gh";
-  const dotColor = past
-    ? "var(--rule-strong)"
-    : isGh
-      ? COLORS.ember
-      : COLORS.blue;
-  return (
-    <div
-      style={{
-        display: "grid",
-        gridTemplateColumns: "84px 12px minmax(0, 1fr) auto",
-        gap: 14,
-        alignItems: "center",
-        padding: isNext ? "14px 16px" : "10px 16px 10px 16px",
-        background: isNext ? "color-mix(in oklab, var(--accent) 6%, var(--surface))" : "transparent",
-        borderLeft: isNext ? `3px solid ${COLORS.ember}` : "3px solid transparent",
-        borderBottom: "1px solid var(--rule)",
-        opacity: past ? 0.5 : 1,
-      }}
-    >
+// ─── Horizontal 24h timeline ──────────────────────────────────────────
+// Two tracks (GH + Vercel) with a dot at each cron's hour position. The
+// previous version had every dot labeled which made them collide ; this
+// one drops the labels (info lives in the list below + tooltips) and
+// keeps only the hour ticks underneath. NOW marker is a vertical ember
+// bar across both tracks.
+
+function DayTimeline({ items }) {
+  const now = new Date();
+  // All axis positions are Paris-relative so the NOW line and the marker
+  // labels read off the same scale.
+  const parisNowParts = new Intl.DateTimeFormat("fr-FR", {
+    timeZone: "Europe/Paris",
+    hour: "2-digit",
+    minute: "2-digit",
+    hourCycle: "h23",
+  }).formatToParts(now);
+  const parisNowH = Number(parisNowParts.find((p) => p.type === "hour")?.value || 0);
+  const parisNowM = Number(parisNowParts.find((p) => p.type === "minute")?.value || 0);
+  const nowFloat = parisNowH + parisNowM / 60;
+  const ghItems = items.filter((i) => i.source === "gh");
+  const vercelItems = items.filter((i) => i.source === "vercel");
+  const HOURS = [0, 4, 8, 12, 16, 20, 24];
+
+  // Cluster overlapping markers (within 1.5h of each other) onto stacked
+  // rows so 04:00 / 05:00 / 06:00 / 07:00 / 08:00 / 09:00 don't render as
+  // one indistinguishable smudge. Each marker gets a labelRow 0/1/2 ; the
+  // chart height accommodates the deepest stack.
+  function stackMarkers(items) {
+    const sorted = [...items].sort((a, b) => a.hourFloat - b.hourFloat);
+    const ROWS = [];
+    return sorted.map((m) => {
+      // Try rows 0..N in order ; first row where last marker is >1.5h away wins.
+      for (let r = 0; r < ROWS.length; r++) {
+        if (m.hourFloat - ROWS[r] > 1.5) {
+          ROWS[r] = m.hourFloat;
+          return { ...m, row: r };
+        }
+      }
+      ROWS.push(m.hourFloat);
+      return { ...m, row: ROWS.length - 1 };
+    });
+  }
+
+  const renderTrack = (laneItems, color, label, nowFloatVal, nowDate, allItems) => {
+    const nextId = allItems
+      .filter((x) => x.runAt >= nowDate)
+      .sort((a, b) => a.runAt - b.runAt)[0]?.id;
+    const stacked = stackMarkers(laneItems);
+    const maxRow = stacked.reduce((acc, m) => Math.max(acc, m.row), 0);
+    // Track height : marker (~26) + 2-line label (~22) + breathing = base 58,
+    // plus 40px per extra stacking row.
+    const trackHeight = 58 + maxRow * 40;
+    return (
       <div
+        key={label}
         style={{
-          fontFamily: "var(--font-mono)",
-          fontSize: 13,
-          color: "var(--fg)",
-          fontVariantNumeric: "tabular-nums",
-          letterSpacing: "0.04em",
+          display: "grid",
+          gridTemplateColumns: "70px 1fr",
+          gap: 14,
+          alignItems: "flex-start",
+          marginBottom: 14,
         }}
       >
-        {String(item.hour).padStart(2, "0")}:{String(item.minute).padStart(2, "0")}
-      </div>
-      <span
-        aria-hidden
-        style={{
-          width: 10,
-          height: 10,
-          background: dotColor,
-          borderRadius: 2,
-          boxShadow: isNext
-            ? `0 0 0 3px color-mix(in oklab, ${dotColor} 30%, transparent)`
-            : "none",
-        }}
-      />
-      <div style={{ minWidth: 0 }}>
         <div
           style={{
-            fontFamily: "var(--font-display)",
-            fontSize: isNext ? 18 : 15,
+            display: "flex",
+            alignItems: "center",
+            gap: 6,
+            fontFamily: "var(--font-mono)",
+            fontSize: 10,
             color: "var(--fg)",
-            letterSpacing: "-0.01em",
-            overflow: "hidden",
-            textOverflow: "ellipsis",
-            whiteSpace: "nowrap",
+            letterSpacing: "0.12em",
+            textTransform: "uppercase",
+            paddingTop: 10,
           }}
         >
-          {item.name}
+          <span aria-hidden style={{ width: 8, height: 8, background: color }} />
+          {label}
         </div>
-        <div style={{ ...styles.mono, fontSize: 10, marginTop: 2 }}>
-          {isGh ? "GitHub Actions" : "Vercel cron"} · {item.schedule}
+        <div style={{ position: "relative", height: trackHeight }}>
+          {/* Lane bar */}
+          <div
+            style={{
+              position: "absolute",
+              left: 0,
+              right: 0,
+              top: 14,
+              height: 4,
+              background: "var(--rule)",
+            }}
+          />
+          {/* NOW vertical line */}
+          <div
+            aria-hidden
+            style={{
+              position: "absolute",
+              top: -4,
+              bottom: 0,
+              left: `${(nowFloatVal / 24) * 100}%`,
+              width: 2,
+              background: COLORS.ember,
+              opacity: 0.6,
+              pointerEvents: "none",
+              zIndex: 0,
+            }}
+          />
+          {/* Events with stacked rows + inline label (cron short name +
+             Paris time). All times shown are Europe/Paris ; Intl handles
+             DST automatically so the +1/+2 switch is transparent. */}
+          {stacked.map((it) => {
+            const past = it.runAt < nowDate;
+            const isNext = !past && it.id === nextId;
+            const yOffset = it.row * 40;
+            const parisLabel = new Intl.DateTimeFormat("fr-FR", {
+              timeZone: "Europe/Paris",
+              hour: "2-digit",
+              minute: "2-digit",
+              hourCycle: "h23",
+            }).format(it.runAt);
+            // Cron short name : first word of the workflow name lowercased.
+            // "Quality judge" → "quality", "Bench runner" → "bench", etc.
+            const shortName = it.name.split(/\s+/)[0].toLowerCase();
+            return (
+              <div
+                key={it.id}
+                title={`${it.name} · ${parisLabel}`}
+                style={{
+                  position: "absolute",
+                  left: `${(it.hourFloat / 24) * 100}%`,
+                  top: 2 + yOffset,
+                  transform: "translateX(-50%)",
+                  zIndex: 1,
+                  display: "flex",
+                  flexDirection: "column",
+                  alignItems: "center",
+                  gap: 3,
+                }}
+              >
+                <span
+                  style={{
+                    display: "block",
+                    width: isNext ? 14 : 11,
+                    height: isNext ? 26 : 22,
+                    background: past
+                      ? `color-mix(in oklab, ${color} 70%, var(--bg))`
+                      : color,
+                    border: past ? `1px solid color-mix(in oklab, ${color} 80%, var(--ink))` : "none",
+                    borderRadius: 2,
+                    boxShadow: isNext
+                      ? `0 0 0 4px color-mix(in oklab, ${color} 30%, transparent)`
+                      : "none",
+                  }}
+                />
+                <div
+                  style={{
+                    display: "flex",
+                    flexDirection: "column",
+                    alignItems: "center",
+                    background: "var(--bg)",
+                    padding: "0 4px",
+                    lineHeight: 1.2,
+                  }}
+                >
+                  <span
+                    style={{
+                      fontFamily: "var(--font-mono)",
+                      fontSize: 9,
+                      color: past ? "var(--fg-muted)" : "var(--fg)",
+                      letterSpacing: "0.08em",
+                      textTransform: "uppercase",
+                      fontWeight: isNext ? 600 : 500,
+                    }}
+                  >
+                    {shortName}
+                  </span>
+                  <span
+                    style={{
+                      fontFamily: "var(--font-mono)",
+                      fontSize: 9,
+                      color: past ? "var(--fg-muted)" : "var(--fg)",
+                      fontVariantNumeric: "tabular-nums",
+                      letterSpacing: "0.02em",
+                      opacity: past ? 0.7 : 1,
+                    }}
+                  >
+                    {parisLabel}
+                  </span>
+                </div>
+              </div>
+            );
+          })}
         </div>
       </div>
-      <div
-        style={{
-          textAlign: "right",
-          fontFamily: "var(--font-mono)",
-          fontSize: 12,
-          color: past ? "var(--fg-muted)" : "var(--fg)",
-          fontVariantNumeric: "tabular-nums",
-          minWidth: 90,
-        }}
-      >
-        {past ? (
-          <span>{rel.primary} ago</span>
-        ) : (
-          <>
-            <span style={{ color: isNext ? COLORS.ember : "var(--fg)" }}>
-              in {rel.primary}
-            </span>
-            {rel.secondary && (
-              <span style={{ color: "var(--fg-muted)", marginLeft: 4 }}>
-                {rel.secondary}
-              </span>
-            )}
-          </>
-        )}
-      </div>
-    </div>
-  );
-}
-
-function TodayAgenda({ items }) {
-  const now = new Date();
-  const upcoming = items.filter((i) => i.runAt >= now).sort((a, b) => a.runAt - b.runAt);
-  const past = items.filter((i) => i.runAt < now).sort((a, b) => b.runAt - a.runAt);
-  const nextId = upcoming[0]?.id;
+    );
+  };
 
   return (
     <div style={{ marginTop: 32 }}>
@@ -531,7 +628,7 @@ function TodayAgenda({ items }) {
         }}
       >
         <div style={styles.eyebrow}>
-          Today (UTC) · {now.toISOString().slice(0, 10)}
+          Today · {now.toLocaleDateString("fr-FR", { timeZone: "Europe/Paris", year: "numeric", month: "2-digit", day: "2-digit" })}
         </div>
         <div
           style={{
@@ -546,6 +643,7 @@ function TodayAgenda({ items }) {
         >
           <span
             aria-hidden
+            className="vz-pulse"
             style={{
               width: 6,
               height: 6,
@@ -554,87 +652,238 @@ function TodayAgenda({ items }) {
               boxShadow: `0 0 0 3px color-mix(in oklab, ${COLORS.ember} 22%, transparent)`,
             }}
           />
-          NOW · {now.toISOString().slice(11, 16)} UTC · {formatParis(now)}
+          NOW · {formatParis(now)}
         </div>
       </div>
 
       <div
         style={{
-          display: "grid",
-          gridTemplateColumns: "1fr 1fr",
-          gap: 1,
-          background: "var(--rule)",
-          border: "1px solid var(--rule)",
+          padding: "20px 20px 12px",
+          border: "1px solid var(--rule-strong)",
+          background: "var(--bg)",
         }}
-        className="vz-agenda-grid"
+        className="vz-day-timeline"
       >
-        {/* Upcoming column */}
-        <div style={{ background: "var(--bg)" }}>
-          <div
-            style={{
-              ...styles.eyebrow,
-              padding: "12px 16px",
-              borderBottom: "1px solid var(--rule-strong)",
-              display: "flex",
-              justifyContent: "space-between",
-              alignItems: "center",
-            }}
-          >
-            <span style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
-              <span aria-hidden style={{ width: 6, height: 6, background: COLORS.ember }} />
-              Upcoming today
-            </span>
-            <span style={{ color: "var(--fg)" }}>{upcoming.length}</span>
+        {/* Tracks. Each track is a 70px label + 1fr chart area. The NOW
+            vertical line lives inside each chart area so its position is
+            simply "left: nowFloat%". */}
+        {renderTrack(ghItems, COLORS.ember, "GitHub", nowFloat, now, items)}
+        {renderTrack(vercelItems, COLORS.blue, "Vercel", nowFloat, now, items)}
+        {/* Hour axis — same 70px label + 1fr layout so ticks align with
+            track markers. */}
+        <div
+          style={{
+            display: "grid",
+            gridTemplateColumns: "70px 1fr",
+            gap: 14,
+            marginTop: 4,
+          }}
+        >
+          <span />
+          <div style={{ position: "relative", height: 16 }}>
+            {HOURS.map((h) => (
+              <span
+                key={h}
+                style={{
+                  position: "absolute",
+                  left: `${(h / 24) * 100}%`,
+                  transform: "translateX(-50%)",
+                  fontFamily: "var(--font-mono)",
+                  fontSize: 10,
+                  color: "var(--fg-muted)",
+                  letterSpacing: "0.06em",
+                }}
+              >
+                {String(h).padStart(2, "0")}h
+              </span>
+            ))}
           </div>
-          {upcoming.length === 0 ? (
-            <div style={{ padding: "20px 16px", ...styles.mono, fontSize: 11 }}>
-              No more runs today.
-            </div>
-          ) : (
-            upcoming.map((it) => (
-              <AgendaRow
-                key={it.id}
-                item={it}
-                isNext={it.id === nextId}
-                now={now}
-              />
-            ))
-          )}
-        </div>
-
-        {/* Past column */}
-        <div style={{ background: "var(--bg)" }}>
-          <div
-            style={{
-              ...styles.eyebrow,
-              padding: "12px 16px",
-              borderBottom: "1px solid var(--rule-strong)",
-              display: "flex",
-              justifyContent: "space-between",
-              alignItems: "center",
-            }}
-          >
-            <span style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
-              <span aria-hidden style={{ width: 6, height: 6, background: "var(--rule-strong)" }} />
-              Already ran today
-            </span>
-            <span style={{ color: "var(--fg)" }}>{past.length}</span>
-          </div>
-          {past.length === 0 ? (
-            <div style={{ padding: "20px 16px", ...styles.mono, fontSize: 11 }}>
-              Nothing yet today.
-            </div>
-          ) : (
-            past.map((it) => (
-              <AgendaRow key={it.id} item={it} isNext={false} now={now} />
-            ))
-          )}
         </div>
       </div>
 
       <div
         style={{
-          marginTop: 12,
+          marginTop: 8,
+          display: "flex",
+          gap: 18,
+          ...styles.mono,
+          fontSize: 10,
+          letterSpacing: "0.08em",
+          flexWrap: "wrap",
+        }}
+      >
+        <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+          <span
+            aria-hidden
+            style={{
+              width: 8,
+              height: 8,
+              background: `color-mix(in oklab, ${COLORS.ember} 45%, var(--bg))`,
+              border: `1px solid color-mix(in oklab, ${COLORS.ember} 55%, var(--rule))`,
+            }}
+          />
+          PAST
+        </span>
+        <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+          <span aria-hidden style={{ width: 8, height: 8, background: COLORS.ember }} />
+          UPCOMING (GH)
+        </span>
+        <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+          <span aria-hidden style={{ width: 8, height: 8, background: COLORS.blue }} />
+          UPCOMING (VERCEL)
+        </span>
+        <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+          <span aria-hidden style={{ width: 2, height: 12, background: COLORS.ember, opacity: 0.7 }} />
+          NOW
+        </span>
+      </div>
+    </div>
+  );
+}
+
+// ─── Simple "next runs" list ──────────────────────────────────────────
+// Just the next N upcoming items, plain list. No NOW divider, no past
+// rollup — the past is irrelevant once it ran, and the user only wants
+// "what's coming next, when".
+
+function NextRunsList({ items, limit = 6 }) {
+  const now = new Date();
+  const upcoming = items
+    .filter((i) => i.runAt >= now)
+    .sort((a, b) => a.runAt - b.runAt)
+    .slice(0, limit);
+  const nextId = upcoming[0]?.id;
+
+  return (
+    <div style={{ marginTop: 32 }}>
+      <div
+        style={{
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "baseline",
+          marginBottom: 12,
+          flexWrap: "wrap",
+          gap: 8,
+        }}
+      >
+        <div style={styles.eyebrow}>
+          Next runs · all times Paris
+        </div>
+        <div
+          style={{
+            fontFamily: "var(--font-mono)",
+            fontSize: 11,
+            color: "var(--fg-muted)",
+            letterSpacing: "0.06em",
+          }}
+        >
+          NOW · {formatParis(now)}
+        </div>
+      </div>
+
+      <div
+        style={{
+          border: "1px solid var(--rule-strong)",
+          background: "var(--bg)",
+        }}
+      >
+        {upcoming.length === 0 ? (
+          <div style={{ padding: "24px 20px", ...styles.mono, color: "var(--fg-muted)", fontSize: 12 }}>
+            No upcoming runs in the next 24h.
+          </div>
+        ) : (
+          upcoming.map((it, idx) => {
+            const isNext = it.id === nextId;
+            const isGh = it.source === "gh";
+            const dotColor = isGh ? COLORS.ember : COLORS.blue;
+            const rel = formatRelativeLong(it.runAt, now);
+            return (
+              <div
+                key={it.id}
+                style={{
+                  display: "grid",
+                  gridTemplateColumns: "auto 1fr auto auto",
+                  gap: 18,
+                  alignItems: "center",
+                  padding: isNext ? "16px 20px" : "12px 20px",
+                  background: isNext
+                    ? "color-mix(in oklab, var(--accent) 6%, transparent)"
+                    : "transparent",
+                  borderLeft: isNext ? `3px solid ${COLORS.ember}` : "3px solid transparent",
+                  borderBottom: idx < upcoming.length - 1 ? "1px solid var(--rule)" : "none",
+                }}
+                className="vz-nextrun-row"
+              >
+                <span
+                  aria-hidden
+                  style={{
+                    width: 10,
+                    height: 10,
+                    background: dotColor,
+                    borderRadius: 2,
+                    flexShrink: 0,
+                    boxShadow: isNext
+                      ? `0 0 0 4px color-mix(in oklab, ${dotColor} 28%, transparent)`
+                      : "none",
+                  }}
+                />
+                <div style={{ minWidth: 0 }}>
+                  <div
+                    style={{
+                      fontFamily: "var(--font-display)",
+                      fontSize: isNext ? 22 : 16,
+                      color: "var(--fg)",
+                      letterSpacing: "-0.01em",
+                      lineHeight: 1.2,
+                      overflow: "hidden",
+                      textOverflow: "ellipsis",
+                      whiteSpace: "nowrap",
+                    }}
+                  >
+                    {it.name}
+                  </div>
+                  <div style={{ ...styles.mono, fontSize: 10, marginTop: 3 }}>
+                    {isGh ? "GitHub Actions" : "Vercel cron"} · <code>{it.schedule}</code>
+                  </div>
+                </div>
+                <span
+                  style={{
+                    fontFamily: "var(--font-mono)",
+                    fontSize: 13,
+                    color: "var(--fg-muted)",
+                    fontVariantNumeric: "tabular-nums",
+                    letterSpacing: "0.04em",
+                  }}
+                >
+                  {String(it.parisHour ?? it.hour).padStart(2, "0")}:{String(it.parisMinute ?? it.minute).padStart(2, "0")}
+                </span>
+                <span
+                  style={{
+                    fontFamily: "var(--font-mono)",
+                    fontSize: isNext ? 15 : 12,
+                    color: isNext ? COLORS.ember : "var(--fg)",
+                    fontWeight: isNext ? 600 : 400,
+                    fontVariantNumeric: "tabular-nums",
+                    textAlign: "right",
+                    minWidth: 90,
+                  }}
+                >
+                  in {rel.primary}
+                  {rel.secondary && (
+                    <span style={{ color: "var(--fg-muted)", marginLeft: 4, fontWeight: 400 }}>
+                      {rel.secondary}
+                    </span>
+                  )}
+                </span>
+              </div>
+            );
+          })
+        )}
+      </div>
+
+      <div
+        style={{
+          marginTop: 10,
           display: "flex",
           gap: 18,
           ...styles.mono,
@@ -667,6 +916,108 @@ function TodayAgenda({ items }) {
     </div>
   );
 }
+
+function AgendaRow({ item, isNext, now }) {
+  const past = item.runAt < now;
+  const rel = formatRelativeLong(item.runAt, now);
+  const isGh = item.source === "gh";
+  const dotColor = past
+    ? "var(--rule-strong)"
+    : isGh
+      ? COLORS.ember
+      : COLORS.blue;
+  return (
+    <div
+      className="vz-agenda-row"
+      style={{
+        display: "grid",
+        gridTemplateColumns: "64px 1fr auto",
+        gap: 16,
+        alignItems: "center",
+        padding: isNext ? "16px 20px" : "10px 20px",
+        background: isNext ? "color-mix(in oklab, var(--accent) 6%, var(--surface))" : "transparent",
+        borderLeft: isNext ? `3px solid ${COLORS.ember}` : "3px solid transparent",
+        opacity: past ? 0.55 : 1,
+        position: "relative",
+      }}
+    >
+      {/* Time + dot */}
+      <div
+        style={{
+          display: "flex",
+          alignItems: "center",
+          gap: 10,
+          fontFamily: "var(--font-mono)",
+          fontSize: 12,
+          color: "var(--fg)",
+          fontVariantNumeric: "tabular-nums",
+          letterSpacing: "0.04em",
+        }}
+      >
+        <span
+          aria-hidden
+          style={{
+            width: 8,
+            height: 8,
+            background: dotColor,
+            borderRadius: 2,
+            flexShrink: 0,
+            boxShadow: isNext
+              ? `0 0 0 3px color-mix(in oklab, ${dotColor} 30%, transparent)`
+              : "none",
+          }}
+        />
+        <span>{String(item.hour).padStart(2, "0")}:{String(item.minute).padStart(2, "0")}</span>
+      </div>
+      {/* Name + source */}
+      <div style={{ minWidth: 0 }}>
+        <div
+          style={{
+            fontFamily: "var(--font-display)",
+            fontSize: isNext ? 20 : 15,
+            color: "var(--fg)",
+            letterSpacing: "-0.01em",
+            overflow: "hidden",
+            textOverflow: "ellipsis",
+            whiteSpace: "nowrap",
+          }}
+        >
+          {item.name}
+        </div>
+        <div style={{ ...styles.mono, fontSize: 10, marginTop: 2 }}>
+          {isGh ? "GitHub Actions" : "Vercel cron"} · <code>{item.schedule}</code>
+        </div>
+      </div>
+      {/* Countdown */}
+      <div
+        style={{
+          textAlign: "right",
+          fontFamily: "var(--font-mono)",
+          fontSize: isNext ? 14 : 12,
+          color: past ? "var(--fg-muted)" : "var(--fg)",
+          fontVariantNumeric: "tabular-nums",
+          minWidth: 90,
+        }}
+      >
+        {past ? (
+          <span>{rel.primary} ago</span>
+        ) : (
+          <>
+            <span style={{ color: isNext ? COLORS.ember : "var(--fg)", fontWeight: isNext ? 600 : 400 }}>
+              in {rel.primary}
+            </span>
+            {rel.secondary && (
+              <span style={{ color: "var(--fg-muted)", marginLeft: 4 }}>
+                {rel.secondary}
+              </span>
+            )}
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
+
 
 // Extract "today's hour float" from a cron — only handles fixed-hour schedules,
 // which is what we use. Returns null if cron runs multiple times per day (will
@@ -1164,6 +1515,27 @@ export default async function AutomationPage() {
   todayStart.setUTCHours(0, 0, 0, 0);
   const todayEnd = new Date(todayStart.getTime() + 24 * 3600 * 1000);
 
+  // Intl-based Paris HH:MM parser → returns { hour, minute, float } for
+  // a given UTC date. Used so the timeline x-axis can be Paris-relative
+  // instead of UTC (matches what the user reads on each marker).
+  const parisHourCache = new Map();
+  function parisFloatFor(date) {
+    const key = date.getTime();
+    if (parisHourCache.has(key)) return parisHourCache.get(key);
+    const parts = new Intl.DateTimeFormat("fr-FR", {
+      timeZone: "Europe/Paris",
+      hour: "2-digit",
+      minute: "2-digit",
+      hourCycle: "h23",
+    }).formatToParts(date);
+    const hour = Number(parts.find((p) => p.type === "hour")?.value || 0);
+    const minute = Number(parts.find((p) => p.type === "minute")?.value || 0);
+    const float = hour + minute / 60;
+    const result = { hour, minute, float };
+    parisHourCache.set(key, result);
+    return result;
+  }
+
   function buildAgenda(items, source) {
     const out = [];
     items.forEach((item) => {
@@ -1172,6 +1544,7 @@ export default async function AutomationPage() {
         const runAt = new Date(todayStart);
         runAt.setUTCHours(h.hour, h.minute, 0, 0);
         if (runAt < todayStart || runAt >= todayEnd) return;
+        const paris = parisFloatFor(runAt);
         out.push({
           id: `${source}-${item.id || item.path}-${h.hour}-${h.minute}`,
           name: item.name,
@@ -1180,6 +1553,13 @@ export default async function AutomationPage() {
           runAt,
           hour: h.hour,
           minute: h.minute,
+          // hourFloat = Paris hours (drives marker position + axis ticks).
+          // The user only reads Paris time so positioning by UTC would
+          // create a visual offset (a 02:00 Paris marker would sit at the
+          // 00h tick).
+          hourFloat: paris.float,
+          parisHour: paris.hour,
+          parisMinute: paris.minute,
         });
       });
     });
@@ -1222,12 +1602,12 @@ export default async function AutomationPage() {
         Automation
       </h1>
       <div style={{ ...styles.eyebrow, marginTop: 8 }}>
-        Schedules · next run · budget. All times UTC.
+        Schedules · next run · budget. All times Paris.
       </div>
 
       <HeartbeatBanner heartbeat={heartbeat} now={now} />
 
-      <div style={{ marginTop: 24, display: "flex", flexDirection: "column", gap: 1, background: "var(--rule)", border: "1px solid var(--rule)" }}>
+      <div style={{ marginTop: 24 }}>
         <KpiStrip
           kpis={[
             {
@@ -1238,7 +1618,7 @@ export default async function AutomationPage() {
             {
               label: "Next run",
               value: formatRelative(nextRunOverall),
-              hint: `${formatUTC(nextRunOverall)} · ${formatParis(nextRunOverall)}`,
+              hint: formatParis(nextRunOverall),
             },
             {
               label: "30-day spend",
@@ -1254,47 +1634,11 @@ export default async function AutomationPage() {
             },
           ]}
         />
-        <KpiStrip
-          kpis={[
-            {
-              label: "Scraped today",
-              dotColor: COLORS.ember,
-              value: (stats.scrape.skillsToday + stats.scrape.cmdToday).toLocaleString(),
-              unit: "items",
-              hint: `${stats.scrape.skillsToday.toLocaleString()} skills · ${stats.scrape.cmdToday.toLocaleString()} CLAUDE.md`,
-              trend: (stats.scrape.skills7d + stats.scrape.cmd7d) > 0
-                ? { dir: "up", label: `7d ${(stats.scrape.skills7d + stats.scrape.cmd7d).toLocaleString()}` }
-                : null,
-            },
-            {
-              label: "Judged today",
-              dotColor: COLORS.ok,
-              value: (stats.quality.skillsToday + stats.quality.cmdToday).toLocaleString(),
-              unit: "items",
-              hint: `${stats.quality.skillsToday.toLocaleString()} skills · ${stats.quality.cmdToday.toLocaleString()} CLAUDE.md`,
-              trend: (stats.quality.skills7d + stats.quality.cmd7d) > 0
-                ? { dir: "up", label: `7d ${(stats.quality.skills7d + stats.quality.cmd7d).toLocaleString()}` }
-                : null,
-            },
-            {
-              label: "Bench scores",
-              dotColor: COLORS.ember,
-              value: stats.bench.scoresToday.toLocaleString(),
-              unit: "today",
-              hint: `${stats.bench.scores7d.toLocaleString()} this week`,
-            },
-            {
-              label: "Bench cycles",
-              dotColor: COLORS.ember,
-              value: stats.bench.cycles7d.toLocaleString(),
-              unit: "/ 7d",
-              hint: `${stats.bench.cycles30d.toLocaleString()} this month`,
-            },
-          ]}
-        />
       </div>
 
-      <TodayAgenda items={agendaItems} />
+      <DayTimeline items={agendaItems} />
+
+      <NextRunsList items={agendaItems} />
 
       <section style={styles.section}>
         <h2 style={styles.h2}>GitHub Actions</h2>
@@ -1353,6 +1697,144 @@ export default async function AutomationPage() {
           <BudgetCard now={now} />
         </div>
       </section>
+
+      <section style={styles.section}>
+        <h2 style={styles.h2}>Today&apos;s activity</h2>
+        <div style={styles.eyebrow}>
+          Pipeline output since 00:00 Paris · resets at midnight
+        </div>
+        <div style={{ marginTop: 16 }}>
+          <ActivityStats stats={stats} />
+        </div>
+      </section>
+    </div>
+  );
+}
+
+// ─── Today's activity stats — final row, prominent numbers ────────────
+function ActivityStats({ stats }) {
+  const cards = [
+    {
+      label: "Scraped today",
+      total: stats.scrape.skillsToday + stats.scrape.cmdToday,
+      breakdown: [
+        { label: "skills", value: stats.scrape.skillsToday, color: COLORS.ember },
+        { label: "CLAUDE.md", value: stats.scrape.cmdToday, color: COLORS.ember },
+      ],
+      hint7d: stats.scrape.skills7d + stats.scrape.cmd7d,
+      dot: COLORS.ember,
+    },
+    {
+      label: "Quality judged today",
+      total: stats.quality.skillsToday + stats.quality.cmdToday,
+      breakdown: [
+        { label: "skills", value: stats.quality.skillsToday, color: COLORS.ok },
+        { label: "CLAUDE.md", value: stats.quality.cmdToday, color: COLORS.ok },
+      ],
+      hint7d: stats.quality.skills7d + stats.quality.cmd7d,
+      dot: COLORS.ok,
+    },
+    {
+      label: "Bench scores today",
+      total: stats.bench.scoresToday,
+      breakdown: [
+        { label: "this week", value: stats.bench.scores7d, color: "var(--fg-muted)" },
+      ],
+      hint7d: null,
+      dot: COLORS.ember,
+    },
+    {
+      label: "Bench cycles · 7d",
+      total: stats.bench.cycles7d,
+      breakdown: [
+        { label: "this month", value: stats.bench.cycles30d, color: "var(--fg-muted)" },
+      ],
+      hint7d: null,
+      dot: COLORS.ember,
+    },
+  ];
+  return (
+    <div
+      style={{
+        display: "grid",
+        gridTemplateColumns: "repeat(4, 1fr)",
+        gap: 1,
+        background: "var(--rule)",
+        border: "1px solid var(--rule)",
+      }}
+      className="vz-activity-grid"
+    >
+      {cards.map((c) => (
+        <div
+          key={c.label}
+          style={{
+            padding: "28px 24px",
+            background: "var(--surface)",
+            display: "flex",
+            flexDirection: "column",
+            gap: 14,
+          }}
+        >
+          <div
+            style={{
+              ...styles.eyebrow,
+              display: "inline-flex",
+              alignItems: "center",
+              gap: 8,
+            }}
+          >
+            <span aria-hidden style={{ width: 6, height: 6, background: c.dot }} />
+            {c.label}
+          </div>
+          <div
+            style={{
+              fontFamily: "var(--font-display)",
+              fontSize: "clamp(40px, 5vw, 64px)",
+              fontWeight: 400,
+              letterSpacing: "-0.03em",
+              color: "var(--fg)",
+              lineHeight: 0.9,
+              fontVariantNumeric: "tabular-nums",
+            }}
+          >
+            {c.total.toLocaleString()}
+          </div>
+          <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+            {c.breakdown.map((b) => (
+              <div
+                key={b.label}
+                style={{
+                  display: "flex",
+                  justifyContent: "space-between",
+                  fontFamily: "var(--font-mono)",
+                  fontSize: 11,
+                  color: "var(--fg-muted)",
+                  letterSpacing: "0.04em",
+                }}
+              >
+                <span>{b.label}</span>
+                <span style={{ color: b.color, fontVariantNumeric: "tabular-nums" }}>
+                  {b.value.toLocaleString()}
+                </span>
+              </div>
+            ))}
+          </div>
+          {c.hint7d != null && c.hint7d > 0 && (
+            <div
+              style={{
+                ...styles.mono,
+                fontSize: 10,
+                color: "var(--fg-muted)",
+                letterSpacing: "0.06em",
+                paddingTop: 6,
+                borderTop: "1px dashed var(--rule)",
+              }}
+            >
+              7d total · {c.hint7d.toLocaleString()}
+            </div>
+          )}
+        </div>
+      ))}
     </div>
   );
 }

@@ -1021,34 +1021,36 @@ a.vz-nav-link-minimal[aria-current="page"]::after,
   white-space: nowrap;
 }
 
-/* Mobile : stack as card. Axes hidden (visible on detail page).
-   The leaderboard row is 3 cols : rank · meta (name+badges+author) · score.
-   The earlier version cramming everything on one line let the BENCH chip
-   visually overlap the score number. We now :
-   - cap the meta width with minmax(0, 1fr) so flex children can shrink
-   - force the badge row to wrap properly via min-width: 0 on the name
-   - shrink the score & give it its own column with min-width so the
-     numbers never get pushed under a chip. */
+/* Mobile : drop the 8-track grid (rank + meta + 5 axes + score) and use
+   flexbox. With grid + `display: none` axes the row layout was unstable —
+   the score column sometimes auto-expanded and pushed meta content into
+   weird positions. Flexbox with explicit shrink/grow is predictable :
+     rank | meta (grow) | score (no shrink)
+   and the hidden axes are just `display: none` siblings that drop out. */
 @media (max-width: 768px) {
   .vz-skill-row-inner {
-    grid-template-columns: 28px minmax(0, 1fr) auto !important;
-    padding: 14px 14px !important;
+    display: flex !important;
+    grid-template-columns: none !important;
+    align-items: flex-start !important;
     gap: 10px !important;
-    align-items: start !important;
+    padding: 14px 14px !important;
   }
   .vz-skill-row-header .vz-skill-row-inner > button:not(:nth-of-type(1)):not(:last-of-type) {
     display: none;
   }
   .vz-skill-rank {
-    grid-area: rank;
+    flex: 0 0 28px;
     font-size: 13px;
-    align-self: start;
-    padding-top: 4px;
+    color: var(--fg-muted);
+    padding-top: 6px;
   }
   .vz-skill-meta {
-    grid-area: meta;
+    flex: 1 1 auto;
     min-width: 0;
     overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
   }
   .vz-skill-meta > div:first-child {
     flex-wrap: wrap;
@@ -1061,44 +1063,24 @@ a.vz-nav-link-minimal[aria-current="page"]::after,
     word-break: break-word;
     min-width: 0;
     flex: 1 1 100%;
+    overflow: visible !important;
+    text-overflow: clip !important;
   }
-  /* Badges that follow the name (TierBadge, BENCH, VERIFIED, ★) :
-     pin them onto their own line under the title so they don't fight
-     the score column for horizontal room. */
   .vz-skill-meta > div:first-child > :nth-child(n+2) {
     flex-shrink: 0;
   }
   .vz-skill-score {
-    grid-area: score;
+    flex: 0 0 auto;
     font-size: 22px !important;
-    align-self: start;
     padding-top: 2px;
-    min-width: 64px;
+    min-width: 60px;
+    text-align: right;
     white-space: nowrap;
   }
-  /* Axes : show inline with labels, only the top 3 visible to save space */
+  /* Axes : completely out of layout on mobile (the score is the headline,
+     per-axis breakdown lives on the detail page). */
   .vz-skill-axis {
-    grid-area: unset;
-    display: inline-flex;
-    align-items: baseline;
-    gap: 4px;
-    font-size: 11px;
-    padding: 4px 8px;
-    background: var(--surface);
-    border-radius: 2px;
-    text-align: left !important;
-  }
-  .vz-skill-axis::before {
-    content: attr(data-label);
-    font-size: 9px;
-    letter-spacing: 0.12em;
-    text-transform: uppercase;
-    color: var(--fg-muted);
-    margin-right: 2px;
-  }
-  /* Hide axes on smallest screens — score is the main info, axes are detail */
-  .vz-skill-row-inner > .vz-skill-axis {
-    display: none;
+    display: none !important;
   }
 }
 
@@ -1126,6 +1108,30 @@ a.vz-nav-link-minimal[aria-current="page"]::after,
   }
 }
 
+/* Default ticker text & ticker-long visible ; ticker-short kicks in on
+   mobile (toggled below). */
+.vz-ticker-short {
+  display: none;
+}
+@media (max-width: 720px) {
+  .vz-ticker-long {
+    display: none;
+  }
+  .vz-ticker-short {
+    display: inline;
+  }
+  /* Hide the scrolling marquee in the middle — it eats the only horizontal
+     room we have on phones. The two side labels (BENCH ENGINE · NEXT) are
+     the actionable info. */
+  .vz-ticker .vz-marquee {
+    display: none !important;
+  }
+  .vz-ticker {
+    font-size: 10px !important;
+    gap: 12px !important;
+  }
+}
+
 /* Install command boxes on skill/CLAUDE.md detail pages.
    Default font 14px on a long `npx versuz@latest install …-acp-router`
    overflows on phones — the box scrolls horizontally but invisibly cuts
@@ -1133,19 +1139,31 @@ a.vz-nav-link-minimal[aria-current="page"]::after,
    common command fits one line. */
 @media (max-width: 640px) {
   .vz-cmd-block {
-    padding: 14px 48px 14px 14px !important;
-    font-size: 12px !important;
-    gap: 8px !important;
+    padding: 12px 44px 12px 12px !important;
+    font-size: 11px !important;
+    gap: 6px !important;
   }
   .vz-cmd-block-primary {
-    font-size: 12px !important;
+    font-size: 11px !important;
   }
 }
 @media (max-width: 420px) {
   .vz-cmd-block,
   .vz-cmd-block-primary {
+    font-size: 10px !important;
+    padding: 10px 40px 10px 10px !important;
+  }
+}
+
+/* Field card ("Type / License / Last update / Repo") on detail pages.
+   Default padding 24 + font 12 makes the card disproportionately tall
+   on phones where the column is now stacked under the install commands.
+   Tighten it so the metadata stays glanceable. */
+@media (max-width: 640px) {
+  .vz-field-card {
+    padding: 16px !important;
+    gap: 10px !important;
     font-size: 11px !important;
-    padding: 12px 44px 12px 12px !important;
   }
 }
 
@@ -1155,12 +1173,27 @@ a.vz-nav-link-minimal[aria-current="page"]::after,
   .vz-agenda-grid {
     grid-template-columns: 1fr !important;
   }
+  .vz-activity-grid {
+    grid-template-columns: repeat(2, 1fr) !important;
+  }
 }
 @media (max-width: 640px) {
   .vz-heartbeat-banner {
     grid-template-columns: auto 1fr !important;
   }
   .vz-heartbeat-banner > :last-child {
+    display: none !important;
+  }
+  .vz-activity-grid {
+    grid-template-columns: 1fr !important;
+  }
+  .vz-nextrun-row {
+    grid-template-columns: auto 1fr auto !important;
+    gap: 12px !important;
+  }
+  /* Hide the absolute HH:MM column on mobile — the "in 2h 5m" countdown
+     conveys the same info more usefully. */
+  .vz-nextrun-row > :nth-child(3) {
     display: none !important;
   }
 }

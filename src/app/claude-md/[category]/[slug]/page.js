@@ -403,6 +403,7 @@ export default async function ClaudeMdDetailPage({ params }) {
           </div>
 
           <div
+            className="vz-field-card"
             style={{
               border: "1px solid var(--rule)",
               padding: 24,
