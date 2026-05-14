@@ -1,11 +1,6 @@
 import Link from "next/link";
-import { CmdKHint } from "@/components/site/cmd-k-hint";
-import { UserMenu } from "@/components/site/user-menu";
-import { MobileNavMenu } from "@/components/site/mobile-nav-menu";
 import { VersuzMark } from "@/components/brand/versuz-mark";
-import { getCurrentUser } from "@/lib/auth/server";
-import { isAdmin, ghLogin } from "@/lib/auth/admin";
-import { signOut } from "@/lib/auth/actions";
+import { NavAuthCluster } from "@/components/site/nav-auth-cluster";
 
 const NAV_LINKS = [
   { id: "marketplace", label: "Marketplace", href: "/marketplace" },
@@ -13,27 +8,7 @@ const NAV_LINKS = [
   { id: "how", label: "How it works", href: "/methodology" },
 ];
 
-export async function VzNav() {
-  const user = await getCurrentUser();
-  const login = ghLogin(user);
-  const admin = isAdmin(user);
-
-  // Build the user-actions block fed into the mobile drawer. Keeps the
-  // entire account UX inside the hamburger on small viewports — no
-  // dangling user chip in the top bar.
-  const userActions = user
-    ? [
-        { id: "profile", label: `@${login || user.email}`, href: "/profile" },
-        { id: "settings", label: "Settings", href: "/profile/settings" },
-        { id: "earnings", label: "Earnings", href: "/profile/earnings" },
-        ...(admin ? [{ id: "admin", label: "Admin", href: "/admin" }] : []),
-        { id: "submit", label: "Submit", href: "/submit" },
-      ]
-    : [
-        { id: "login", label: "Sign in", href: "/login" },
-        { id: "submit", label: "Submit", href: "/submit" },
-      ];
-
+export function VzNav() {
   return (
     <header
       style={{
@@ -59,10 +34,6 @@ export async function VzNav() {
           gap: "clamp(12px, 3vw, 32px)",
         }}
       >
-        {/* Logo : mark officiel seul. Le mark 2-flammes est distinctif —
-            il porte l'identité sans avoir besoin du wordmark. Pattern
-            standard : Vercel / Linear / GitHub utilisent leur mark seul
-            dans la nav. Wordmark visible dans le footer + page titles. */}
         <Link
           href="/"
           aria-label="Versuz — homepage"
@@ -78,7 +49,6 @@ export async function VzNav() {
           <VersuzMark size={64} />
         </Link>
 
-        {/* Nav links : minimal underline-on-hover, hit area élargie */}
         <nav
           className="vz-nav-links"
           style={{
@@ -108,67 +78,9 @@ export async function VzNav() {
           ))}
         </nav>
 
-        {/* Right cluster : CmdK + user + ember-bordered submit */}
-        <div style={{ display: "inline-flex", alignItems: "center", gap: 10, justifySelf: "end" }}>
-          <MobileNavMenu links={NAV_LINKS} userActions={userActions} signOutAction={user ? signOut : null} />
-          <CmdKHint />
-          <span className="vz-nav-user-cluster" style={{ display: "inline-flex", alignItems: "center", gap: 10 }}>
-            {user ? (
-              <UserMenu
-                label={login ? `@${login}` : (user.email || "Profile")}
-                isAdmin={admin}
-                signOutAction={signOut}
-              />
-            ) : (
-              <Link
-                href="/login"
-                className="vz-nav-signin-ink"
-                style={{
-                  padding: "9px 18px",
-                  fontSize: 13,
-                  fontFamily: "var(--font-sans)",
-                  fontWeight: 600,
-                  textDecoration: "none",
-                  background: "var(--ink)",
-                  color: "var(--bone)",
-                  display: "inline-flex",
-                  alignItems: "center",
-                  gap: 8,
-                  letterSpacing: "-0.005em",
-                  transition: "transform 0.18s ease, box-shadow 0.18s ease",
-                  boxShadow: "0 0 0 1px var(--ink), inset 0 -2px 0 color-mix(in oklab, black 30%, transparent)",
-                }}
-              >
-                Sign in
-              </Link>
-            )}
-            <Link
-              href="/submit"
-              className="vz-nav-submit-ember"
-              style={{
-                padding: "9px 18px",
-                fontSize: 13,
-                fontFamily: "var(--font-sans)",
-                fontWeight: 600,
-                textDecoration: "none",
-                background: "var(--accent)",
-                color: "var(--bone)",
-                display: "inline-flex",
-                alignItems: "center",
-                gap: 8,
-                letterSpacing: "-0.005em",
-                transition: "transform 0.18s ease, box-shadow 0.18s ease",
-                boxShadow: "0 0 0 1px var(--accent), inset 0 -2px 0 color-mix(in oklab, black 18%, transparent)",
-              }}
-            >
-              <span className="vz-nav-submit-label">Submit a skill</span>
-              <span style={{ fontFamily: "var(--font-mono)", fontSize: 12, lineHeight: 1 }}>→</span>
-            </Link>
-          </span>
-        </div>
+        <NavAuthCluster links={NAV_LINKS} />
       </div>
 
-      {/* Subtle 4-color stripe — only 1px now, more elegant */}
       <div
         aria-hidden
         style={{
