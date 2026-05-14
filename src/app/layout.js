@@ -53,6 +53,10 @@ export const metadata = {
     url: "https://versuz.dev",
     siteName: "Versuz",
     type: "website",
+    locale: "en_US",
+    // Static fallback first (always works) — dynamic opengraph-image.js still
+    // overrides on the homepage. If dynamic ever fails, Facebook/LinkedIn fall
+    // back to this static one. Keep file in /public.
     images: [
       {
         url: "/og-images.png",
@@ -67,9 +71,12 @@ export const metadata = {
     title: "Versuz — AI agent skills leaderboard",
     description:
       "Skills go in. Only one wins. Three frontier judges, thirty held-out tasks, Bayesian Elo. Updated every 24h.",
+    site: "@versuzdev",
+    creator: "@versuzdev",
     images: ["/og-images.png"],
   },
   alternates: {
+    canonical: "/",
     types: {
       "application/rss+xml": [
         { url: "/feed/skills", title: "Versuz · skills" },
@@ -77,6 +84,47 @@ export const metadata = {
       ],
     },
   },
+  verification: {
+    google: process.env.NEXT_PUBLIC_GOOGLE_SITE_VERIFICATION || undefined,
+  },
+  category: "technology",
+};
+
+const JSON_LD = {
+  "@context": "https://schema.org",
+  "@graph": [
+    {
+      "@type": "Organization",
+      "@id": "https://versuz.dev/#org",
+      name: "Versuz",
+      url: "https://versuz.dev",
+      logo: "https://versuz.dev/logo-black.svg",
+      description:
+        "The open public benchmark for AI agent skills. Versuz scrapes, judges, and ranks SKILL.md and CLAUDE.md files used by Claude Code, Cursor, Codex, and modern AI coding agents.",
+      sameAs: [
+        "https://github.com/versuzdev",
+        "https://x.com/versuzdev",
+        "https://www.linkedin.com/company/versuz",
+      ],
+    },
+    {
+      "@type": "WebSite",
+      "@id": "https://versuz.dev/#website",
+      url: "https://versuz.dev",
+      name: "Versuz",
+      description: "Open public benchmark for AI agent skills.",
+      publisher: { "@id": "https://versuz.dev/#org" },
+      inLanguage: "en-US",
+      potentialAction: {
+        "@type": "SearchAction",
+        target: {
+          "@type": "EntryPoint",
+          urlTemplate: "https://versuz.dev/marketplace?q={search_term_string}",
+        },
+        "query-input": "required name=search_term_string",
+      },
+    },
+  ],
 };
 
 export default function RootLayout({ children }) {
@@ -86,6 +134,12 @@ export default function RootLayout({ children }) {
       className={`${geist.variable} ${instrumentSerif.variable} ${jetbrains.variable}`}
       suppressHydrationWarning
     >
+      <head>
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(JSON_LD) }}
+        />
+      </head>
       <body className="min-h-screen flex flex-col" suppressHydrationWarning>
         <VzNav />
         <VzTicker />
