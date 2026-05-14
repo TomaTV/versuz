@@ -23,7 +23,7 @@ import {
 } from "@/lib/fixtures/seed";
 import { cache } from "react";
 import { CLAUDE_MD_FILES, PROJECT_CATEGORIES } from "@/lib/fixtures/claude-md";
-import { createSupabasePublicClient } from "@/lib/supabase/server";
+import { createSupabasePublicClient } from "@/lib/supabase/public";
 import { computePrior } from "@/lib/utils";
 import { fetchContentByPath } from "@/lib/content/storage";
 

@@ -1,18 +1,11 @@
 import { cache } from "react";
 import { cookies } from "next/headers";
-import { createClient } from "@supabase/supabase-js";
 import { createServerClient } from "@supabase/ssr";
 import { env } from "@/lib/env";
 
-// Cookie-less anon client for public reads (rankings, leaderboard, marketplace).
-// Lets Next keep pages static/ISR — calling the cookie-aware client below
-// forces dynamic rendering and kills `revalidate`.
-export const createSupabasePublicClient = cache(() => {
-  if (!env.NEXT_PUBLIC_SUPABASE_URL || !env.NEXT_PUBLIC_SUPABASE_ANON_KEY) return null;
-  return createClient(env.NEXT_PUBLIC_SUPABASE_URL, env.NEXT_PUBLIC_SUPABASE_ANON_KEY, {
-    auth: { persistSession: false, autoRefreshToken: false },
-  });
-});
+// Public cookie-less client lives in `./public` — do NOT re-export it here.
+// Pulling that export through this file would drag `next/headers` into the
+// public module graph and force consumers into dynamic rendering.
 
 // React `cache()` dedupes the client per-request — multiple callers in the
 // same render share one client + one cookie read.
