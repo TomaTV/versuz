@@ -3,11 +3,34 @@ import { ImageResponse } from "next/og";
 export const size = { width: 1200, height: 630 };
 export const contentType = "image/png";
 export const alt = "Versuz — Skills go in. Only one wins.";
-// Force Node runtime — Edge can fail silently on some Vercel regions when
-// fonts aren't pre-warmed. Node is slower (~600ms vs 80ms) but bulletproof.
 export const runtime = "nodejs";
 
+// Font sources : Google Fonts repo on GitHub raw. Fetch is cached by Next.
+const FONT_SOURCES = {
+  instrumentSerifRegular:
+    "https://github.com/google/fonts/raw/main/ofl/instrumentserif/InstrumentSerif-Regular.ttf",
+  instrumentSerifItalic:
+    "https://github.com/google/fonts/raw/main/ofl/instrumentserif/InstrumentSerif-Italic.ttf",
+  jetbrainsMono:
+    "https://github.com/google/fonts/raw/main/ofl/jetbrainsmono/JetBrainsMono%5Bwght%5D.ttf",
+  geist:
+    "https://github.com/google/fonts/raw/main/ofl/geist/Geist%5Bwght%5D.ttf",
+};
+
+async function loadFont(url) {
+  const res = await fetch(url, { cache: "force-cache" });
+  if (!res.ok) throw new Error(`Font fetch ${url} → ${res.status}`);
+  return res.arrayBuffer();
+}
+
 export default async function Image() {
+  const [serifRegular, serifItalic, mono, sans] = await Promise.all([
+    loadFont(FONT_SOURCES.instrumentSerifRegular),
+    loadFont(FONT_SOURCES.instrumentSerifItalic),
+    loadFont(FONT_SOURCES.jetbrainsMono),
+    loadFont(FONT_SOURCES.geist),
+  ]);
+
   return new ImageResponse(
     (
       <div
@@ -19,11 +42,11 @@ export default async function Image() {
           background: "#f2eee6",
           padding: 72,
           color: "#14120e",
-          fontFamily: "serif",
+          fontFamily: "Geist",
           position: "relative",
         }}
       >
-        {/* Top color stripe (brand) */}
+        {/* Top color stripe */}
         <div
           style={{
             position: "absolute",
@@ -46,35 +69,36 @@ export default async function Image() {
             display: "flex",
             justifyContent: "space-between",
             alignItems: "center",
-            fontSize: 22,
-            letterSpacing: "0.18em",
+            fontFamily: "JetBrains Mono",
+            fontSize: 18,
+            letterSpacing: "0.2em",
             textTransform: "uppercase",
             color: "#6b6557",
-            fontFamily: "system-ui, sans-serif",
           }}
         >
-          <span style={{ fontWeight: 600, color: "#14120e", letterSpacing: "0.16em" }}>
+          <span style={{ color: "#14120e", fontWeight: 600, letterSpacing: "0.18em" }}>
             VERSUZ
           </span>
           <span>THE OPEN PUBLIC BENCHMARK</span>
         </div>
 
-        {/* Hero — tagline */}
+        {/* Hero — tagline using Instrument Serif */}
         <div
           style={{
             display: "flex",
             flexDirection: "column",
-            gap: 6,
+            gap: 0,
             marginTop: 90,
             flex: 1,
           }}
         >
           <div
             style={{
-              fontSize: 136,
+              fontFamily: "Instrument Serif",
+              fontSize: 156,
               fontWeight: 400,
               lineHeight: 0.95,
-              letterSpacing: "-0.04em",
+              letterSpacing: "-0.02em",
               color: "#14120e",
             }}
           >
@@ -82,25 +106,27 @@ export default async function Image() {
           </div>
           <div
             style={{
-              fontSize: 136,
+              fontFamily: "Instrument Serif",
+              fontSize: 156,
               fontWeight: 400,
-              lineHeight: 0.95,
-              letterSpacing: "-0.04em",
-              color: "#c2410c",
               fontStyle: "italic",
+              lineHeight: 0.95,
+              letterSpacing: "-0.02em",
+              color: "#c2410c",
+              marginTop: -8,
             }}
           >
             Only one wins.
           </div>
           <div
             style={{
-              fontSize: 28,
+              fontFamily: "Geist",
+              fontSize: 26,
               lineHeight: 1.5,
               color: "#14120e",
               opacity: 0.78,
-              marginTop: 28,
+              marginTop: 32,
               maxWidth: 980,
-              fontFamily: "system-ui, sans-serif",
             }}
           >
             ~100,000 SKILL.md and CLAUDE.md files, judged by 3 frontier models. Open data. Free CLI.
@@ -113,29 +139,36 @@ export default async function Image() {
             display: "flex",
             justifyContent: "space-between",
             alignItems: "center",
-            paddingTop: 24,
+            paddingTop: 22,
             borderTop: "1px solid rgba(20,18,14,0.18)",
-            fontSize: 22,
             color: "#6b6557",
-            letterSpacing: "0.06em",
-            fontFamily: "system-ui, sans-serif",
           }}
         >
-          <div style={{ display: "flex", gap: 28, fontSize: 18, letterSpacing: "0.1em", textTransform: "uppercase" }}>
+          <div
+            style={{
+              display: "flex",
+              gap: 24,
+              fontFamily: "JetBrains Mono",
+              fontSize: 16,
+              letterSpacing: "0.16em",
+              textTransform: "uppercase",
+            }}
+          >
             <span>CLAUDE CODE</span>
-            <span>·</span>
+            <span style={{ opacity: 0.4 }}>·</span>
             <span>CURSOR</span>
-            <span>·</span>
+            <span style={{ opacity: 0.4 }}>·</span>
             <span>CODEX</span>
-            <span>·</span>
+            <span style={{ opacity: 0.4 }}>·</span>
             <span>MCP</span>
           </div>
           <span
             style={{
-              color: "#c2410c",
+              fontFamily: "Instrument Serif",
               fontStyle: "italic",
-              fontFamily: "serif",
-              fontSize: 34,
+              fontSize: 40,
+              color: "#c2410c",
+              lineHeight: 1,
             }}
           >
             versuz.dev
@@ -143,6 +176,14 @@ export default async function Image() {
         </div>
       </div>
     ),
-    size
+    {
+      ...size,
+      fonts: [
+        { name: "Instrument Serif", data: serifRegular, weight: 400, style: "normal" },
+        { name: "Instrument Serif", data: serifItalic, weight: 400, style: "italic" },
+        { name: "JetBrains Mono", data: mono, weight: 400, style: "normal" },
+        { name: "Geist", data: sans, weight: 400, style: "normal" },
+      ],
+    }
   );
 }
