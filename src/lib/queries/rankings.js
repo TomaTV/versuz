@@ -23,7 +23,7 @@ import {
 } from "@/lib/fixtures/seed";
 import { cache } from "react";
 import { CLAUDE_MD_FILES, PROJECT_CATEGORIES } from "@/lib/fixtures/claude-md";
-import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { createSupabasePublicClient } from "@/lib/supabase/server";
 import { computePrior } from "@/lib/utils";
 import { fetchContentByPath } from "@/lib/content/storage";
 
@@ -212,7 +212,7 @@ function applyRepoSkillCount(items) {
 
 async function enrichWithBenchScores(items, kind) {
   if (!items || items.length === 0) return items;
-  const sb = await createSupabaseServerClient();
+  const sb = createSupabasePublicClient();
   if (!sb) return items;
   const idCol = kind === "skill" ? "skill_id" : "claude_md_id";
   const ids = items.map((it) => it.id).filter(Boolean);
@@ -247,7 +247,7 @@ export async function getPaginatedItems(kind = "skill", params = {}) {
     const items = kind === "skill" ? SKILLS.map(withTierDefaults) : CLAUDE_MD_FILES;
     return { items, total: items.length, page: 1, totalPages: 1 };
   }
-  const sb = await createSupabaseServerClient();
+  const sb = createSupabasePublicClient();
   if (!sb) return { items: [], total: 0, page: 1, totalPages: 1 };
 
   const page = Math.max(1, Number(params.page) || 1);
@@ -477,7 +477,7 @@ export async function getRegistryByRepo(ownerRaw, repoRaw) {
   if (!HAS_SUPABASE) {
     return { skills: [], claudeMds: [], owner, repo };
   }
-  const sb = await createSupabaseServerClient();
+  const sb = createSupabasePublicClient();
   if (!sb) return { skills: [], claudeMds: [], owner, repo };
 
   const skillSel =
@@ -545,7 +545,7 @@ const getCategoryCountsInternal = cache(async (kind = "skill") => {
     if (kind === "skill") return CATEGORIES;
     return PROJECT_CATEGORIES;
   }
-  const sb = await createSupabaseServerClient();
+  const sb = createSupabasePublicClient();
   if (!sb) return [];
 
   const table = kind === "skill" ? "skills" : "claude_md_files";
@@ -590,7 +590,7 @@ export async function getCategoryCounts(kind = "skill") {
  */
 export const getAvailableSources = cache(async (kind = "skill") => {
   if (!HAS_SUPABASE) return [];
-  const sb = await createSupabaseServerClient();
+  const sb = createSupabasePublicClient();
   if (!sb) return [];
   const table = kind === "skill" ? "skills" : "claude_md_files";
 
@@ -631,7 +631,7 @@ export const getAvailableSources = cache(async (kind = "skill") => {
  * voir getTopRankedItems.
  */
 const liveSkills = cache(async () => {
-  const sb = await createSupabaseServerClient();
+  const sb = createSupabasePublicClient();
   if (!sb) return null;
   const { data, error } = await sb
     .from("skills")
@@ -652,7 +652,7 @@ const liveSkills = cache(async () => {
 });
 
 const liveClaudeMds = cache(async () => {
-  const sb = await createSupabaseServerClient();
+  const sb = createSupabasePublicClient();
   if (!sb) return null;
   const { data, error } = await sb
     .from("claude_md_files")
@@ -688,7 +688,7 @@ export async function getTopRankedItems(kind = "skill", category = null, limit =
       : list;
     return filtered.slice(0, limit);
   }
-  const sb = await createSupabaseServerClient();
+  const sb = createSupabasePublicClient();
   if (!sb) return [];
   const table = kind === "skill" ? "skills" : "claude_md_files";
   const sel = kind === "skill"
@@ -719,7 +719,7 @@ export async function getTopRankedItems(kind = "skill", category = null, limit =
 
 export async function getCurrentCycle() {
   if (!HAS_SUPABASE) return CYCLE;
-  const sb = await createSupabaseServerClient();
+  const sb = createSupabasePublicClient();
   if (!sb) return null;
 
   // 1. Is there a cycle actively running right now?
@@ -813,7 +813,7 @@ export async function getIndexCounts() {
   if (!HAS_SUPABASE) {
     return { skills: SKILLS.length, claudeMds: 0, asOf: new Date().toISOString() };
   }
-  const sb = await createSupabaseServerClient();
+  const sb = createSupabasePublicClient();
   if (!sb) {
     return { skills: SKILLS.length, claudeMds: 0, asOf: new Date().toISOString() };
   }
@@ -875,7 +875,7 @@ export async function getRankableCategories() {
  */
 export async function getJudgeLifetimeStats() {
   if (!HAS_SUPABASE) return [];
-  const sb = await createSupabaseServerClient();
+  const sb = createSupabasePublicClient();
   if (!sb) return [];
   const { data, error } = await sb
     .from("judge_scores")
@@ -937,7 +937,7 @@ async function getAxesAvgBySubject(sb, kind /* unused subjectIds for compat */) 
 
 export async function getAllRankings(kind = "skill") {
   if (!HAS_SUPABASE) return [];
-  const sb = await createSupabaseServerClient();
+  const sb = createSupabasePublicClient();
   if (!sb) return [];
   const { data, error } = await sb
     .from("rankings")
@@ -1057,7 +1057,7 @@ export async function getAllRankings(kind = "skill") {
 
 export async function getCategoryRankings(category, kind = "skill") {
   if (!HAS_SUPABASE) return [];
-  const sb = await createSupabaseServerClient();
+  const sb = createSupabasePublicClient();
   if (!sb) return [];
   const { data, error } = await sb
     .from("rankings")
@@ -1140,7 +1140,7 @@ export async function getCategoryRankings(category, kind = "skill") {
  */
 export async function getJudgeDisagreement({ kind = "skill", subjectId }) {
   if (!HAS_SUPABASE || !subjectId) return null;
-  const sb = await createSupabaseServerClient();
+  const sb = createSupabasePublicClient();
   if (!sb) return null;
 
   const { data, error } = await sb.rpc("judge_disagreement", {
@@ -1189,7 +1189,7 @@ export async function getJudgeDisagreement({ kind = "skill", subjectId }) {
  */
 export async function getAllRanksBySlug() {
   if (!HAS_SUPABASE) return {};
-  const sb = await createSupabaseServerClient();
+  const sb = createSupabasePublicClient();
   if (!sb) return {};
   const { data, error } = await sb
     .from("rankings")
@@ -1270,7 +1270,7 @@ export async function getTopTopicsByKind(kind, limit = 12) {
       .slice(0, limit)
       .map(([id, count]) => ({ id, count }));
   }
-  const sb = await createSupabaseServerClient();
+  const sb = createSupabasePublicClient();
   if (!sb) return [];
   // RPC top_topics_by_kind : aggrège jsonb_array_elements_text(metadata->'topics')
   // côté DB en une query, vs ancien fetch full + JS aggregation. Migration 0037.
@@ -1289,7 +1289,7 @@ export async function getTopTopicsByKind(kind, limit = 12) {
  */
 export async function getLeaderboardCategories(kind = "skill") {
   if (!HAS_SUPABASE) return [];
-  const sb = await createSupabaseServerClient();
+  const sb = createSupabasePublicClient();
   if (!sb) return [];
   const counts = new Map();
 
@@ -1341,7 +1341,7 @@ export async function getTopSkills(limit = 10) {
 
 export async function getSkillBySlug(slug) {
   if (HAS_SUPABASE) {
-    const sb = await createSupabaseServerClient();
+    const sb = createSupabasePublicClient();
     if (sb) {
       const { data, error } = await sb
         .from("skills")
@@ -1448,7 +1448,7 @@ export async function getClaudeMds(category) {
 
 export async function getClaudeMdBySlug(slug) {
   if (HAS_SUPABASE) {
-    const sb = await createSupabaseServerClient();
+    const sb = createSupabasePublicClient();
     if (sb) {
       const { data, error } = await sb
         .from("claude_md_files")
