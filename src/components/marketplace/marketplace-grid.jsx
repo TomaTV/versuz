@@ -517,7 +517,7 @@ export function MarketplaceGrid({
     const sponsoredSlugSet = new Set(sponsoredAll.map((s) => s.slug));
     const restPool = list.filter((s) => !sponsoredSlugSet.has(s.slug));
 
-    const seed = Math.floor(Date.now() / (1000 * 60 * 60 * 24));
+    const seed = Math.floor(new Date().getTime() / (1000 * 60 * 60 * 24));
     function seededHash(str, salt) {
       let h = salt;
       for (let i = 0; i < str.length; i++) h = (h * 31 + str.charCodeAt(i)) >>> 0;

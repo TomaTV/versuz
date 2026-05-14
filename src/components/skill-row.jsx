@@ -21,33 +21,34 @@ function axisColor(v) {
 
 const GRID_COLS = "48px minmax(0, 1.4fr) repeat(5, minmax(80px, 1fr)) 100px";
 
+function SortHeader({ field, label, align = "center", sort, onSort }) {
+  const active = sort === field;
+  return (
+    <button
+      type="button"
+      onClick={onSort ? () => onSort(field) : undefined}
+      style={{
+        textAlign: align,
+        color: active ? "var(--fg)" : "var(--fg-muted)",
+        background: "transparent",
+        border: "none",
+        padding: 0,
+        cursor: onSort ? "pointer" : "default",
+        fontWeight: active ? 600 : 400,
+        fontFamily: "inherit",
+        fontSize: "inherit",
+        letterSpacing: "inherit",
+        textTransform: "inherit",
+        width: "100%",
+      }}
+    >
+      {label}
+      {active ? " ↓" : ""}
+    </button>
+  );
+}
+
 export function SkillRowHeader({ sort = "score", onSort }) {
-  const SortHeader = ({ field, label, align = "center" }) => {
-    const active = sort === field;
-    return (
-      <button
-        type="button"
-        onClick={onSort ? () => onSort(field) : undefined}
-        style={{
-          textAlign: align,
-          color: active ? "var(--fg)" : "var(--fg-muted)",
-          background: "transparent",
-          border: "none",
-          padding: 0,
-          cursor: onSort ? "pointer" : "default",
-          fontWeight: active ? 600 : 400,
-          fontFamily: "inherit",
-          fontSize: "inherit",
-          letterSpacing: "inherit",
-          textTransform: "inherit",
-          width: "100%",
-        }}
-      >
-        {label}
-        {active ? " ↓" : ""}
-      </button>
-    );
-  };
   return (
     <div
       className="vz-skill-row-header"
@@ -62,11 +63,11 @@ export function SkillRowHeader({ sort = "score", onSort }) {
     >
       <div className="vz-skill-row-inner" style={{ padding: "14px 20px" }}>
         <span style={{ color: "var(--fg-muted)" }}>#</span>
-        <SortHeader field="name" label="Model" align="left" />
+        <SortHeader field="name" label="Model" align="left" sort={sort} onSort={onSort} />
         {AXIS_KEYS.map((k) => (
-          <SortHeader key={k} field={k} label={AXIS_LABEL[k]} />
+          <SortHeader key={k} field={k} label={AXIS_LABEL[k]} sort={sort} onSort={onSort} />
         ))}
-        <SortHeader field="score" label="Score" align="right" />
+        <SortHeader field="score" label="Score" align="right" sort={sort} onSort={onSort} />
       </div>
     </div>
   );

@@ -596,6 +596,98 @@ a.vz-nav-link-minimal[aria-current="page"]::after,
   }
 }
 
+/* ─────────────────────────────────────────────────────────────────────
+   Skill detail · score tables on mobile
+   ───────────────────────────────────────────────────────────────────── */
+
+/* Per-task score row : "24px 1fr 100px 48px" → drop the 100px HairBar
+   below 600px (it's purely visual ; the numeric score on the right is
+   the source of truth) so the task name has room to breathe. */
+@media (max-width: 600px) {
+  .vz-task-row {
+    grid-template-columns: 20px minmax(0, 1fr) 56px !important;
+    gap: 10px !important;
+    font-size: 11px;
+  }
+  .vz-task-row .vz-task-bar {
+    display: none !important;
+  }
+}
+
+/* Recent battle row : keep 4 cols but reduce gap + cap the "vs Opponent"
+   text width so the score + delta don't get pushed off-screen. */
+@media (max-width: 600px) {
+  .vz-battle-row {
+    gap: 8px !important;
+    font-size: 11px;
+  }
+}
+
+/* Inline axis label is hidden on desktop (the table header carries the
+   column titles). It becomes visible on mobile where each axis renders
+   as a labeled chip "CO 87". */
+.vz-judges-axis-label {
+  display: none;
+}
+
+/* Judges table — the 7-col compact table becomes unreadable on mobile.
+   Below 768px reflow each row : name+score on top, axes as a 5-up chip
+   row below. The desktop header row is hidden. */
+@media (max-width: 768px) {
+  .vz-judges-table-header {
+    display: none !important;
+  }
+  .vz-judges-table-row {
+    grid-template-columns: minmax(0, 1fr) auto !important;
+    grid-auto-flow: row !important;
+    row-gap: 14px !important;
+    column-gap: 16px !important;
+    padding: 18px !important;
+  }
+  /* Row 1 : name (left) + score (right) — span the auto-placed cells */
+  .vz-judges-table-name {
+    grid-column: 1 / 2;
+    grid-row: 1;
+    min-width: 0;
+  }
+  .vz-judges-table-score {
+    grid-column: 2 / 3;
+    grid-row: 1;
+    font-size: 28px !important;
+  }
+  /* Row 2 : 5 axis chips, each spanning full width inside its column.
+     Force them onto row 2 across both columns and let flex handle the
+     wrap. nth-of-type targets the 5 axis spans in order. */
+  .vz-judges-axis {
+    grid-column: 1 / -1 !important;
+    display: flex !important;
+    justify-content: space-between;
+    align-items: center;
+    padding: 8px 12px;
+    background: var(--surface);
+    border: 1px solid var(--rule);
+    text-align: left !important;
+  }
+  .vz-judges-axis:nth-of-type(1) { grid-row: 2; }
+  .vz-judges-axis:nth-of-type(2) { grid-row: 3; }
+  .vz-judges-axis:nth-of-type(3) { grid-row: 4; }
+  .vz-judges-axis:nth-of-type(4) { grid-row: 5; }
+  .vz-judges-axis:nth-of-type(5) { grid-row: 6; }
+  .vz-judges-axis-label {
+    display: inline;
+    font-family: var(--font-mono);
+    font-size: 10px;
+    color: var(--fg-muted);
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+  }
+  .vz-judges-axis-value {
+    font-size: 14px;
+    font-weight: 500;
+    font-variant-numeric: tabular-nums;
+  }
+}
+
 /* Loading skeleton — subtle shimmer aligned with paper/bone palette */
 .vz-skeleton {
   background:
@@ -986,6 +1078,43 @@ a.vz-nav-link-minimal[aria-current="page"]::after,
 @media (max-width: 480px) {
   .vz-mp-card {
     padding: 14px 14px 12px !important;
+  }
+}
+
+/* Sales / earnings row : stack into a card on mobile with inline labels.
+   Title spans the row, then date/gross/net live in a small horizontal
+   strip so the visual hierarchy survives without horizontal scroll. */
+@media (max-width: 768px) {
+  .vz-sales-row {
+    grid-template-columns: 1fr !important;
+    gap: 8px !important;
+    padding: 16px 0 18px !important;
+  }
+  .vz-sales-row .vz-sales-title {
+    font-size: 17px !important;
+    line-height: 1.3;
+  }
+  .vz-sales-row .vz-sales-cell {
+    display: flex !important;
+    justify-content: space-between;
+    align-items: baseline;
+    text-align: left !important;
+    padding: 4px 0;
+    font-size: 13px !important;
+  }
+  .vz-sales-row .vz-sales-cell::before {
+    content: attr(data-label);
+    font-family: var(--font-mono);
+    font-size: 10px;
+    color: var(--fg-muted);
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+  }
+  .vz-sales-row .vz-sales-net {
+    font-size: 20px !important;
+    margin-top: 4px;
+    padding-top: 8px !important;
+    border-top: 1px dashed var(--rule);
   }
 }
 @media (max-width: 768px) {

@@ -97,6 +97,11 @@ export default async function EarningsPage() {
   const sales = await loadSellerPurchases(user.id);
   const diag = await loadDiagnostics(user.id);
 
+  // Single "now" timestamp captured before render so the dispute countdown
+  // below stays pure (no Date.now() inside the JSX expression — trips the
+  // react-hooks/purity rule).
+  const nowMs = new Date().getTime();
+
   // Only paid sales count toward net revenue. Disputed are pending arbitration
   // (could go either way), refunded are cancelled.
   const paidSales = sales.filter((s) => s.status === "paid");
@@ -207,7 +212,7 @@ export default async function EarningsPage() {
                 // 2-4 → amber warning, 5+ → muted.
                 const disputedAt = new Date(s.paidAt).getTime();
                 const deadlineMs = disputedAt + 7 * 24 * 60 * 60 * 1000;
-                const daysLeft = Math.max(0, Math.ceil((deadlineMs - Date.now()) / (24 * 60 * 60 * 1000)));
+                const daysLeft = Math.max(0, Math.ceil((deadlineMs - nowMs) / (24 * 60 * 60 * 1000)));
                 const urgent = daysLeft <= 2;
                 const warn = daysLeft <= 4 && daysLeft > 2;
                 const tagColor = urgent ? "var(--crimson)" : warn ? "var(--amber)" : "var(--fg-muted)";
@@ -323,6 +328,7 @@ export default async function EarningsPage() {
             {sales.map((s) => (
               <div
                 key={s.id}
+                className="vz-sales-row"
                 style={{
                   display: "grid",
                   gridTemplateColumns: "2fr 1fr 1fr 1fr",
@@ -331,7 +337,6 @@ export default async function EarningsPage() {
                   padding: "16px 0",
                   borderBottom: "1px solid var(--rule)",
                 }}
-                className="vz-admin-row"
               >
                 <Link
                   href={
@@ -339,6 +344,7 @@ export default async function EarningsPage() {
                       ? `/skills/${s.itemSlug}`
                       : `/claude-md/generic/${s.itemSlug}`
                   }
+                  className="vz-sales-title"
                   style={{
                     fontFamily: "var(--font-display)",
                     fontSize: 18,
@@ -361,6 +367,8 @@ export default async function EarningsPage() {
                   </span>
                 </Link>
                 <span
+                  className="vz-sales-cell"
+                  data-label="Date"
                   style={{
                     fontFamily: "var(--font-mono)",
                     fontSize: 12,
@@ -371,6 +379,8 @@ export default async function EarningsPage() {
                   {new Date(s.paidAt).toUTCString().slice(5, 16)}
                 </span>
                 <span
+                  className="vz-sales-cell"
+                  data-label="Gross"
                   style={{
                     fontFamily: "var(--font-mono)",
                     fontSize: 12,
@@ -382,6 +392,8 @@ export default async function EarningsPage() {
                   ${s.amount.toFixed(2)}
                 </span>
                 <span
+                  className="vz-sales-cell vz-sales-net"
+                  data-label="Net"
                   style={{
                     fontFamily: "var(--font-display)",
                     fontSize: 18,

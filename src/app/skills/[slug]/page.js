@@ -372,8 +372,12 @@ function DisagreementSection({ disagreement }) {
         subtitle={`${labelCopy} The "spread" is the standard deviation between the ${judges.length} judges' average scores — small spread means they agree, large spread means take the score with a grain of salt.`}
       />
 
-      {/* Compact table : judge | Co | Fo | Cp | Us | De | Avg */}
+      {/* Compact table : judge | Co | Fo | Cp | Us | De | Avg
+          On mobile the 7-column grid becomes unreadable — the .vz-judges-table
+          CSS rule reflows each row into a stacked card (model+score on top,
+          axes as a pill row below). */}
       <div
+        className="vz-judges-table"
         style={{
           marginTop: 32,
           border: "1px solid var(--rule-strong)",
@@ -381,6 +385,7 @@ function DisagreementSection({ disagreement }) {
         }}
       >
         <div
+          className="vz-judges-table-header"
           style={{
             display: "grid",
             gridTemplateColumns: "minmax(0, 1.4fr) repeat(5, 1fr) 100px",
@@ -414,6 +419,7 @@ function DisagreementSection({ disagreement }) {
           return (
             <div
               key={j.model}
+              className="vz-judges-table-row"
               style={{
                 display: "grid",
                 gridTemplateColumns: "minmax(0, 1.4fr) repeat(5, 1fr) 100px",
@@ -426,7 +432,10 @@ function DisagreementSection({ disagreement }) {
                 fontVariantNumeric: "tabular-nums",
               }}
             >
-              <div style={{ display: "flex", flexDirection: "column", gap: 2, minWidth: 0 }}>
+              <div
+                className="vz-judges-table-name"
+                style={{ display: "flex", flexDirection: "column", gap: 2, minWidth: 0 }}
+              >
                 <span style={{ color: "var(--fg)", fontSize: 14, fontWeight: 500 }}>
                   {displayJudgeModel(j.model)}
                 </span>
@@ -439,13 +448,21 @@ function DisagreementSection({ disagreement }) {
                 return (
                   <span
                     key={k}
+                    className="vz-judges-axis"
+                    data-axis={axisLabel[k]}
                     style={{ textAlign: "center", color: colorFor(v) }}
                   >
-                    {v != null ? Math.round(v) : "—"}
+                    <span className="vz-judges-axis-label" aria-hidden>
+                      {axisLabel[k]}
+                    </span>
+                    <span className="vz-judges-axis-value">
+                      {v != null ? Math.round(v) : "—"}
+                    </span>
                   </span>
                 );
               })}
               <span
+                className="vz-judges-table-score"
                 style={{
                   textAlign: "right",
                   fontFamily: "var(--font-display)",
@@ -1446,6 +1463,7 @@ export default async function SkillDetailPage({ params }) {
                 {detail.recent.map((b, i) => (
                   <div
                     key={i}
+                    className="vz-battle-row"
                     style={{
                       display: "grid",
                       gridTemplateColumns: "24px 1fr auto auto",
@@ -1523,6 +1541,7 @@ export default async function SkillDetailPage({ params }) {
                   return (
                     <div
                       key={t.id}
+                      className="vz-task-row"
                       style={{
                         display: "grid",
                         gridTemplateColumns: "24px 1fr 100px 48px",
@@ -1538,8 +1557,20 @@ export default async function SkillDetailPage({ params }) {
                       <span style={{ color: "var(--fg-muted)" }}>
                         {String(t.id).padStart(2, "0")}
                       </span>
-                      <span style={{ color: "var(--fg)" }}>{t.name}</span>
-                      <HairBar value={t.score} color={col} />
+                      <span
+                        className="vz-task-name"
+                        style={{
+                          color: "var(--fg)",
+                          overflow: "hidden",
+                          textOverflow: "ellipsis",
+                          whiteSpace: "nowrap",
+                        }}
+                      >
+                        {t.name}
+                      </span>
+                      <span className="vz-task-bar" style={{ display: "block" }}>
+                        <HairBar value={t.score} color={col} />
+                      </span>
                       <span
                         style={{
                           color: col,

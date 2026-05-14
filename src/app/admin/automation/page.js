@@ -5,8 +5,17 @@ import {
   withNextRun,
   fetchWorkflowRuns,
   fetchBenchBudget,
+  fetchAutomationStats,
 } from "@/lib/admin/automation";
-import { nextRun, formatRelative, formatUTC, formatParis } from "@/lib/admin/cron-utils";
+import {
+  nextRun,
+  prevRun,
+  formatRelative,
+  formatRelativeLong,
+  formatUTC,
+  formatParis,
+  progressBetween,
+} from "@/lib/admin/cron-utils";
 
 export const revalidate = 60;
 
@@ -93,16 +102,15 @@ function RunStrip({ runs }) {
 }
 
 // ─── Top KPI strip ────────────────────────────────────────────────────
-function KpiStrip({ kpis }) {
+function KpiStrip({ kpis, columns = 4 }) {
   return (
     <div
       style={{
         display: "grid",
-        gridTemplateColumns: "repeat(4, 1fr)",
+        gridTemplateColumns: `repeat(${columns}, 1fr)`,
         gap: 1,
         background: "var(--rule)",
         border: "1px solid var(--rule)",
-        marginTop: 24,
       }}
     >
       {kpis.map((k) => (
@@ -116,7 +124,48 @@ function KpiStrip({ kpis }) {
             gap: 6,
           }}
         >
-          <div style={styles.eyebrow}>{k.label}</div>
+          <div
+            style={{
+              ...styles.eyebrow,
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "center",
+              gap: 6,
+            }}
+          >
+            <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+              {k.dotColor && (
+                <span
+                  aria-hidden
+                  style={{
+                    width: 6,
+                    height: 6,
+                    background: k.dotColor,
+                    borderRadius: 1,
+                  }}
+                />
+              )}
+              {k.label}
+            </span>
+            {k.trend && (
+              <span
+                style={{
+                  fontFamily: "var(--font-mono)",
+                  fontSize: 9,
+                  color:
+                    k.trend.dir === "up"
+                      ? COLORS.ok
+                      : k.trend.dir === "down"
+                        ? COLORS.err
+                        : "var(--fg-muted)",
+                  letterSpacing: "0.04em",
+                  textTransform: "none",
+                }}
+              >
+                {k.trend.label}
+              </span>
+            )}
+          </div>
           <div
             style={{
               fontFamily: "var(--font-display)",
@@ -125,13 +174,137 @@ function KpiStrip({ kpis }) {
               letterSpacing: "-0.02em",
               color: k.color || "var(--fg)",
               lineHeight: 1,
+              display: "flex",
+              alignItems: "baseline",
+              gap: 4,
             }}
           >
-            {k.value}
+            <span>{k.value}</span>
+            {k.unit && (
+              <span
+                style={{
+                  fontSize: 14,
+                  color: "var(--fg-muted)",
+                  letterSpacing: 0,
+                }}
+              >
+                {k.unit}
+              </span>
+            )}
           </div>
           {k.hint && <div style={styles.mono}>{k.hint}</div>}
         </div>
       ))}
+    </div>
+  );
+}
+
+// ─── Inline "throughput" chip for a workflow card ──────────────────────
+function ThroughputChips({ chips }) {
+  if (!chips || chips.length === 0) return null;
+  return (
+    <div
+      style={{
+        display: "flex",
+        flexWrap: "wrap",
+        gap: 8,
+        marginTop: 10,
+      }}
+    >
+      {chips.map((c) => (
+        <div
+          key={c.label}
+          style={{
+            display: "inline-flex",
+            alignItems: "baseline",
+            gap: 6,
+            padding: "4px 9px",
+            background: "var(--bg)",
+            border: "1px solid var(--rule)",
+            fontFamily: "var(--font-mono)",
+            fontSize: 11,
+            color: "var(--fg)",
+            letterSpacing: "0.02em",
+          }}
+        >
+          <span
+            style={{
+              color: c.color || "var(--fg)",
+              fontWeight: 600,
+              fontVariantNumeric: "tabular-nums",
+            }}
+          >
+            {c.value}
+          </span>
+          <span style={{ color: "var(--fg-muted)", fontSize: 10, letterSpacing: "0.08em" }}>
+            {c.label}
+          </span>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+// ─── Progress bar from prev cron tick to next ──────────────────────────
+function NextRunCountdown({ nextRunAt, schedule }) {
+  const now = new Date();
+  const prev = schedule ? prevRun(schedule, now) : null;
+  const frac = progressBetween(prev, nextRunAt, now);
+  const rel = formatRelativeLong(nextRunAt, now);
+  return (
+    <div style={{ textAlign: "right", minWidth: 200 }}>
+      <div style={{ ...styles.eyebrow, marginBottom: 2 }}>NEXT IN</div>
+      <div
+        style={{
+          fontFamily: "var(--font-display)",
+          color: "var(--fg)",
+          letterSpacing: "-0.02em",
+          lineHeight: 1,
+          display: "flex",
+          alignItems: "baseline",
+          gap: 6,
+          justifyContent: "flex-end",
+        }}
+      >
+        <span style={{ fontSize: 28, fontVariantNumeric: "tabular-nums" }}>
+          {rel.primary}
+        </span>
+        {rel.secondary && (
+          <span
+            style={{
+              fontSize: 16,
+              color: "var(--fg-muted)",
+              fontVariantNumeric: "tabular-nums",
+              letterSpacing: 0,
+            }}
+          >
+            {rel.secondary}
+          </span>
+        )}
+      </div>
+      {/* progress bar — fills from previous tick toward next */}
+      <div
+        style={{
+          marginTop: 8,
+          height: 3,
+          background: "var(--rule)",
+          position: "relative",
+          overflow: "hidden",
+        }}
+        title={`${Math.round(frac * 100)}% of interval elapsed`}
+      >
+        <div
+          style={{
+            position: "absolute",
+            inset: 0,
+            width: `${(frac * 100).toFixed(1)}%`,
+            background: COLORS.ember,
+          }}
+        />
+      </div>
+      <div style={{ ...styles.mono, fontSize: 10, marginTop: 6 }}>
+        {formatUTC(nextRunAt)} · {formatParis(nextRunAt)}
+      </div>
     </div>
   );
 }
@@ -425,7 +598,7 @@ function todayHoursForCron(schedule) {
 }
 
 // ─── Compact card with run strip ──────────────────────────────────────
-async function WorkflowCard({ workflow }) {
+async function WorkflowCard({ workflow, throughput }) {
   const { configured, runs, error } = await fetchWorkflowRuns(workflow.id, 5);
   const item = withNextRun(workflow);
   const lastRun = runs[0];
@@ -456,7 +629,7 @@ async function WorkflowCard({ workflow }) {
           display: "grid",
           gridTemplateColumns: "80px 1fr 240px",
           gap: 20,
-          alignItems: "center",
+          alignItems: "flex-start",
         }}
       >
         {/* BIG status chip on left */}
@@ -471,6 +644,7 @@ async function WorkflowCard({ workflow }) {
             fontWeight: 700,
             letterSpacing: "0.12em",
             borderRadius: 2,
+            marginTop: 4,
           }}
         >
           {overallStatus}
@@ -513,6 +687,7 @@ async function WorkflowCard({ workflow }) {
           <div style={{ ...styles.mono, fontSize: 10, marginTop: 6, opacity: 0.7 }}>
             {item.cost}
           </div>
+          <ThroughputChips chips={throughput} />
         </div>
         {/* Next run + run strip */}
         <div
@@ -520,26 +695,10 @@ async function WorkflowCard({ workflow }) {
             display: "flex",
             flexDirection: "column",
             alignItems: "flex-end",
-            gap: 10,
+            gap: 14,
           }}
         >
-          <div style={{ textAlign: "right" }}>
-            <div style={{ ...styles.eyebrow, marginBottom: 2 }}>NEXT IN</div>
-            <div
-              style={{
-                fontFamily: "var(--font-display)",
-                fontSize: 22,
-                color: "var(--fg)",
-                letterSpacing: "-0.02em",
-                lineHeight: 1,
-              }}
-            >
-              {formatRelative(item.nextRunAt).replace("in ", "").replace(" ago", " ago")}
-            </div>
-            <div style={{ ...styles.mono, fontSize: 10, marginTop: 4 }}>
-              {formatUTC(item.nextRunAt)} · {formatParis(item.nextRunAt)}
-            </div>
-          </div>
+          <NextRunCountdown nextRunAt={item.nextRunAt} schedule={item.schedule} />
           {configured ? (
             <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 4 }}>
               <div style={styles.eyebrow}>Last 5</div>
@@ -561,7 +720,7 @@ async function WorkflowCard({ workflow }) {
   );
 }
 
-function VercelCronCard({ cron }) {
+function VercelCronCard({ cron, throughput }) {
   const item = withNextRun(cron);
   return (
     <div
@@ -576,7 +735,7 @@ function VercelCronCard({ cron }) {
           display: "grid",
           gridTemplateColumns: "80px 1fr 240px",
           gap: 20,
-          alignItems: "center",
+          alignItems: "flex-start",
         }}
       >
         <div
@@ -590,6 +749,7 @@ function VercelCronCard({ cron }) {
             fontWeight: 700,
             letterSpacing: "0.12em",
             borderRadius: 2,
+            marginTop: 4,
           }}
         >
           VERCEL
@@ -631,40 +791,28 @@ function VercelCronCard({ cron }) {
           <div style={{ ...styles.mono, fontSize: 10, marginTop: 6, opacity: 0.6 }}>
             {item.path}
           </div>
+          <ThroughputChips chips={throughput} />
         </div>
-        <div style={{ textAlign: "right" }}>
-          <div style={{ ...styles.eyebrow, marginBottom: 2 }}>NEXT IN</div>
-          <div
-            style={{
-              fontFamily: "var(--font-display)",
-              fontSize: 22,
-              color: "var(--fg)",
-              letterSpacing: "-0.02em",
-              lineHeight: 1,
-            }}
-          >
-            {formatRelative(item.nextRunAt).replace("in ", "")}
-          </div>
-          <div style={{ ...styles.mono, fontSize: 10, marginTop: 4 }}>
-            {formatUTC(item.nextRunAt)} · {formatParis(item.nextRunAt)}
-          </div>
-        </div>
+        <NextRunCountdown nextRunAt={item.nextRunAt} schedule={item.schedule} />
       </div>
     </div>
   );
 }
 
 // ─── Budget visual ────────────────────────────────────────────────────
-async function BudgetCard() {
+async function BudgetCard({ now }) {
   const sb = createSupabaseAdminClient();
   const { spend, cap, cycles } = await fetchBenchBudget(sb);
   const pct = Math.min(100, (spend / cap) * 100);
   const barColor = pct < 60 ? COLORS.ok : pct < 90 ? COLORS.warn : COLORS.err;
 
-  // Group cycles by day for the bar chart
+  // Group cycles by day for the bar chart. `now` is passed in from the
+  // page (single source of truth) so the render is pure — no Date.now()
+  // call inside the component, which trips the react-hooks/purity rule.
+  const nowMs = now.getTime();
   const byDay = new Map();
   for (let i = 29; i >= 0; i--) {
-    const d = new Date(Date.now() - i * 24 * 3600 * 1000);
+    const d = new Date(nowMs - i * 24 * 3600 * 1000);
     byDay.set(d.toISOString().slice(0, 10), 0);
   }
   for (const c of cycles) {
@@ -832,12 +980,90 @@ async function BudgetCard() {
 export default async function AutomationPage() {
   const sb = createSupabaseAdminClient();
 
-  // Pre-fetch all workflow runs in parallel (avoids serial waterfall during render)
+  // Pre-fetch everything in parallel (avoids serial waterfall during render)
   const ghRunsPromises = GH_WORKFLOWS.map((w) => fetchWorkflowRuns(w.id, 5));
-  const [budget, ...ghRuns] = await Promise.all([
+  const [budget, stats, ...ghRuns] = await Promise.all([
     fetchBenchBudget(sb),
+    fetchAutomationStats(sb),
     ...ghRunsPromises,
   ]);
+
+  // Per-workflow throughput chips. Keyed by workflow id / cron path.
+  const throughputByWorkflow = {
+    "scrape-daily.yml": [
+      {
+        label: "SKILLS / 24H",
+        value: `+${stats.scrape.skills24h.toLocaleString()}`,
+        color: COLORS.ember,
+      },
+      {
+        label: "CLAUDE.MD / 24H",
+        value: `+${stats.scrape.cmd24h.toLocaleString()}`,
+        color: COLORS.ember,
+      },
+      {
+        label: "7D TOTAL",
+        value: `+${(stats.scrape.skills7d + stats.scrape.cmd7d).toLocaleString()}`,
+        color: "var(--fg-muted)",
+      },
+    ],
+    "quality-judge.yml": [
+      {
+        label: "JUDGED / 24H",
+        value: (stats.quality.skills24h + stats.quality.cmd24h).toLocaleString(),
+        color: COLORS.ok,
+      },
+      {
+        label: "JUDGED / 7D",
+        value: (stats.quality.skills7d + stats.quality.cmd7d).toLocaleString(),
+        color: "var(--fg-muted)",
+      },
+      {
+        label: "RATED (LIFETIME)",
+        value: stats.quality.totalRated.toLocaleString(),
+        color: "var(--fg-muted)",
+      },
+    ],
+    "bench-runner.yml": [
+      {
+        label: "CYCLES / 7D",
+        value: stats.bench.cycles7d.toLocaleString(),
+        color: COLORS.ember,
+      },
+      {
+        label: "SCORES / TODAY",
+        value: stats.bench.scoresToday.toLocaleString(),
+        color: COLORS.ember,
+      },
+      {
+        label: "SCORES / 7D",
+        value: stats.bench.scores7d.toLocaleString(),
+        color: "var(--fg-muted)",
+      },
+      {
+        label: "CYCLES / 30D",
+        value: stats.bench.cycles30d.toLocaleString(),
+        color: "var(--fg-muted)",
+      },
+    ],
+  };
+
+  const throughputByCron = {
+    "/api/cron/bench?scope=all": [
+      {
+        label: "CYCLES / 7D",
+        value: stats.bench.cycles7d.toLocaleString(),
+        color: COLORS.blue,
+      },
+    ],
+    "/api/cron/auto-complete-cycles": [
+      {
+        label: "CYCLES / 30D",
+        value: stats.bench.cycles30d.toLocaleString(),
+        color: COLORS.blue,
+      },
+    ],
+  };
 
   // Build 2 separate lanes (GH vs Vercel) for the timeline
   // For recurring crons (e.g. quality every 4h), only label the FIRST occurrence
@@ -861,6 +1087,10 @@ export default async function AutomationPage() {
   }
   const ghMarkers = buildLane(GH_WORKFLOWS);
   const vercelMarkers = buildLane(VERCEL_CRONS);
+
+  // Single "now" timestamp for the entire render — passed to BudgetCard
+  // so it stays pure (no Date.now() inside the component itself).
+  const now = new Date();
 
   // KPIs
   const allItems = [...GH_WORKFLOWS, ...VERCEL_CRONS];
@@ -897,69 +1127,121 @@ export default async function AutomationPage() {
         Schedules · next run · budget. All times UTC.
       </div>
 
-      <KpiStrip
-        kpis={[
-          {
-            label: "Total schedules",
-            value: GH_WORKFLOWS.length + VERCEL_CRONS.length,
-            hint: `${GH_WORKFLOWS.length} GH · ${VERCEL_CRONS.length} Vercel`,
-          },
-          {
-            label: "Next run",
-            value: formatRelative(nextRunOverall),
-            hint: `${formatUTC(nextRunOverall)} · ${formatParis(nextRunOverall)}`,
-          },
-          {
-            label: "30-day spend",
-            value: `$${budget.spend.toFixed(2)}`,
-            hint: `of $${budget.cap} cap`,
-            color: usageColor,
-          },
-          {
-            label: "Recent failures",
-            value: recentFailures,
-            hint: "last 5 runs / workflow",
-            color: recentFailures > 0 ? COLORS.err : COLORS.ok,
-          },
-        ]}
-      />
+      <div style={{ marginTop: 24, display: "flex", flexDirection: "column", gap: 1, background: "var(--rule)", border: "1px solid var(--rule)" }}>
+        <KpiStrip
+          kpis={[
+            {
+              label: "Total schedules",
+              value: GH_WORKFLOWS.length + VERCEL_CRONS.length,
+              hint: `${GH_WORKFLOWS.length} GH · ${VERCEL_CRONS.length} Vercel`,
+            },
+            {
+              label: "Next run",
+              value: formatRelative(nextRunOverall),
+              hint: `${formatUTC(nextRunOverall)} · ${formatParis(nextRunOverall)}`,
+            },
+            {
+              label: "30-day spend",
+              value: `$${budget.spend.toFixed(2)}`,
+              hint: `of $${budget.cap} cap`,
+              color: usageColor,
+            },
+            {
+              label: "Recent failures",
+              value: recentFailures,
+              hint: "last 5 runs / workflow",
+              color: recentFailures > 0 ? COLORS.err : COLORS.ok,
+            },
+          ]}
+        />
+        <KpiStrip
+          kpis={[
+            {
+              label: "Scraped",
+              dotColor: COLORS.ember,
+              value: (stats.scrape.skills24h + stats.scrape.cmd24h).toLocaleString(),
+              unit: "/ 24h",
+              hint: `${stats.scrape.skills24h} skills · ${stats.scrape.cmd24h} CLAUDE.md`,
+              trend: (stats.scrape.skills7d + stats.scrape.cmd7d) > 0
+                ? { dir: "up", label: `7d ${(stats.scrape.skills7d + stats.scrape.cmd7d).toLocaleString()}` }
+                : null,
+            },
+            {
+              label: "Quality judged",
+              dotColor: COLORS.ok,
+              value: (stats.quality.skills24h + stats.quality.cmd24h).toLocaleString(),
+              unit: "/ 24h",
+              hint: `${stats.quality.totalRated.toLocaleString()} rated lifetime`,
+              trend: (stats.quality.skills7d + stats.quality.cmd7d) > 0
+                ? { dir: "up", label: `7d ${(stats.quality.skills7d + stats.quality.cmd7d).toLocaleString()}` }
+                : null,
+            },
+            {
+              label: "Bench scores",
+              dotColor: COLORS.ember,
+              value: stats.bench.scoresToday.toLocaleString(),
+              unit: "today",
+              hint: `${stats.bench.scores7d.toLocaleString()} this week`,
+            },
+            {
+              label: "Bench cycles",
+              dotColor: COLORS.ember,
+              value: stats.bench.cycles7d.toLocaleString(),
+              unit: "/ 7d",
+              hint: `${stats.bench.cycles30d.toLocaleString()} this month`,
+            },
+          ]}
+        />
+      </div>
 
       <Timeline24h ghMarkers={ghMarkers} vercelMarkers={vercelMarkers} />
 
       <section style={styles.section}>
         <h2 style={styles.h2}>GitHub Actions</h2>
-        <div style={styles.eyebrow}>Workflows in .github/workflows/</div>
+        <div style={styles.eyebrow}>
+          {GH_WORKFLOWS.length} workflows · .github/workflows/
+        </div>
         <div
           style={{
             display: "flex",
             flexDirection: "column",
             gap: 1,
             background: "var(--rule)",
-        border: "1px solid var(--rule)",
+            border: "1px solid var(--rule)",
             marginTop: 16,
           }}
         >
           {GH_WORKFLOWS.map((w) => (
-            <WorkflowCard key={w.id} workflow={w} />
+            <WorkflowCard
+              key={w.id}
+              workflow={w}
+              throughput={throughputByWorkflow[w.id]}
+            />
           ))}
         </div>
       </section>
 
       <section style={styles.section}>
         <h2 style={styles.h2}>Vercel cron jobs</h2>
-        <div style={styles.eyebrow}>Endpoints in vercel.json</div>
+        <div style={styles.eyebrow}>
+          {VERCEL_CRONS.length} endpoints · vercel.json
+        </div>
         <div
           style={{
             display: "flex",
             flexDirection: "column",
             gap: 1,
             background: "var(--rule)",
-        border: "1px solid var(--rule)",
+            border: "1px solid var(--rule)",
             marginTop: 16,
           }}
         >
           {VERCEL_CRONS.map((c) => (
-            <VercelCronCard key={c.path} cron={c} />
+            <VercelCronCard
+              key={c.path}
+              cron={c}
+              throughput={throughputByCron[c.path]}
+            />
           ))}
         </div>
       </section>
@@ -968,7 +1250,7 @@ export default async function AutomationPage() {
         <h2 style={styles.h2}>Bench budget</h2>
         <div style={styles.eyebrow}>30-day spend via cycles.actual_cost_usd</div>
         <div style={{ marginTop: 16 }}>
-          <BudgetCard />
+          <BudgetCard now={now} />
         </div>
       </section>
     </div>

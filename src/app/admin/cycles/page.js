@@ -810,7 +810,7 @@ function RunningCycleCard({ data }) {
     agentDone, agentTotal, judgeDone, judgeTotal, judgeBreakdown,
     medianSecPerJob, etaMs, elapsedMs, pendingJudgeCalls, stalledOutputs, phase,
   } = data;
-  const renderedAtMs = Date.now();
+  const renderedAtMs = new Date().getTime();
   return (
     <div
       style={{

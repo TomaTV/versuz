@@ -25,13 +25,13 @@ function formatDuration(ms) {
  *
  * @param startedAtIso  cycle.started_at as ISO string
  * @param etaMsAtRender  ETA in ms at the moment of server render
- * @param renderedAtMs   Date.now() at server-render time (passed from page)
+ * @param renderedAtMs   new Date().getTime() at server-render time (passed from page)
  */
 export function LiveChrono({ startedAtIso, etaMsAtRender, renderedAtMs }) {
-  const [now, setNow] = useState(() => renderedAtMs || Date.now());
+  const [now, setNow] = useState(() => renderedAtMs || new Date().getTime());
 
   useEffect(() => {
-    const t = setInterval(() => setNow(Date.now()), 1000);
+    const t = setInterval(() => setNow(new Date().getTime()), 1000);
     return () => clearInterval(t);
   }, []);
 
@@ -51,9 +51,9 @@ export function LiveChrono({ startedAtIso, etaMsAtRender, renderedAtMs }) {
 
 /** Render just the elapsed part */
 export function LiveElapsed({ startedAtIso }) {
-  const [now, setNow] = useState(() => Date.now());
+  const [now, setNow] = useState(() => new Date().getTime());
   useEffect(() => {
-    const t = setInterval(() => setNow(Date.now()), 1000);
+    const t = setInterval(() => setNow(new Date().getTime()), 1000);
     return () => clearInterval(t);
   }, []);
   const elapsedMs = startedAtIso ? now - new Date(startedAtIso).getTime() : 0;
@@ -79,7 +79,7 @@ function readPersistedEta() {
     if (!raw) return null;
     const parsed = JSON.parse(raw);
     if (!parsed || typeof parsed.ms !== "number" || typeof parsed.ts !== "number") return null;
-    const ageSec = (Date.now() - parsed.ts) / 1000;
+    const ageSec = (new Date().getTime() - parsed.ts) / 1000;
     if (ageSec < 0 || ageSec > 60) return null; // too old, ignore
     const adjusted = Math.max(0, parsed.ms - ageSec * 1000);
     return adjusted;
@@ -91,7 +91,7 @@ function readPersistedEta() {
 function writePersistedEta(ms) {
   if (typeof window === "undefined") return;
   try {
-    window.localStorage.setItem(ETA_KEY, JSON.stringify({ ms, ts: Date.now() }));
+    window.localStorage.setItem(ETA_KEY, JSON.stringify({ ms, ts: new Date().getTime() }));
   } catch {
     // quota or disabled — ignore
   }
@@ -126,11 +126,11 @@ export function LiveEta({ etaMsAtRender, renderedAtMs, fallbackLabel = "—", co
   // The ETA cannot grow faster than 1.5s per second of wall-clock time, so
   // a sudden "11 min" reveal lerps up gradually instead of slapping the user.
   // Faster-than-predicted snapshots are adopted instantly (good news).
-  const lastSnapshotTsRef = useRef(Date.now());
+  const lastSnapshotTsRef = useRef(new Date().getTime());
   useEffect(() => {
     if (etaMsAtRender == null) return;
     if (etaMsAtRender === lastServerEtaRef.current) return;
-    const now = Date.now();
+    const now = new Date().getTime();
     const sinceLastSnapshot = now - lastSnapshotTsRef.current;
     lastServerEtaRef.current = etaMsAtRender;
     lastSnapshotTsRef.current = now;

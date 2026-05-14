@@ -54,9 +54,10 @@ export default async function ManageItemPage({ params }) {
       ? `/skills/${slug}`
       : `/claude-md/${item.project_category || "generic"}/${slug}`;
   const promoteHref = `/promote/${kindRaw}/${slug}`;
-  const isBoosted = item.promoted_until && new Date(item.promoted_until) > new Date();
+  const nowMs = new Date().getTime();
+  const isBoosted = item.promoted_until && new Date(item.promoted_until).getTime() > nowMs;
   const remainingDays = isBoosted
-    ? Math.ceil((new Date(item.promoted_until).getTime() - Date.now()) / (1000 * 60 * 60 * 24))
+    ? Math.ceil((new Date(item.promoted_until).getTime() - nowMs) / (1000 * 60 * 60 * 24))
     : 0;
 
   return (

@@ -60,6 +60,30 @@ export function nextRun(expr, from = new Date()) {
   return null;
 }
 
+/**
+ * Like nextRun but scans backwards — returns the most recent scheduled
+ * occurrence at or before `from`. Used to compute the elapsed fraction
+ * of the current cron interval.
+ */
+export function prevRun(expr, from = new Date()) {
+  const c = parseCron(expr);
+  const d = new Date(from.getTime());
+  d.setUTCSeconds(0, 0);
+  for (let i = 0; i < 366 * 24 * 60; i++) {
+    if (
+      matches(c.minutes, d.getUTCMinutes()) &&
+      matches(c.hours, d.getUTCHours()) &&
+      matches(c.daysOfMonth, d.getUTCDate()) &&
+      matches(c.months, d.getUTCMonth() + 1) &&
+      matches(c.daysOfWeek, d.getUTCDay())
+    ) {
+      return new Date(d.getTime());
+    }
+    d.setUTCMinutes(d.getUTCMinutes() - 1);
+  }
+  return null;
+}
+
 export function formatRelative(date, now = new Date()) {
   if (!date) return "—";
   const diffMs = date.getTime() - now.getTime();
@@ -74,6 +98,55 @@ export function formatRelative(date, now = new Date()) {
   else if (hr < 24) out = `${hr}h`;
   else out = `${day}d`;
   return diffMs < 0 ? `${out} ago` : `in ${out}`;
+}
+
+/**
+ * Like formatRelative but keeps the second unit so a "9h" countdown becomes
+ * "9h 12m" — much more readable for the admin timeline cards.
+ * Past dates return "{x} ago"; future dates return the raw "9h 12m" (caller
+ * decides whether to prefix "in").
+ */
+export function formatRelativeLong(date, now = new Date()) {
+  if (!date) return { primary: "—", secondary: "", isPast: false };
+  const diffMs = date.getTime() - now.getTime();
+  const isPast = diffMs < 0;
+  const abs = Math.abs(diffMs);
+  const totalSec = Math.floor(abs / 1000);
+  const totalMin = Math.floor(totalSec / 60);
+  const totalHr = Math.floor(totalMin / 60);
+  const totalDay = Math.floor(totalHr / 24);
+
+  let primary;
+  let secondary;
+  if (totalSec < 60) {
+    primary = `${totalSec}s`;
+    secondary = "";
+  } else if (totalMin < 60) {
+    primary = `${totalMin}m`;
+    secondary = `${totalSec % 60}s`;
+  } else if (totalHr < 24) {
+    primary = `${totalHr}h`;
+    secondary = `${totalMin % 60}m`;
+  } else {
+    primary = `${totalDay}d`;
+    secondary = `${totalHr % 24}h`;
+  }
+  return { primary, secondary, isPast, diffMs };
+}
+
+/**
+ * Fraction (0 → 1) of the interval between `prev` and `next` that has elapsed
+ * by `now`. Used to render a progress bar leading up to the next scheduled
+ * run. Falls back to 0 if either bound is missing or invalid.
+ */
+export function progressBetween(prev, next, now = new Date()) {
+  if (!prev || !next) return 0;
+  const total = next.getTime() - prev.getTime();
+  if (total <= 0) return 1;
+  const done = now.getTime() - prev.getTime();
+  if (done <= 0) return 0;
+  if (done >= total) return 1;
+  return done / total;
 }
 
 export function formatUTC(date) {

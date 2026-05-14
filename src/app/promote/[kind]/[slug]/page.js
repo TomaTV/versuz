@@ -61,11 +61,12 @@ export default async function PromotePage({ params, searchParams }) {
         ? `${subject.metadata.author}/${subject.metadata.repo}`
         : subject.slug;
 
+  const nowMs = new Date().getTime();
   const isAlreadyBoosted =
-    subject.promoted_until && new Date(subject.promoted_until) > new Date();
+    subject.promoted_until && new Date(subject.promoted_until).getTime() > nowMs;
   const remainingDays = isAlreadyBoosted
     ? Math.ceil(
-        (new Date(subject.promoted_until).getTime() - Date.now()) /
+        (new Date(subject.promoted_until).getTime() - nowMs) /
           (1000 * 60 * 60 * 24)
       )
     : 0;

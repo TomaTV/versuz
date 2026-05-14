@@ -105,6 +105,91 @@ export async function fetchWorkflowRuns(workflowId, limit = 5) {
 }
 
 /**
+ * Throughput stats for each automation workflow.
+ *
+ * Returns counts in three buckets used to populate the per-workflow chips
+ * and the "Activity" KPI strip. Designed for one Supabase round-trip with
+ * Promise.all and `count: 'estimated'` where the filter is "all rows" — on
+ * tiny windows (last 24h) we want exact counts though, so we use 'exact'
+ * with a `head: true` HEAD request and rely on the indexed `scraped_at` /
+ * `quality_judged_at` columns to keep it under the 3s anon timeout.
+ *
+ * scrape:  rows inserted in last 24h (skills + claude_md, by scraped_at)
+ * quality: rows quality_judged in last 24h
+ * bench:   completed cycles in last 7d + judge_scores in last 7d
+ */
+export async function fetchAutomationStats(sb) {
+  if (!sb) {
+    return {
+      scrape: { skills24h: 0, cmd24h: 0, skills7d: 0, cmd7d: 0 },
+      quality: { skills24h: 0, cmd24h: 0, skills7d: 0, cmd7d: 0, totalRated: 0 },
+      bench: { cycles7d: 0, scores7d: 0, cycles30d: 0, scoresToday: 0 },
+    };
+  }
+  const now = Date.now();
+  const h24 = new Date(now - 24 * 3600 * 1000).toISOString();
+  const d7 = new Date(now - 7 * 24 * 3600 * 1000).toISOString();
+  const d30 = new Date(now - 30 * 24 * 3600 * 1000).toISOString();
+  const todayUtc = new Date();
+  todayUtc.setUTCHours(0, 0, 0, 0);
+  const todayIso = todayUtc.toISOString();
+
+  // Run everything in parallel — each is a HEAD count query so it's cheap.
+  const [
+    skillsScraped24h,
+    cmdScraped24h,
+    skillsScraped7d,
+    cmdScraped7d,
+    skillsJudged24h,
+    cmdJudged24h,
+    skillsJudged7d,
+    cmdJudged7d,
+    skillsRatedTotal,
+    cyclesDone7d,
+    cyclesDone30d,
+    scores7d,
+    scoresToday,
+  ] = await Promise.all([
+    sb.from("skills").select("id", { count: "exact", head: true }).gte("scraped_at", h24),
+    sb.from("claude_md_files").select("id", { count: "exact", head: true }).gte("scraped_at", h24),
+    sb.from("skills").select("id", { count: "exact", head: true }).gte("scraped_at", d7),
+    sb.from("claude_md_files").select("id", { count: "exact", head: true }).gte("scraped_at", d7),
+    sb.from("skills").select("id", { count: "exact", head: true }).gte("quality_judged_at", h24),
+    sb.from("claude_md_files").select("id", { count: "exact", head: true }).gte("quality_judged_at", h24),
+    sb.from("skills").select("id", { count: "exact", head: true }).gte("quality_judged_at", d7),
+    sb.from("claude_md_files").select("id", { count: "exact", head: true }).gte("quality_judged_at", d7),
+    sb.from("skills").select("id", { count: "estimated", head: true }).not("quality_judged_at", "is", null),
+    sb.from("cycles").select("id", { count: "exact", head: true }).gte("started_at", d7).eq("status", "completed"),
+    sb.from("cycles").select("id", { count: "exact", head: true }).gte("started_at", d30).eq("status", "completed"),
+    sb.from("judge_scores").select("id", { count: "exact", head: true }).gte("created_at", d7),
+    sb.from("judge_scores").select("id", { count: "exact", head: true }).gte("created_at", todayIso),
+  ]);
+
+  const c = (r) => r?.count ?? 0;
+  return {
+    scrape: {
+      skills24h: c(skillsScraped24h),
+      cmd24h: c(cmdScraped24h),
+      skills7d: c(skillsScraped7d),
+      cmd7d: c(cmdScraped7d),
+    },
+    quality: {
+      skills24h: c(skillsJudged24h),
+      cmd24h: c(cmdJudged24h),
+      skills7d: c(skillsJudged7d),
+      cmd7d: c(cmdJudged7d),
+      totalRated: c(skillsRatedTotal),
+    },
+    bench: {
+      cycles7d: c(cyclesDone7d),
+      cycles30d: c(cyclesDone30d),
+      scores7d: c(scores7d),
+      scoresToday: c(scoresToday),
+    },
+  };
+}
+
+/**
  * 30-day bench spend from cycles.actual_cost_usd. Used for the budget card.
  */
 export async function fetchBenchBudget(sb) {
