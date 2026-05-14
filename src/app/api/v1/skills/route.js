@@ -59,7 +59,7 @@ export async function GET(request) {
     .from("skills")
     .select(
       "slug, name, description, category, tier, price_usd, verification_level, github_stars, github_url, metadata",
-      { count: "exact" }
+      { count: "estimated" }
     );
 
   if (category && ALLOWED_CATS.has(category)) query = query.eq("category", category);

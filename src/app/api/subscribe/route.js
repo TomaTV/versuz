@@ -16,6 +16,14 @@ function backTo(url, status, message) {
 
 export async function POST(request) {
   const formData = await request.formData();
+
+  // Honeypot — hidden field that bots fill, real users never see.
+  // Silently fake-succeed so the bot doesn't retry with a variant.
+  const honeypot = String(formData.get("website") || "").trim();
+  if (honeypot) {
+    redirect(backTo(request.url, "ok", "Thanks"));
+  }
+
   const email = String(formData.get("email") || "").trim().toLowerCase();
   if (!email || !EMAIL_RE.test(email)) {
     redirect(backTo(request.url, "error", "Invalid email"));

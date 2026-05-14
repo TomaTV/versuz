@@ -194,6 +194,22 @@ export function VzFooter() {
                 maxWidth: 360,
               }}
             >
+              {/* Honeypot — hidden from real users, bots fill it */}
+              <input
+                type="text"
+                name="website"
+                tabIndex={-1}
+                autoComplete="off"
+                aria-hidden="true"
+                style={{
+                  position: "absolute",
+                  left: "-9999px",
+                  width: 1,
+                  height: 1,
+                  opacity: 0,
+                  pointerEvents: "none",
+                }}
+              />
               <input
                 type="email"
                 name="email"

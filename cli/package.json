@@ -4,9 +4,9 @@
   "description": "Browse, search, and install Claude skills + CLAUDE.md from the Versuz marketplace",
   "type": "module",
   "bin": {
-    "versuz": "./bin/versuz.js"
+    "versuz": "bin/versuz.js"
   },
-  "main": "./src/index.js",
+  "main": "src/index.js",
   "files": [
     "bin",
     "src",
@@ -29,7 +29,7 @@
   "homepage": "https://versuz.dev",
   "repository": {
     "type": "git",
-    "url": "https://github.com/TomaTV/versuz",
+    "url": "git+https://github.com/TomaTV/versuz.git",
     "directory": "cli"
   },
   "license": "MIT",

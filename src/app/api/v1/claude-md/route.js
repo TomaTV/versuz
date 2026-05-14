@@ -67,7 +67,7 @@ export async function GET(request) {
     .from("claude_md_files")
     .select(
       "slug, description, project_category, tier, price_usd, verification_level, github_stars, github_url, word_count, metadata",
-      { count: "exact" }
+      { count: "estimated" }
     );
 
   if (projectCategory && ALLOWED_CATS.has(projectCategory))
