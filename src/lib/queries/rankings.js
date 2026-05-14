@@ -214,13 +214,16 @@ async function enrichWithBenchScores(items, kind) {
   if (!items || items.length === 0) return items;
   const sb = await createSupabaseServerClient();
   if (!sb) return items;
+  const idCol = kind === "skill" ? "skill_id" : "claude_md_id";
+  const ids = items.map((it) => it.id).filter(Boolean);
+  if (ids.length === 0) return items;
   const { data } = await sb
     .from("rankings")
     .select("skill_id, claude_md_id, avg_score, task_count")
     .eq("subject_kind", kind)
+    .in(idCol, ids)
     .not("avg_score", "is", null);
   if (!data) return items;
-  const idCol = kind === "skill" ? "skill_id" : "claude_md_id";
   const byId = new Map(data.map((r) => [r[idCol], r]));
   return items.map((it) => {
     const r = byId.get(it.id);
@@ -1290,27 +1293,28 @@ export async function getLeaderboardCategories(kind = "skill") {
   if (!sb) return [];
   const counts = new Map();
 
-  // Benched item IDs (so we can exclude them from the quality count below)
   const idCol = kind === "skill" ? "skill_id" : "claude_md_id";
-  const { data: benched } = await sb
-    .from("rankings")
-    .select(`category, ${idCol}`)
-    .eq("subject_kind", kind)
-    .not("avg_score", "is", null);
+  const qualityTable = kind === "skill" ? "skills" : "claude_md_files";
+  const catCol = kind === "skill" ? "category" : "project_category";
+
+  const [{ data: benched }, { data: qualityRows }] = await Promise.all([
+    sb
+      .from("rankings")
+      .select(`category, ${idCol}`)
+      .eq("subject_kind", kind)
+      .not("avg_score", "is", null),
+    sb
+      .from(qualityTable)
+      .select(`id, ${catCol}`)
+      .not("quality_score", "is", null)
+      .limit(5000),
+  ]);
+
   const benchedIds = new Set();
   for (const row of benched || []) {
     counts.set(row.category, (counts.get(row.category) || 0) + 1);
     if (row[idCol]) benchedIds.add(row[idCol]);
   }
-
-  // Quality-only items (have quality_score, NOT already benched)
-  const qualityTable = kind === "skill" ? "skills" : "claude_md_files";
-  const catCol = kind === "skill" ? "category" : "project_category";
-  const { data: qualityRows } = await sb
-    .from(qualityTable)
-    .select(`id, ${catCol}`)
-    .not("quality_score", "is", null)
-    .limit(5000);
   for (const row of qualityRows || []) {
     if (benchedIds.has(row.id)) continue; // already counted as benched
     const c = row[catCol];
