@@ -90,8 +90,8 @@ export default async function Image() {
           <div
             style={{
               fontFamily: "Instrument Serif",
-              fontSize: 156,
-              lineHeight: 0.95,
+              fontSize: 152,
+              lineHeight: 1.05,
               letterSpacing: "-0.02em",
               color: "#14120e",
             }}
@@ -103,10 +103,10 @@ export default async function Image() {
               display: "flex",
               fontFamily: "Instrument Serif",
               fontStyle: "italic",
-              fontSize: 156,
-              lineHeight: 0.95,
+              fontSize: 152,
+              lineHeight: 1.05,
               letterSpacing: "-0.02em",
-              marginTop: -10,
+              marginTop: 8,
             }}
           >
             <span style={{ color: "#14120e" }}>Only&nbsp;</span>
@@ -120,7 +120,8 @@ export default async function Image() {
               lineHeight: 1.5,
               color: "#14120e",
               opacity: 0.75,
-              marginTop: 36,
+              marginTop: 44,
+              marginBottom: 32,
               maxWidth: 980,
             }}
           >
@@ -134,7 +135,7 @@ export default async function Image() {
             display: "flex",
             justifyContent: "space-between",
             alignItems: "center",
-            paddingTop: 22,
+            paddingTop: 26,
             borderTop: "1px solid rgba(20,18,14,0.18)",
             color: "#6b6557",
           }}
