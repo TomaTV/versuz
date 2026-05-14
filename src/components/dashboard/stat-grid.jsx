@@ -39,7 +39,7 @@ export function StatGrid({ stats }) {
           <span
             style={{
               fontFamily: "var(--font-display)",
-              fontSize: 56,
+              fontSize: "clamp(32px, 5vw, 56px)",
               fontWeight: 400,
               color: s.color || "var(--fg)",
               fontVariantNumeric: "tabular-nums",
@@ -97,10 +97,11 @@ export function BarChart({ data, title, height = 280 }) {
         </span>
       )}
       <div
+        className="vz-bar-chart"
         style={{
           marginTop: title ? 16 : 0,
           display: "grid",
-          gridTemplateColumns: "100px 1fr 48px",
+          gridTemplateColumns: "minmax(80px, 100px) 1fr 48px",
           gap: 12,
           fontFamily: "var(--font-mono)",
           fontSize: 11,

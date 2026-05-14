@@ -1164,6 +1164,7 @@ export function MarketplaceGrid({
             </div>
           )}
           <div
+            className="vz-mp-grid"
             style={{
               display: "grid",
               // `auto-fit` (not auto-fill) collapses empty tracks at end of

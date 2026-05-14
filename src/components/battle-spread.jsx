@@ -29,13 +29,13 @@ function BattleSide({ skill, won, alignRight = false }) {
         <div
           style={{
             fontFamily: "var(--font-display)",
-            fontSize: 44,
+            fontSize: "clamp(24px, 5vw, 44px)",
             fontWeight: 400,
             letterSpacing: "-0.025em",
             lineHeight: 1.05,
             color: "var(--fg)",
             fontStyle: won ? "italic" : "normal",
-            whiteSpace: "nowrap",
+            overflowWrap: "anywhere",
           }}
         >
           {skill.name}
@@ -63,7 +63,7 @@ function BattleSide({ skill, won, alignRight = false }) {
         <span
           style={{
             fontFamily: "var(--font-display)",
-            fontSize: 56,
+            fontSize: "clamp(36px, 7vw, 56px)",
             fontWeight: 400,
             color: won ? "var(--accent)" : "var(--fg)",
             fontVariantNumeric: "tabular-nums",
@@ -139,6 +139,7 @@ export function BattleSpread({ battle }) {
       </div>
 
       <div
+        className="vz-battle-spread"
         style={{
           display: "grid",
           gridTemplateColumns: "1fr auto 1fr",
@@ -174,7 +175,7 @@ export function BattleSpread({ battle }) {
           <div
             style={{
               fontFamily: "var(--font-display)",
-              fontSize: 64,
+              fontSize: "clamp(36px, 7vw, 64px)",
               fontStyle: "italic",
               fontWeight: 400,
               color: "var(--accent)",

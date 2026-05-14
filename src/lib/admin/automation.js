@@ -121,13 +121,12 @@ export async function fetchWorkflowRuns(workflowId, limit = 5) {
 export async function fetchAutomationStats(sb) {
   if (!sb) {
     return {
-      scrape: { skills24h: 0, cmd24h: 0, skills7d: 0, cmd7d: 0 },
-      quality: { skills24h: 0, cmd24h: 0, skills7d: 0, cmd7d: 0, totalRated: 0 },
+      scrape: { skillsToday: 0, cmdToday: 0, skills7d: 0, cmd7d: 0 },
+      quality: { skillsToday: 0, cmdToday: 0, skills7d: 0, cmd7d: 0, totalRated: 0 },
       bench: { cycles7d: 0, scores7d: 0, cycles30d: 0, scoresToday: 0 },
     };
   }
   const now = Date.now();
-  const h24 = new Date(now - 24 * 3600 * 1000).toISOString();
   const d7 = new Date(now - 7 * 24 * 3600 * 1000).toISOString();
   const d30 = new Date(now - 30 * 24 * 3600 * 1000).toISOString();
   const todayUtc = new Date();
@@ -135,13 +134,14 @@ export async function fetchAutomationStats(sb) {
   const todayIso = todayUtc.toISOString();
 
   // Run everything in parallel — each is a HEAD count query so it's cheap.
+  // "today" = since midnight UTC (calendar day) ; "7d"/"30d" = rolling.
   const [
-    skillsScraped24h,
-    cmdScraped24h,
+    skillsScrapedToday,
+    cmdScrapedToday,
     skillsScraped7d,
     cmdScraped7d,
-    skillsJudged24h,
-    cmdJudged24h,
+    skillsJudgedToday,
+    cmdJudgedToday,
     skillsJudged7d,
     cmdJudged7d,
     skillsRatedTotal,
@@ -150,12 +150,12 @@ export async function fetchAutomationStats(sb) {
     scores7d,
     scoresToday,
   ] = await Promise.all([
-    sb.from("skills").select("id", { count: "exact", head: true }).gte("scraped_at", h24),
-    sb.from("claude_md_files").select("id", { count: "exact", head: true }).gte("scraped_at", h24),
+    sb.from("skills").select("id", { count: "exact", head: true }).gte("scraped_at", todayIso),
+    sb.from("claude_md_files").select("id", { count: "exact", head: true }).gte("scraped_at", todayIso),
     sb.from("skills").select("id", { count: "exact", head: true }).gte("scraped_at", d7),
     sb.from("claude_md_files").select("id", { count: "exact", head: true }).gte("scraped_at", d7),
-    sb.from("skills").select("id", { count: "exact", head: true }).gte("quality_judged_at", h24),
-    sb.from("claude_md_files").select("id", { count: "exact", head: true }).gte("quality_judged_at", h24),
+    sb.from("skills").select("id", { count: "exact", head: true }).gte("quality_judged_at", todayIso),
+    sb.from("claude_md_files").select("id", { count: "exact", head: true }).gte("quality_judged_at", todayIso),
     sb.from("skills").select("id", { count: "exact", head: true }).gte("quality_judged_at", d7),
     sb.from("claude_md_files").select("id", { count: "exact", head: true }).gte("quality_judged_at", d7),
     sb.from("skills").select("id", { count: "estimated", head: true }).not("quality_judged_at", "is", null),
@@ -168,14 +168,14 @@ export async function fetchAutomationStats(sb) {
   const c = (r) => r?.count ?? 0;
   return {
     scrape: {
-      skills24h: c(skillsScraped24h),
-      cmd24h: c(cmdScraped24h),
+      skillsToday: c(skillsScrapedToday),
+      cmdToday: c(cmdScrapedToday),
       skills7d: c(skillsScraped7d),
       cmd7d: c(cmdScraped7d),
     },
     quality: {
-      skills24h: c(skillsJudged24h),
-      cmd24h: c(cmdJudged24h),
+      skillsToday: c(skillsJudgedToday),
+      cmdToday: c(cmdJudgedToday),
       skills7d: c(skillsJudged7d),
       cmd7d: c(cmdJudged7d),
       totalRated: c(skillsRatedTotal),
@@ -186,6 +186,50 @@ export async function fetchAutomationStats(sb) {
       scores7d: c(scores7d),
       scoresToday: c(scoresToday),
     },
+  };
+}
+
+/**
+ * Heartbeat — most-recent activity timestamps per pipeline stage.
+ * Compared against expected cadence to flag dead workflows :
+ *
+ *   - scrape  : daily at 02:00 UTC → stale if > 26h
+ *   - quality : every 4h           → stale if > 5h
+ *   - bench   : daily at 03:00 UTC → stale if > 26h
+ *
+ * If a stage is stale, automation is silently broken — the UI surfaces
+ * a red banner so we don't notice 3 days later that scraping died.
+ */
+export async function fetchHeartbeat(sb) {
+  if (!sb) {
+    return { scrape: null, quality: null, bench: null };
+  }
+  const [scrapeRow, qualityRow, benchRow] = await Promise.all([
+    sb
+      .from("skills")
+      .select("scraped_at")
+      .order("scraped_at", { ascending: false, nullsFirst: false })
+      .limit(1)
+      .maybeSingle(),
+    sb
+      .from("skills")
+      .select("quality_judged_at")
+      .not("quality_judged_at", "is", null)
+      .order("quality_judged_at", { ascending: false })
+      .limit(1)
+      .maybeSingle(),
+    sb
+      .from("judge_scores")
+      .select("created_at")
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle(),
+  ]);
+
+  return {
+    scrape: scrapeRow.data?.scraped_at || null,
+    quality: qualityRow.data?.quality_judged_at || null,
+    bench: benchRow.data?.created_at || null,
   };
 }
 

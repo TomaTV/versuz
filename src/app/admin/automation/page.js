@@ -6,6 +6,7 @@ import {
   fetchWorkflowRuns,
   fetchBenchBudget,
   fetchAutomationStats,
+  fetchHeartbeat,
 } from "@/lib/admin/automation";
 import {
   nextRun,
@@ -309,151 +310,214 @@ function NextRunCountdown({ nextRunAt, schedule }) {
   );
 }
 
-// ─── 24h timeline visual (2 lanes : GH workflows / Vercel crons) ──────
+// ─── Heartbeat banner — flag dead pipelines ───────────────────────────
+//
+// Each stage has an expected cadence ; if the most recent activity is
+// older than the "stale" threshold, automation is silently broken and
+// we surface a red banner. Defines :
+//
+//   scrape (daily 02:00 UTC) → stale > 26h
+//   quality (every 4h)       → stale > 5h
+//   bench (daily 03:00 UTC)  → stale > 26h
 
-// Assigns a "row" (0, 1, or 2) to each labeled marker so adjacent labels
-// don't collide horizontally. Labels are ~60px wide → each row holds markers
-// at least ~10% of timeline width apart (24h × 0.10 = 2.4h).
-function stackLabels(markers) {
-  const MIN_GAP_PCT = 10; // 2.4h gap before two labels share a row
-  const ROWS = [-Infinity, -Infinity, -Infinity];
-  return markers.map((m) => {
-    if (!m.showLabel) return { ...m, labelRow: 0 };
-    const pct = (m.hourFloat / 24) * 100;
-    for (let row = 0; row < ROWS.length; row++) {
-      if (pct - ROWS[row] >= MIN_GAP_PCT) {
-        ROWS[row] = pct;
-        return { ...m, labelRow: row };
-      }
-    }
-    // All rows full — just stack on bottom row
-    return { ...m, labelRow: ROWS.length - 1 };
+const HEARTBEAT_THRESHOLDS = {
+  scrape: { warnH: 26, label: "Scrape", maxH: 48 },
+  quality: { warnH: 5, label: "Quality judge", maxH: 12 },
+  bench: { warnH: 26, label: "Bench engine", maxH: 48 },
+};
+
+function HeartbeatBanner({ heartbeat, now }) {
+  const cells = ["scrape", "quality", "bench"].map((key) => {
+    const ts = heartbeat[key];
+    const cfg = HEARTBEAT_THRESHOLDS[key];
+    const date = ts ? new Date(ts) : null;
+    const ageMs = date ? now.getTime() - date.getTime() : null;
+    const ageH = ageMs != null ? ageMs / 3_600_000 : null;
+    const status = !date
+      ? "missing"
+      : ageH > cfg.maxH
+        ? "dead"
+        : ageH > cfg.warnH
+          ? "warn"
+          : "ok";
+    const color =
+      status === "ok"
+        ? COLORS.ok
+        : status === "warn"
+          ? COLORS.warn
+          : COLORS.err;
+    return { key, cfg, date, ageH, status, color, ts };
   });
-}
 
-function TimelineLane({ label, color, markers, nowHourFloat }) {
-  const stacked = stackLabels(markers);
-  const maxRow = stacked.reduce((acc, m) => Math.max(acc, m.labelRow), 0);
-  const laneHeight = 28 + (maxRow + 1) * 14; // base 28 + 14px per label row
+  const worst = cells.reduce((acc, c) => {
+    const rank = { ok: 0, warn: 1, dead: 2, missing: 2 };
+    return rank[c.status] > rank[acc.status] ? c : acc;
+  });
+
+  if (worst.status === "ok") return null;
+
   return (
-    <div style={{ position: "relative", height: laneHeight, marginBottom: 12 }}>
+    <div
+      style={{
+        marginTop: 24,
+        padding: "14px 18px",
+        border: `1px solid ${worst.color}`,
+        background: `color-mix(in oklab, ${worst.color} 6%, var(--surface))`,
+        display: "grid",
+        gridTemplateColumns: "auto 1fr auto",
+        gap: 16,
+        alignItems: "center",
+      }}
+      className="vz-heartbeat-banner"
+    >
+      <span
+        aria-hidden
+        style={{
+          width: 10,
+          height: 10,
+          background: worst.color,
+          borderRadius: "50%",
+          boxShadow: `0 0 0 4px color-mix(in oklab, ${worst.color} 22%, transparent)`,
+        }}
+      />
       <div
         style={{
-          position: "absolute",
-          left: 0,
-          top: 0,
-          bottom: 0,
-          width: 90,
-          display: "flex",
-          alignItems: "flex-start",
-          paddingTop: 6,
-          gap: 8,
+          fontFamily: "var(--font-mono)",
+          fontSize: 12,
+          color: "var(--fg)",
+          letterSpacing: "0.04em",
+          lineHeight: 1.5,
         }}
       >
-        <span style={{ width: 8, height: 8, background: color, borderRadius: 2, marginTop: 4 }} />
-        <span
+        <strong style={{ color: worst.color, marginRight: 8, letterSpacing: "0.16em", textTransform: "uppercase", fontSize: 10 }}>
+          {worst.status === "warn" ? "WARNING" : "STALE"}
+        </strong>
+        {cells.map((c, i) => (
+          <span key={c.key} style={{ marginRight: i < cells.length - 1 ? 16 : 0 }}>
+            <span style={{ color: c.color }}>{c.cfg.label}</span>:{" "}
+            {c.date
+              ? c.ageH < 1
+                ? `${Math.round(c.ageH * 60)}m ago`
+                : c.ageH < 24
+                  ? `${Math.round(c.ageH)}h ago`
+                  : `${Math.round(c.ageH / 24)}d ago`
+              : "never"}
+          </span>
+        ))}
+      </div>
+      <span style={{ ...styles.mono, fontSize: 10, color: "var(--fg-muted)" }}>
+        check workflow logs
+      </span>
+    </div>
+  );
+}
+
+// ─── Today's agenda — vertical list of next/past runs ─────────────────
+//
+// Replaces the previous horizontal 2-lane timeline (the labels collided
+// at 02:00/03:00 and 04-09:00 making it unreadable). Agenda view sorts
+// every scheduled occurrence today by time, splits into "upcoming" and
+// "past" buckets, highlights the next imminent run.
+
+function AgendaRow({ item, isNext, now }) {
+  const past = item.runAt < now;
+  const rel = formatRelativeLong(item.runAt, now);
+  const isGh = item.source === "gh";
+  const dotColor = past
+    ? "var(--rule-strong)"
+    : isGh
+      ? COLORS.ember
+      : COLORS.blue;
+  return (
+    <div
+      style={{
+        display: "grid",
+        gridTemplateColumns: "84px 12px minmax(0, 1fr) auto",
+        gap: 14,
+        alignItems: "center",
+        padding: isNext ? "14px 16px" : "10px 16px 10px 16px",
+        background: isNext ? "color-mix(in oklab, var(--accent) 6%, var(--surface))" : "transparent",
+        borderLeft: isNext ? `3px solid ${COLORS.ember}` : "3px solid transparent",
+        borderBottom: "1px solid var(--rule)",
+        opacity: past ? 0.5 : 1,
+      }}
+    >
+      <div
+        style={{
+          fontFamily: "var(--font-mono)",
+          fontSize: 13,
+          color: "var(--fg)",
+          fontVariantNumeric: "tabular-nums",
+          letterSpacing: "0.04em",
+        }}
+      >
+        {String(item.hour).padStart(2, "0")}:{String(item.minute).padStart(2, "0")}
+      </div>
+      <span
+        aria-hidden
+        style={{
+          width: 10,
+          height: 10,
+          background: dotColor,
+          borderRadius: 2,
+          boxShadow: isNext
+            ? `0 0 0 3px color-mix(in oklab, ${dotColor} 30%, transparent)`
+            : "none",
+        }}
+      />
+      <div style={{ minWidth: 0 }}>
+        <div
           style={{
-            fontFamily: "var(--font-mono)",
-            fontSize: 10,
-            letterSpacing: "0.12em",
+            fontFamily: "var(--font-display)",
+            fontSize: isNext ? 18 : 15,
             color: "var(--fg)",
-            textTransform: "uppercase",
+            letterSpacing: "-0.01em",
+            overflow: "hidden",
+            textOverflow: "ellipsis",
+            whiteSpace: "nowrap",
           }}
         >
-          {label}
-        </span>
+          {item.name}
+        </div>
+        <div style={{ ...styles.mono, fontSize: 10, marginTop: 2 }}>
+          {isGh ? "GitHub Actions" : "Vercel cron"} · {item.schedule}
+        </div>
       </div>
       <div
         style={{
-          position: "absolute",
-          left: 100,
-          right: 0,
-          top: 0,
-          bottom: 0,
+          textAlign: "right",
+          fontFamily: "var(--font-mono)",
+          fontSize: 12,
+          color: past ? "var(--fg-muted)" : "var(--fg)",
+          fontVariantNumeric: "tabular-nums",
+          minWidth: 90,
         }}
       >
-        {/* Lane background bar */}
-        <div
-          style={{
-            position: "absolute",
-            top: 16,
-            left: 0,
-            right: 0,
-            height: 4,
-            background: "var(--surface)",
-            borderRadius: 2,
-          }}
-        />
-        {/* Markers */}
-        {stacked.map((m, i) => {
-          const past = m.hourFloat < nowHourFloat;
-          const labelTop = 32 + m.labelRow * 14;
-          return (
-            <div
-              key={i}
-              title={`${m.name} · ${String(m.hour).padStart(2, "0")}:${String(m.minute).padStart(2, "0")} UTC`}
-              style={{
-                position: "absolute",
-                top: 8,
-                left: `${(m.hourFloat / 24) * 100}%`,
-                transform: "translateX(-50%)",
-              }}
-            >
-              <span
-                style={{
-                  display: "block",
-                  width: 12,
-                  height: 20,
-                  background: past ? "rgba(20,18,14,0.2)" : color,
-                  borderRadius: 2,
-                }}
-              />
-              {m.showLabel && (
-                <>
-                  {/* Connector line from marker to label row */}
-                  {m.labelRow > 0 && (
-                    <span
-                      style={{
-                        position: "absolute",
-                        left: "50%",
-                        top: 22,
-                        width: 1,
-                        height: labelTop - 22,
-                        background: "rgba(20,18,14,0.15)",
-                      }}
-                    />
-                  )}
-                  <span
-                    style={{
-                      position: "absolute",
-                      top: labelTop,
-                      left: "50%",
-                      transform: "translateX(-50%)",
-                      fontFamily: "var(--font-mono)",
-                      fontSize: 9,
-                      color: past ? "var(--fg-muted)" : "var(--fg)",
-                      whiteSpace: "nowrap",
-                      letterSpacing: "0.04em",
-                      opacity: past ? 0.55 : 1,
-                      padding: "0 3px",
-                      background: "var(--bg)",
-                    }}
-                  >
-                    {String(m.hour).padStart(2, "0")}:{String(m.minute).padStart(2, "0")} {m.name}
-                  </span>
-                </>
-              )}
-            </div>
-          );
-        })}
+        {past ? (
+          <span>{rel.primary} ago</span>
+        ) : (
+          <>
+            <span style={{ color: isNext ? COLORS.ember : "var(--fg)" }}>
+              in {rel.primary}
+            </span>
+            {rel.secondary && (
+              <span style={{ color: "var(--fg-muted)", marginLeft: 4 }}>
+                {rel.secondary}
+              </span>
+            )}
+          </>
+        )}
       </div>
     </div>
   );
 }
 
-function Timeline24h({ ghMarkers, vercelMarkers }) {
+function TodayAgenda({ items }) {
   const now = new Date();
-  const nowHourFloat = now.getUTCHours() + now.getUTCMinutes() / 60;
+  const upcoming = items.filter((i) => i.runAt >= now).sort((a, b) => a.runAt - b.runAt);
+  const past = items.filter((i) => i.runAt < now).sort((a, b) => b.runAt - a.runAt);
+  const nextId = upcoming[0]?.id;
+
   return (
     <div style={{ marginTop: 32 }}>
       <div
@@ -461,120 +525,144 @@ function Timeline24h({ ghMarkers, vercelMarkers }) {
           display: "flex",
           justifyContent: "space-between",
           alignItems: "baseline",
-          marginBottom: 18,
+          marginBottom: 14,
+          flexWrap: "wrap",
+          gap: 8,
         }}
       >
         <div style={styles.eyebrow}>
           Today (UTC) · {now.toISOString().slice(0, 10)}
         </div>
-        <div style={{ ...styles.mono, fontSize: 11 }}>
-          Now · {now.toISOString().slice(11, 16)} UTC · {formatParis(now)}
-        </div>
-      </div>
-      <div style={{ position: "relative", padding: "12px 0 28px" }}>
-        {/* Hour ticks header */}
-        <div style={{ position: "relative", height: 18, marginLeft: 100 }}>
-          {[0, 3, 6, 9, 12, 15, 18, 21, 24].map((h) => (
-            <div
-              key={h}
-              style={{
-                position: "absolute",
-                left: `${(h / 24) * 100}%`,
-                transform: "translateX(-50%)",
-                fontFamily: "var(--font-mono)",
-                fontSize: 10,
-                color: "var(--fg-muted)",
-                letterSpacing: "0.08em",
-              }}
-            >
-              {String(h).padStart(2, "0")}h
-            </div>
-          ))}
-        </div>
-        {/* Vertical grid + NOW line (spans both lanes) */}
         <div
           style={{
-            position: "absolute",
-            left: 100,
-            right: 0,
-            top: 30,
-            bottom: 28,
-            pointerEvents: "none",
+            display: "inline-flex",
+            alignItems: "center",
+            gap: 8,
+            fontFamily: "var(--font-mono)",
+            fontSize: 11,
+            color: "var(--fg-muted)",
+            letterSpacing: "0.06em",
           }}
         >
-          {[3, 6, 9, 12, 15, 18, 21].map((h) => (
-            <div
-              key={h}
-              style={{
-                position: "absolute",
-                top: 0,
-                bottom: 0,
-                left: `${(h / 24) * 100}%`,
-                width: 0,
-                borderLeft: "1px dashed var(--rule)",
-                opacity: 0.6,
-              }}
-            />
-          ))}
-          {/* NOW line on top */}
-          <div
+          <span
+            aria-hidden
             style={{
-              position: "absolute",
-              top: 0,
-              bottom: 0,
-              left: `${(nowHourFloat / 24) * 100}%`,
-              width: 0,
-              borderLeft: `1.5px dashed ${COLORS.ember}`,
+              width: 6,
+              height: 6,
+              background: COLORS.ember,
+              borderRadius: "50%",
+              boxShadow: `0 0 0 3px color-mix(in oklab, ${COLORS.ember} 22%, transparent)`,
             }}
           />
+          NOW · {now.toISOString().slice(11, 16)} UTC · {formatParis(now)}
         </div>
-        <div style={{ marginTop: 14, position: "relative", zIndex: 1 }}>
-          <TimelineLane
-            label="GitHub"
-            color={COLORS.ember}
-            markers={ghMarkers}
-            nowHourFloat={nowHourFloat}
+      </div>
+
+      <div
+        style={{
+          display: "grid",
+          gridTemplateColumns: "1fr 1fr",
+          gap: 1,
+          background: "var(--rule)",
+          border: "1px solid var(--rule)",
+        }}
+        className="vz-agenda-grid"
+      >
+        {/* Upcoming column */}
+        <div style={{ background: "var(--bg)" }}>
+          <div
+            style={{
+              ...styles.eyebrow,
+              padding: "12px 16px",
+              borderBottom: "1px solid var(--rule-strong)",
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "center",
+            }}
+          >
+            <span style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
+              <span aria-hidden style={{ width: 6, height: 6, background: COLORS.ember }} />
+              Upcoming today
+            </span>
+            <span style={{ color: "var(--fg)" }}>{upcoming.length}</span>
+          </div>
+          {upcoming.length === 0 ? (
+            <div style={{ padding: "20px 16px", ...styles.mono, fontSize: 11 }}>
+              No more runs today.
+            </div>
+          ) : (
+            upcoming.map((it) => (
+              <AgendaRow
+                key={it.id}
+                item={it}
+                isNext={it.id === nextId}
+                now={now}
+              />
+            ))
+          )}
+        </div>
+
+        {/* Past column */}
+        <div style={{ background: "var(--bg)" }}>
+          <div
+            style={{
+              ...styles.eyebrow,
+              padding: "12px 16px",
+              borderBottom: "1px solid var(--rule-strong)",
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "center",
+            }}
+          >
+            <span style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
+              <span aria-hidden style={{ width: 6, height: 6, background: "var(--rule-strong)" }} />
+              Already ran today
+            </span>
+            <span style={{ color: "var(--fg)" }}>{past.length}</span>
+          </div>
+          {past.length === 0 ? (
+            <div style={{ padding: "20px 16px", ...styles.mono, fontSize: 11 }}>
+              Nothing yet today.
+            </div>
+          ) : (
+            past.map((it) => (
+              <AgendaRow key={it.id} item={it} isNext={false} now={now} />
+            ))
+          )}
+        </div>
+      </div>
+
+      <div
+        style={{
+          marginTop: 12,
+          display: "flex",
+          gap: 18,
+          ...styles.mono,
+          fontSize: 10,
+          letterSpacing: "0.08em",
+          flexWrap: "wrap",
+        }}
+      >
+        <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+          <span aria-hidden style={{ width: 8, height: 8, background: COLORS.ember }} />
+          GITHUB ACTIONS
+        </span>
+        <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+          <span aria-hidden style={{ width: 8, height: 8, background: COLORS.blue }} />
+          VERCEL CRON
+        </span>
+        <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+          <span
+            aria-hidden
+            style={{
+              width: 14,
+              height: 8,
+              borderLeft: `3px solid ${COLORS.ember}`,
+              background: "color-mix(in oklab, var(--accent) 6%, transparent)",
+            }}
           />
-          <TimelineLane
-            label="Vercel"
-            color={COLORS.blue}
-            markers={vercelMarkers}
-            nowHourFloat={nowHourFloat}
-          />
-        </div>
-        <div
-          style={{
-            marginTop: 12,
-            display: "flex",
-            gap: 24,
-            ...styles.mono,
-            fontSize: 10,
-            letterSpacing: "0.08em",
-          }}
-        >
-          <span style={{ display: "flex", alignItems: "center", gap: 6 }}>
-            <span style={{ width: 12, height: 4, background: "rgba(20,18,14,0.2)" }} />
-            PAST
-          </span>
-          <span style={{ display: "flex", alignItems: "center", gap: 6 }}>
-            <span style={{ width: 12, height: 4, background: COLORS.ember }} />
-            UPCOMING (GH)
-          </span>
-          <span style={{ display: "flex", alignItems: "center", gap: 6 }}>
-            <span style={{ width: 12, height: 4, background: COLORS.blue }} />
-            UPCOMING (VERCEL)
-          </span>
-          <span style={{ display: "flex", alignItems: "center", gap: 6 }}>
-            <span
-              style={{
-                width: 12,
-                height: 0,
-                borderTop: `1px dashed ${COLORS.ember}`,
-              }}
-            />
-            NOW
-          </span>
-        </div>
+          NEXT UP
+        </span>
       </div>
     </div>
   );
@@ -982,23 +1070,26 @@ export default async function AutomationPage() {
 
   // Pre-fetch everything in parallel (avoids serial waterfall during render)
   const ghRunsPromises = GH_WORKFLOWS.map((w) => fetchWorkflowRuns(w.id, 5));
-  const [budget, stats, ...ghRuns] = await Promise.all([
+  const [budget, stats, heartbeat, ...ghRuns] = await Promise.all([
     fetchBenchBudget(sb),
     fetchAutomationStats(sb),
+    fetchHeartbeat(sb),
     ...ghRunsPromises,
   ]);
 
   // Per-workflow throughput chips. Keyed by workflow id / cron path.
+  // "Today" = since UTC midnight (calendar day), so the number resets
+  // every day and matches what you'd report as "today we scraped X items".
   const throughputByWorkflow = {
     "scrape-daily.yml": [
       {
-        label: "SKILLS / 24H",
-        value: `+${stats.scrape.skills24h.toLocaleString()}`,
+        label: "SKILLS / TODAY",
+        value: `+${stats.scrape.skillsToday.toLocaleString()}`,
         color: COLORS.ember,
       },
       {
-        label: "CLAUDE.MD / 24H",
-        value: `+${stats.scrape.cmd24h.toLocaleString()}`,
+        label: "CLAUDE.MD / TODAY",
+        value: `+${stats.scrape.cmdToday.toLocaleString()}`,
         color: COLORS.ember,
       },
       {
@@ -1009,8 +1100,8 @@ export default async function AutomationPage() {
     ],
     "quality-judge.yml": [
       {
-        label: "JUDGED / 24H",
-        value: (stats.quality.skills24h + stats.quality.cmd24h).toLocaleString(),
+        label: "JUDGED / TODAY",
+        value: (stats.quality.skillsToday + stats.quality.cmdToday).toLocaleString(),
         color: COLORS.ok,
       },
       {
@@ -1065,32 +1156,39 @@ export default async function AutomationPage() {
     ],
   };
 
-  // Build 2 separate lanes (GH vs Vercel) for the timeline
-  // For recurring crons (e.g. quality every 4h), only label the FIRST occurrence
-  // — the row of markers makes the pattern self-evident.
-  function buildLane(items) {
-    const lane = [];
+  // Build one flat agenda — every scheduled occurrence today, GH + Vercel,
+  // each as { id, name, source, runAt, hour, minute, schedule }. Sorted
+  // upstream by the TodayAgenda component.
+  const now = new Date();
+  const todayStart = new Date(now);
+  todayStart.setUTCHours(0, 0, 0, 0);
+  const todayEnd = new Date(todayStart.getTime() + 24 * 3600 * 1000);
+
+  function buildAgenda(items, source) {
+    const out = [];
     items.forEach((item) => {
       const hours = todayHoursForCron(item.schedule);
-      const shortName = item.name.split(" ")[0].toLowerCase();
-      hours.forEach((h, idx) => {
-        lane.push({
-          name: shortName,
+      hours.forEach((h) => {
+        const runAt = new Date(todayStart);
+        runAt.setUTCHours(h.hour, h.minute, 0, 0);
+        if (runAt < todayStart || runAt >= todayEnd) return;
+        out.push({
+          id: `${source}-${item.id || item.path}-${h.hour}-${h.minute}`,
+          name: item.name,
+          source,
+          schedule: item.schedule,
+          runAt,
           hour: h.hour,
           minute: h.minute,
-          hourFloat: h.hourFloat,
-          showLabel: idx === 0, // only label first occurrence of recurring crons
         });
       });
     });
-    return lane.sort((a, b) => a.hourFloat - b.hourFloat);
+    return out;
   }
-  const ghMarkers = buildLane(GH_WORKFLOWS);
-  const vercelMarkers = buildLane(VERCEL_CRONS);
-
-  // Single "now" timestamp for the entire render — passed to BudgetCard
-  // so it stays pure (no Date.now() inside the component itself).
-  const now = new Date();
+  const agendaItems = [
+    ...buildAgenda(GH_WORKFLOWS, "gh"),
+    ...buildAgenda(VERCEL_CRONS, "vercel"),
+  ];
 
   // KPIs
   const allItems = [...GH_WORKFLOWS, ...VERCEL_CRONS];
@@ -1127,6 +1225,8 @@ export default async function AutomationPage() {
         Schedules · next run · budget. All times UTC.
       </div>
 
+      <HeartbeatBanner heartbeat={heartbeat} now={now} />
+
       <div style={{ marginTop: 24, display: "flex", flexDirection: "column", gap: 1, background: "var(--rule)", border: "1px solid var(--rule)" }}>
         <KpiStrip
           kpis={[
@@ -1157,21 +1257,21 @@ export default async function AutomationPage() {
         <KpiStrip
           kpis={[
             {
-              label: "Scraped",
+              label: "Scraped today",
               dotColor: COLORS.ember,
-              value: (stats.scrape.skills24h + stats.scrape.cmd24h).toLocaleString(),
-              unit: "/ 24h",
-              hint: `${stats.scrape.skills24h} skills · ${stats.scrape.cmd24h} CLAUDE.md`,
+              value: (stats.scrape.skillsToday + stats.scrape.cmdToday).toLocaleString(),
+              unit: "items",
+              hint: `${stats.scrape.skillsToday.toLocaleString()} skills · ${stats.scrape.cmdToday.toLocaleString()} CLAUDE.md`,
               trend: (stats.scrape.skills7d + stats.scrape.cmd7d) > 0
                 ? { dir: "up", label: `7d ${(stats.scrape.skills7d + stats.scrape.cmd7d).toLocaleString()}` }
                 : null,
             },
             {
-              label: "Quality judged",
+              label: "Judged today",
               dotColor: COLORS.ok,
-              value: (stats.quality.skills24h + stats.quality.cmd24h).toLocaleString(),
-              unit: "/ 24h",
-              hint: `${stats.quality.totalRated.toLocaleString()} rated lifetime`,
+              value: (stats.quality.skillsToday + stats.quality.cmdToday).toLocaleString(),
+              unit: "items",
+              hint: `${stats.quality.skillsToday.toLocaleString()} skills · ${stats.quality.cmdToday.toLocaleString()} CLAUDE.md`,
               trend: (stats.quality.skills7d + stats.quality.cmd7d) > 0
                 ? { dir: "up", label: `7d ${(stats.quality.skills7d + stats.quality.cmd7d).toLocaleString()}` }
                 : null,
@@ -1194,7 +1294,7 @@ export default async function AutomationPage() {
         />
       </div>
 
-      <Timeline24h ghMarkers={ghMarkers} vercelMarkers={vercelMarkers} />
+      <TodayAgenda items={agendaItems} />
 
       <section style={styles.section}>
         <h2 style={styles.h2}>GitHub Actions</h2>

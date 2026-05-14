@@ -155,7 +155,7 @@ function ClaudeMdRow({ file, leader = false }) {
   return (
     <Link
       href={`/claude-md/${file.project_category}/${file.slug}`}
-      className="vz-skill-row"
+      className="vz-skill-row vz-claudemd-row"
       style={{
         display: "grid",
         gridTemplateColumns: "64px 1fr 110px 110px 80px",

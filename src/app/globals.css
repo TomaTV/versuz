@@ -587,6 +587,14 @@ a.vz-nav-link-minimal[aria-current="page"]::after,
   }
   .vz-compare-grid > * {
     grid-template-columns: 1fr 1fr !important;
+    gap: 14px !important;
+    row-gap: 8px !important;
+  }
+  /* The label cell (1st child of each comparison row) spans both value
+     columns on mobile so it sits as a header above A/B rather than
+     stealing 180px of horizontal room. */
+  .vz-compare-grid > * > :first-child {
+    grid-column: 1 / -1 !important;
   }
   .vz-compare-content {
     grid-template-columns: 1fr !important;
@@ -953,6 +961,15 @@ a.vz-nav-link-minimal[aria-current="page"]::after,
   gap: 64px;
 }
 
+/* Tablet : the 6-col footer becomes unreadable under ~1080px (each col
+   gets <120px, headings clip). Drop to 2 cols on tablet, then 1 on
+   phones. */
+@media (max-width: 1080px) {
+  .vz-footer-grid {
+    grid-template-columns: repeat(2, 1fr) !important;
+    gap: 40px 32px !important;
+  }
+}
 @media (max-width: 768px) {
   .vz-grid-editorial {
     grid-template-columns: 1fr;
@@ -960,7 +977,7 @@ a.vz-nav-link-minimal[aria-current="page"]::after,
   }
   .vz-footer-grid {
     grid-template-columns: 1fr !important;
-    gap: 48px !important;
+    gap: 40px !important;
   }
 }
 
@@ -1004,12 +1021,20 @@ a.vz-nav-link-minimal[aria-current="page"]::after,
   white-space: nowrap;
 }
 
-/* Mobile : stack as card. Axes hidden (visible on detail page). */
+/* Mobile : stack as card. Axes hidden (visible on detail page).
+   The leaderboard row is 3 cols : rank · meta (name+badges+author) · score.
+   The earlier version cramming everything on one line let the BENCH chip
+   visually overlap the score number. We now :
+   - cap the meta width with minmax(0, 1fr) so flex children can shrink
+   - force the badge row to wrap properly via min-width: 0 on the name
+   - shrink the score & give it its own column with min-width so the
+     numbers never get pushed under a chip. */
 @media (max-width: 768px) {
   .vz-skill-row-inner {
-    grid-template-columns: 32px 1fr auto !important;
+    grid-template-columns: 28px minmax(0, 1fr) auto !important;
     padding: 14px 14px !important;
     gap: 10px !important;
+    align-items: start !important;
   }
   .vz-skill-row-header .vz-skill-row-inner > button:not(:nth-of-type(1)):not(:last-of-type) {
     display: none;
@@ -1027,17 +1052,29 @@ a.vz-nav-link-minimal[aria-current="page"]::after,
   }
   .vz-skill-meta > div:first-child {
     flex-wrap: wrap;
+    min-width: 0;
+    row-gap: 6px;
   }
   .vz-skill-meta > div:first-child > span:first-child {
-    font-size: 17px !important;
+    font-size: 16px !important;
     white-space: normal !important;
     word-break: break-word;
+    min-width: 0;
+    flex: 1 1 100%;
+  }
+  /* Badges that follow the name (TierBadge, BENCH, VERIFIED, ★) :
+     pin them onto their own line under the title so they don't fight
+     the score column for horizontal room. */
+  .vz-skill-meta > div:first-child > :nth-child(n+2) {
+    flex-shrink: 0;
   }
   .vz-skill-score {
     grid-area: score;
-    font-size: 24px !important;
+    font-size: 22px !important;
     align-self: start;
     padding-top: 2px;
+    min-width: 64px;
+    white-space: nowrap;
   }
   /* Axes : show inline with labels, only the top 3 visible to save space */
   .vz-skill-axis {
@@ -1074,10 +1111,128 @@ a.vz-nav-link-minimal[aria-current="page"]::after,
   }
 }
 
-/* Marketplace cards : single column below 480px (very small mobile) */
+/* Marketplace cards : single column below 640px (most mobile sizes).
+   The default `minmax(240px, 1fr)` lets 2 cards squeeze in at ~540px
+   which crams the descriptions/badges. Forcing 1fr at ≤640 gives each
+   card real room. */
+@media (max-width: 640px) {
+  .vz-mp-grid {
+    grid-template-columns: 1fr !important;
+  }
+}
 @media (max-width: 480px) {
   .vz-mp-card {
     padding: 14px 14px 12px !important;
+  }
+}
+
+/* Install command boxes on skill/CLAUDE.md detail pages.
+   Default font 14px on a long `npx versuz@latest install …-acp-router`
+   overflows on phones — the box scrolls horizontally but invisibly cuts
+   the command. Shrink the font + padding on narrow widths so the most
+   common command fits one line. */
+@media (max-width: 640px) {
+  .vz-cmd-block {
+    padding: 14px 48px 14px 14px !important;
+    font-size: 12px !important;
+    gap: 8px !important;
+  }
+  .vz-cmd-block-primary {
+    font-size: 12px !important;
+  }
+}
+@media (max-width: 420px) {
+  .vz-cmd-block,
+  .vz-cmd-block-primary {
+    font-size: 11px !important;
+    padding: 12px 44px 12px 12px !important;
+  }
+}
+
+/* Admin/Automation : "Today" agenda 2-col grid → stack on mobile.
+   Heartbeat banner : drop "check workflow logs" hint on tight widths. */
+@media (max-width: 900px) {
+  .vz-agenda-grid {
+    grid-template-columns: 1fr !important;
+  }
+}
+@media (max-width: 640px) {
+  .vz-heartbeat-banner {
+    grid-template-columns: auto 1fr !important;
+  }
+  .vz-heartbeat-banner > :last-child {
+    display: none !important;
+  }
+}
+
+/* BattleSpread (landing § Example) : the 1fr·auto·1fr layout with two
+   skill blocks + giant "vs" divider doesn't fit on phones. Stack the
+   two sides vertically, swap horizontal divider for a vertical bar. */
+@media (max-width: 720px) {
+  .vz-battle-spread {
+    grid-template-columns: 1fr !important;
+    gap: 16px !important;
+    padding: 24px 0 !important;
+  }
+  .vz-battle-spread > :nth-child(2) {
+    min-height: auto !important;
+    padding: 0 !important;
+  }
+}
+
+/* Pricing boost callout (vz-pricing-boost) : 2-col on tablet → 1-col on
+   phone so the "Boost a skill" pitch + form don't both crush. */
+@media (max-width: 768px) {
+  .vz-pricing-boost {
+    grid-template-columns: 1fr !important;
+    gap: 28px !important;
+    padding: 24px 20px !important;
+  }
+}
+
+/* CLAUDE.md category list row : 5 fixed cols collapse to 3 (rank · name · score)
+   then 2 on smallest. ELO + delta hidden — the headline score is the take-away. */
+@media (max-width: 768px) {
+  .vz-claudemd-row {
+    grid-template-columns: 48px minmax(0, 1fr) auto !important;
+    gap: 14px !important;
+    padding: 16px 14px !important;
+  }
+  .vz-claudemd-row > :nth-child(4),
+  .vz-claudemd-row > :nth-child(5) {
+    display: none !important;
+  }
+}
+
+/* BarChart (dashboard) : 100px label col cramps on mobile. Already uses
+   minmax(80px, 100px) in JSX ; below 480 force the label col to wrap as
+   its own row above the bar. */
+@media (max-width: 480px) {
+  .vz-bar-chart {
+    grid-template-columns: 1fr 56px !important;
+    row-gap: 4px !important;
+  }
+  .vz-bar-chart > :nth-child(3n+1) {
+    grid-column: 1 / -1;
+    white-space: normal !important;
+  }
+}
+
+/* Legal pages : 220px sidebar + content → stack on mobile. The sidebar
+   becomes a horizontal scroll of "tabs" so users still see all 5 legal
+   pages without an accordion. */
+@media (max-width: 900px) {
+  .vz-legal-grid {
+    grid-template-columns: 1fr !important;
+    gap: 32px !important;
+  }
+  .vz-legal-aside {
+    position: static !important;
+    flex-direction: row !important;
+    flex-wrap: wrap !important;
+    gap: 14px !important;
+    padding-bottom: 12px;
+    border-bottom: 1px solid var(--rule);
   }
 }
 

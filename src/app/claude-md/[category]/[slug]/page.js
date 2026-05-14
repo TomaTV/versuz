@@ -603,6 +603,7 @@ function CommandBlock({ label, command, primary = false }) {
         {label}
       </span>
       <div
+        className={`vz-cmd-block${primary ? " vz-cmd-block-primary" : ""}`}
         style={{
           position: "relative",
           padding: "18px 56px 18px 20px",

@@ -80,7 +80,7 @@ export function SectionHeader({ title, subtitle, titleSize = "clamp(40px, 5vw, 8
             style={{
               margin: "24px 0 0",
               fontFamily: "var(--font-display)",
-              fontSize: 20,
+              fontSize: "clamp(16px, 2.4vw, 20px)",
               fontWeight: 400,
               lineHeight: 1.5,
               letterSpacing: "-0.01em",
@@ -162,7 +162,9 @@ export function PageHero({ eyebrow, title, subtitle, decoration, compact = false
               style={{
                 margin: compact ? "12px 0 0" : "32px 0 0",
                 fontFamily: "var(--font-display)",
-                fontSize: compact ? 16 : 22,
+                fontSize: compact
+                  ? "clamp(14px, 2vw, 16px)"
+                  : "clamp(16px, 2.6vw, 22px)",
                 fontWeight: 400,
                 lineHeight: 1.45,
                 letterSpacing: "-0.01em",

@@ -111,15 +111,15 @@ function SideRow({ skill, won }) {
         <span
           style={{
             fontFamily: "var(--font-display)",
-            fontSize: 32,
+            fontSize: "clamp(20px, 4vw, 32px)",
             fontWeight: 400,
             color: "var(--fg)",
             letterSpacing: "-0.02em",
             lineHeight: 1.05,
             fontStyle: won ? "italic" : "normal",
-            whiteSpace: "nowrap",
             overflow: "hidden",
             textOverflow: "ellipsis",
+            whiteSpace: "nowrap",
           }}
         >
           {skill.name}
@@ -128,7 +128,7 @@ function SideRow({ skill, won }) {
       <span
         style={{
           fontFamily: "var(--font-display)",
-          fontSize: 48,
+          fontSize: "clamp(30px, 6vw, 48px)",
           fontWeight: 400,
           color: won ? "var(--accent)" : "var(--fg)",
           fontVariantNumeric: "tabular-nums",

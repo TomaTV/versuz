@@ -224,7 +224,7 @@ export default function CompareClientWrapper({
                 href={detailHrefOf(it)}
                 style={{
                   fontFamily: "var(--font-display)",
-                  fontSize: 36,
+                  fontSize: "clamp(22px, 5vw, 36px)",
                   fontWeight: 400,
                   letterSpacing: "-0.02em",
                   color: "var(--fg)",
