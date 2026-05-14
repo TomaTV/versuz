@@ -9,7 +9,21 @@ Dernière mise à jour : **2026-05-14 (V1.6 — landing flip + badge V2 + gamifi
 
 ## 🎯 V1.6 — Sprint social (18 mai → 16 juin)
 
-Tout le code V1.6 est shippé (PHASE 0 à PHASE 4). Ce qui reste = humain + ops.
+Tout le code V1.6 est shippé (PHASE 0 à PHASE 4 + 5 surfaces monétisation natives). Ce qui reste = humain + ops.
+
+### Monétisation déjà en place (V1.6)
+
+5 surfaces de revenus natifs activées, zéro AdSense :
+- [x] Home `§ Featured` — strip Versuz first-party (vz-bench-debug + vz-scrape-runner)
+- [x] `/marketplace` top promo card — "Got a skill? Boost $4.99/30d"
+- [x] `/leaderboard` bottom promo block — "Want to climb this ranking?"
+- [x] `/skills/[slug]` author-aware — Boost CTA si owner, Submit CTA si visitor
+- [x] `/skills/[slug]` cross-sell — More Versuz picks (autres Featured items)
+
+Pour augmenter l'inventaire / le revenu :
+- [ ] Démarcher Anthropic / Vercel / Stripe pour Featured tier sur leurs skills officiels (100% Versuz)
+- [ ] Démarcher 3-5 top authors pour Premium (30/70 split)
+- [ ] Build plus de skills `vz-*` first-party (chaque nouveau = inventaire Featured supplémentaire)
 
 ### À publier sur npm
 - [ ] `cd cli && npm publish` — v0.2.0 (badge handoff + `versuz battle` command, description SEO + keywords étendus)

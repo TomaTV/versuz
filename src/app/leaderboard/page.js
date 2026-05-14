@@ -303,6 +303,88 @@ export default async function LeaderboardPage({ searchParams }) {
             </div>
           </Reveal>
         )}
+
+        {/* Native promo slot — invites authors to climb via Boost */}
+        <Reveal delay={0.3}>
+          <div
+            style={{
+              marginTop: 64,
+              padding: "24px 28px",
+              border: "1px solid var(--rule-strong)",
+              background: "color-mix(in oklab, var(--accent) 4%, var(--surface))",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+              gap: 20,
+              flexWrap: "wrap",
+            }}
+          >
+            <div style={{ display: "flex", flexDirection: "column", gap: 6, minWidth: 0 }}>
+              <span
+                style={{
+                  fontFamily: "var(--font-mono)",
+                  fontSize: 10,
+                  color: "var(--accent)",
+                  letterSpacing: "0.18em",
+                  textTransform: "uppercase",
+                  fontWeight: 600,
+                }}
+              >
+                Want to climb this ranking ?
+              </span>
+              <span
+                style={{
+                  fontFamily: "var(--font-display)",
+                  fontSize: 22,
+                  color: "var(--fg)",
+                  letterSpacing: "-0.01em",
+                  lineHeight: 1.25,
+                }}
+              >
+                Submit your skill, get judged tomorrow — or boost an existing one to the
+                top for{" "}
+                <span style={{ fontFamily: "var(--font-mono)", fontSize: 18 }}>$4.99 / 30d</span>.
+              </span>
+            </div>
+            <div style={{ display: "inline-flex", gap: 10, flexShrink: 0 }}>
+              <Link
+                href="/pricing#boost"
+                style={{
+                  padding: "10px 16px",
+                  fontFamily: "var(--font-mono)",
+                  fontSize: 11,
+                  letterSpacing: "0.08em",
+                  textTransform: "uppercase",
+                  color: "var(--fg)",
+                  border: "1px solid var(--rule-strong)",
+                  background: "var(--bg)",
+                  textDecoration: "none",
+                  whiteSpace: "nowrap",
+                }}
+              >
+                Learn boost
+              </Link>
+              <Link
+                href="/submit"
+                style={{
+                  padding: "10px 18px",
+                  fontFamily: "var(--font-mono)",
+                  fontSize: 11,
+                  letterSpacing: "0.08em",
+                  textTransform: "uppercase",
+                  color: "var(--bg)",
+                  background: "var(--fg)",
+                  border: "1px solid var(--fg)",
+                  textDecoration: "none",
+                  whiteSpace: "nowrap",
+                  fontWeight: 600,
+                }}
+              >
+                Submit yours →
+              </Link>
+            </div>
+          </div>
+        </Reveal>
       </section>
     </div>
   );

@@ -9,6 +9,7 @@ import { TierBadge } from "@/components/marketplace/tier-badge";
 import { VerificationBadge } from "@/components/marketplace/verification-badge";
 import { OfficialBadge } from "@/components/marketplace/official-badge";
 import { displayJudgeModel } from "@/lib/judges";
+import { getFeaturedItems } from "@/lib/queries/rankings";
 import {
   getSkillBySlug,
   getSiblingSkills,
@@ -868,14 +869,17 @@ export default async function SkillDetailPage({ params }) {
   const meta = detail.metadata || {};
   
   // Fetch remaining data in parallel
-  const [siblings, disagreement, repoRegistry, owned, authored, achievements] = await Promise.all([
+  const [siblings, disagreement, repoRegistry, owned, authored, achievements, featuredPicks] = await Promise.all([
     getSiblingSkills(slug, 3),
     getJudgeDisagreement({ kind: "skill", subjectId: detail.id }),
     meta.owner && meta.repo ? getRegistryByRepo(meta.owner, meta.repo) : Promise.resolve(null),
     getOwnedSlugs(user?.id),
     getAuthoredSlugs(user?.id),
     getItemAchievements("skill", detail.id),
+    getFeaturedItems("skill", 4),
   ]);
+  // Exclude the currently displayed skill from the cross-sell list.
+  const featuredOthers = featuredPicks.filter((f) => f.slug !== slug).slice(0, 3);
   const hasTripleCrown = achievements.some((a) => a.type === "triple_crown");
   const tripleCrownCategories = new Set(
     achievements.filter((a) => a.type === "triple_crown").map((a) => a.category).filter(Boolean)
@@ -1744,6 +1748,14 @@ export default async function SkillDetailPage({ params }) {
         </Section>
       )}
 
+      {/* Cross-sell : Versuz first-party Featured picks (excl. current item) */}
+      {featuredOthers.length > 0 && (
+        <FeaturedPicksStrip items={featuredOthers} />
+      )}
+
+      {/* Native promo slot — author-aware. Authors see Boost, visitors see Submit. */}
+      <PromoteSkillSlot slug={slug} isAuthored={isAuthored} skillName={detail.name} />
+
       {/* Challenge CTA */}
       <Section eyebrow="§ 05 — Challenge" markerColor="var(--amber)">
         <SectionHeader
@@ -1778,5 +1790,287 @@ export default async function SkillDetailPage({ params }) {
         </Reveal>
       </Section>
     </div>
+  );
+}
+
+/**
+ * Featured cross-sell strip — surfaces other Versuz-first-party items.
+ * Visible to all visitors (incl. authors of the current skill — they may
+ * be interested in other Versuz Featured items). Cards keep the same amber
+ * accent as the home Featured section so the visual language is consistent.
+ */
+function FeaturedPicksStrip({ items }) {
+  return (
+    <section
+      style={{
+        maxWidth: 1440,
+        margin: "32px auto 0",
+        padding: "0 clamp(16px, 4.5vw, 64px)",
+      }}
+    >
+      <div
+        style={{
+          display: "flex",
+          alignItems: "center",
+          gap: 10,
+          marginBottom: 16,
+        }}
+      >
+        <span
+          aria-hidden
+          style={{
+            width: 10,
+            height: 10,
+            background: "var(--amber)",
+            display: "inline-block",
+          }}
+        />
+        <span
+          style={{
+            fontFamily: "var(--font-mono)",
+            fontSize: 10,
+            color: "var(--fg-muted)",
+            letterSpacing: "0.2em",
+            textTransform: "uppercase",
+            fontWeight: 600,
+          }}
+        >
+          More Versuz picks
+        </span>
+      </div>
+      <div
+        style={{
+          display: "grid",
+          gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))",
+          gap: 12,
+        }}
+      >
+        {items.map((s) => (
+          <Link
+            key={s.slug}
+            href={`/skills/${s.slug}`}
+            style={{
+              display: "flex",
+              flexDirection: "column",
+              gap: 8,
+              padding: "16px 18px",
+              border: "1px solid var(--amber)",
+              background: "color-mix(in oklab, var(--amber) 4%, var(--surface))",
+              textDecoration: "none",
+              color: "inherit",
+              transition: "background 0.15s ease",
+            }}
+            className="vz-featured-card"
+          >
+            <div
+              style={{
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+                gap: 8,
+              }}
+            >
+              <span
+                style={{
+                  fontFamily: "var(--font-mono)",
+                  fontSize: 9,
+                  letterSpacing: "0.2em",
+                  textTransform: "uppercase",
+                  color: "var(--bg)",
+                  background: "var(--amber)",
+                  padding: "2px 6px",
+                  fontWeight: 600,
+                }}
+              >
+                ★ Featured
+              </span>
+              <span
+                style={{
+                  fontFamily: "var(--font-display)",
+                  fontSize: 18,
+                  color: "var(--accent)",
+                  letterSpacing: "-0.01em",
+                }}
+              >
+                ${Number(s.priceUsd ?? 0).toFixed(2)}
+              </span>
+            </div>
+            <h4
+              style={{
+                margin: 0,
+                fontFamily: "var(--font-display)",
+                fontSize: 20,
+                fontWeight: 400,
+                letterSpacing: "-0.01em",
+                color: "var(--fg)",
+                lineHeight: 1.15,
+              }}
+            >
+              {s.name}
+            </h4>
+            <span
+              style={{
+                fontFamily: "var(--font-mono)",
+                fontSize: 10,
+                color: "var(--fg-muted)",
+                letterSpacing: "0.06em",
+                textTransform: "uppercase",
+              }}
+            >
+              {s.category}
+            </span>
+          </Link>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+/**
+ * Native promo slot on /skills/[slug]. Author-aware :
+ *   - If user authored this skill → Boost CTA (link to /promote/skill/<slug>)
+ *   - Otherwise → "Got something better ?" → /submit
+ * Same editorial tone as the rest of the page (no banner aesthetic).
+ */
+function PromoteSkillSlot({ slug, isAuthored, skillName }) {
+  if (isAuthored) {
+    return (
+      <section
+        style={{
+          maxWidth: 1440,
+          margin: "0 auto",
+          padding: "0 clamp(16px, 4.5vw, 64px)",
+        }}
+      >
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            gap: 16,
+            padding: "20px 24px",
+            border: "1px solid var(--accent)",
+            background: "color-mix(in oklab, var(--accent) 6%, var(--surface))",
+            flexWrap: "wrap",
+            marginTop: 32,
+          }}
+        >
+          <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+            <span
+              style={{
+                fontFamily: "var(--font-mono)",
+                fontSize: 10,
+                color: "var(--accent)",
+                letterSpacing: "0.18em",
+                textTransform: "uppercase",
+                fontWeight: 600,
+              }}
+            >
+              You authored this skill
+            </span>
+            <span
+              style={{
+                fontFamily: "var(--font-display)",
+                fontSize: 22,
+                color: "var(--fg)",
+                letterSpacing: "-0.01em",
+                lineHeight: 1.25,
+              }}
+            >
+              Boost <em style={{ color: "var(--accent)" }}>{skillName}</em> to the top
+              of its category for{" "}
+              <span style={{ fontFamily: "var(--font-mono)", fontSize: 18 }}>$4.99 / 30 days</span>
+            </span>
+          </div>
+          <Link
+            href={`/promote/skill/${encodeURIComponent(slug)}`}
+            style={{
+              padding: "12px 20px",
+              fontFamily: "var(--font-mono)",
+              fontSize: 11,
+              letterSpacing: "0.08em",
+              textTransform: "uppercase",
+              color: "var(--bg)",
+              background: "var(--accent)",
+              border: "1px solid var(--accent)",
+              textDecoration: "none",
+              whiteSpace: "nowrap",
+              fontWeight: 600,
+            }}
+          >
+            Boost this skill →
+          </Link>
+        </div>
+      </section>
+    );
+  }
+
+  return (
+    <section
+      style={{
+        maxWidth: 1440,
+        margin: "0 auto",
+        padding: "0 clamp(16px, 4.5vw, 64px)",
+      }}
+    >
+      <div
+        style={{
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          gap: 16,
+          padding: "20px 24px",
+          border: "1px solid var(--rule)",
+          background: "var(--surface)",
+          flexWrap: "wrap",
+          marginTop: 32,
+        }}
+      >
+        <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+          <span
+            style={{
+              fontFamily: "var(--font-mono)",
+              fontSize: 10,
+              color: "var(--fg-muted)",
+              letterSpacing: "0.18em",
+              textTransform: "uppercase",
+              fontWeight: 600,
+            }}
+          >
+            Got something better ?
+          </span>
+          <span
+            style={{
+              fontFamily: "var(--font-display)",
+              fontSize: 22,
+              color: "var(--fg)",
+              letterSpacing: "-0.01em",
+              lineHeight: 1.25,
+            }}
+          >
+            Submit your skill — it enters{" "}
+            <em style={{ color: "var(--accent)" }}>tomorrow&apos;s cycle</em>. No fee.
+          </span>
+        </div>
+        <Link
+          href="/submit"
+          style={{
+            padding: "12px 20px",
+            fontFamily: "var(--font-mono)",
+            fontSize: 11,
+            letterSpacing: "0.08em",
+            textTransform: "uppercase",
+            color: "var(--bg)",
+            background: "var(--fg)",
+            border: "1px solid var(--fg)",
+            textDecoration: "none",
+            whiteSpace: "nowrap",
+            fontWeight: 600,
+          }}
+        >
+          Submit yours →
+        </Link>
+      </div>
+    </section>
   );
 }

@@ -1512,6 +1512,33 @@ export async function getFeaturedBattle() {
 }
 
 /**
+ * Versuz-first-party Featured items — tier='featured', non-archived.
+ * Surfaced on the home as a dedicated promo strip. Used for monetisation
+ * inventory : Versuz keeps 100% of Featured tier revenue (vs 30/70 split
+ * on Premium author-listed items).
+ */
+export async function getFeaturedItems(kind = "skill", limit = 3) {
+  if (!HAS_SUPABASE) return [];
+  const sb = createSupabasePublicClient();
+  if (!sb) return [];
+  const table = kind === "claude_md" ? "claude_md_files" : "skills";
+  const sel = kind === "claude_md"
+    ? "id, slug, description, project_category, github_url, github_stars, byte_count, tier, price_usd, verification_level, is_official, source, license_spdx, metadata, promoted_until, quality_score, quality_rationale, bench_tier, top_rank_streak_days, top_rank_streak_category, top_rank_streak_started_at"
+    : "id, slug, name, description, category, github_url, github_stars, byte_count, tier, price_usd, verification_level, is_official, source, license_spdx, metadata, promoted_until, quality_score, quality_rationale, bench_tier, top_rank_streak_days, top_rank_streak_category, top_rank_streak_started_at";
+  const { data, error } = await sb
+    .from(table)
+    .select(sel)
+    .eq("tier", "featured")
+    .eq("is_archived", false)
+    .order("verification_level", { ascending: false })
+    .order("github_stars", { ascending: false, nullsFirst: false })
+    .limit(limit);
+  if (error || !data) return [];
+  const mapper = kind === "claude_md" ? mapClaudeMdRow : mapSkillRow;
+  return data.map(mapper);
+}
+
+/**
  * Detect the biggest rank changes between the current cycle and the
  * previous one for a given (kind, category). Returns the candidates
  * sorted by absolute delta desc.

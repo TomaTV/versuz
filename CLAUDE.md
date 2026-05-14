@@ -66,6 +66,22 @@ Query helper : `getItemAchievements(kind, subjectId)`.
 - `/admin/content-drafts` — éditorial dashboard (preview cards, copy URL,
   download PNG). Pipeline manuel-assisté : tu valides, tu publies.
 
+## Monétisation — 5 surfaces natives (V1.6)
+
+Inventaire éditorial, zéro AdSense :
+- **Home §Featured** — strip Versuz first-party (`tier='featured'`), amber
+  bordered cards avec prix. Helper `getFeaturedItems(kind, limit)`.
+- **`/marketplace` top** — `<PromoteSlot>` inline avant la grid : "Got a skill?
+  Boost $4.99/30d" + 2 CTAs (Learn / Submit).
+- **`/leaderboard` bottom** — bloc promo après le judges panel : "Want to climb?"
+- **`/skills/[slug]` author-aware** — `<PromoteSkillSlot>` : si `isAuthored` →
+  Boost CTA (ember accent) vers `/promote/skill/<slug>`, sinon Submit CTA.
+- **`/skills/[slug]` cross-sell** — `<FeaturedPicksStrip>` avec 3 autres
+  Versuz Featured (excludes courant). Boucle d'engagement entre first-party.
+
+Streams de revenus : Featured tier (100% Versuz) + Premium 30/70 + Boost
+$4.99/30d. Tous gérés via Stripe Connect Express (mig 0013-0016).
+
 ## Heads-up — Next 16
 
 `AGENTS.md` rappelle que Next 16 a des breaking vs training data (`params`
@@ -138,7 +154,10 @@ jamais hardcode.
   `applyRepoSkillCount` (dampening 1/sqrt(N) sur mega-repos),
   `getRecentUpsets({ kind, minDelta, limit })` (V1.6 — diff rank_history pour
   "Today's Upset"), `getItemAchievements(kind, subjectId)` (V1.6 — Triple
-  Crown / category_winner / streak_milestone / first_blood ledger).
+  Crown / category_winner / streak_milestone / first_blood ledger),
+  `getBenchedTopByCategory(kind, category, limit)` (V1.6 — top par bench scope
+  vs native taxonomy, axes + composite score stamped), `getFeaturedItems(kind,
+  limit)` (V1.6 — Versuz-first-party picks `tier='featured'` pour les promo strips).
 - `src/lib/content/storage.js` — helpers Supabase Storage bucket `content` (public). Fetch SKILL.md / CLAUDE.md depuis Storage avec fallback inline DB (migration 0042).
 - `src/lib/auth/`, `src/lib/profiles/`, `src/lib/purchases/`, `src/lib/stripe/`,
   `src/lib/premium/`, `src/lib/resend.js` (default from `Versuz <contact@flukxstudio.fr>`), `src/lib/submit/`, `src/lib/claim/`,

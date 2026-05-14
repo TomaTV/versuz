@@ -20,6 +20,7 @@ import {
   getTopTopicsByKind,
   getIndexCounts,
   getCurrentCycle,
+  getFeaturedItems,
 } from "@/lib/queries/rankings";
 
 // ISR 60s : la landing affiche du top 10 + counts. Les counts live continuent
@@ -35,7 +36,7 @@ export default async function LandingPage() {
   // Fetch first wave — incl. the list of categories with ranked content
   // so we can pick the headline category dynamically (was hardcoded to
   // "document", which has no benched items in prod yet → empty block).
-  const [battle, categories, rankedSkills, rankedClaudeMd, skillTopics, claudeTopics, counts, cycle] = await Promise.all([
+  const [battle, categories, rankedSkills, rankedClaudeMd, skillTopics, claudeTopics, counts, cycle, featured] = await Promise.all([
     getFeaturedBattle(),
     getRankableCategories(),
     getLeaderboardCategories("skill"),
@@ -44,6 +45,7 @@ export default async function LandingPage() {
     getTopTopicsByKind("claude_md", 12),
     getIndexCounts(),
     getCurrentCycle(),
+    getFeaturedItems("skill", 3),
   ]);
 
   // Headline category — prefer "sql" since it's well-represented in the
@@ -388,6 +390,155 @@ export default async function LandingPage() {
       {/* avant le manifeste éditorial.                                     */}
       {/* ============================================================== */}
       {liveRankingBlock}
+
+      {/* ============================================================== */}
+      {/* §01.5 FEATURED — Versuz first-party curated picks. Tier=100%      */}
+      {/* (Versuz keeps full revenue, no author split).                     */}
+      {/* ============================================================== */}
+      {featured.length > 0 && (
+        <ScrollReveal direction="up" distance={28} threshold={0.15}>
+          <Section eyebrow="§ Featured" markerColor="var(--amber)">
+            <SectionHeader
+              title={
+                <>
+                  <em style={{ color: "var(--accent)" }}>Versuz picks</em>.
+                </>
+              }
+              subtitle={
+                <>
+                  First-party skills we built ourselves. Battle-tested in our own bench
+                  pipeline. Premium quality, expert-curated, $0.99-$4.99 one-time.
+                </>
+              }
+            />
+            <RevealStagger
+              stagger={0.08}
+              style={{
+                display: "grid",
+                gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))",
+                gap: 16,
+                marginTop: 40,
+              }}
+            >
+              {featured.map((s) => (
+                <RevealItem key={s.slug}>
+                  <Link
+                    href={`/skills/${s.slug}`}
+                    style={{
+                      display: "flex",
+                      flexDirection: "column",
+                      gap: 12,
+                      padding: "20px 22px",
+                      border: "1px solid var(--amber)",
+                      background: "color-mix(in oklab, var(--amber) 5%, var(--surface))",
+                      textDecoration: "none",
+                      color: "inherit",
+                      height: "100%",
+                      transition: "background 0.15s ease",
+                    }}
+                    className="vz-featured-card"
+                  >
+                    <div
+                      style={{
+                        display: "flex",
+                        justifyContent: "space-between",
+                        alignItems: "center",
+                        gap: 10,
+                      }}
+                    >
+                      <span
+                        style={{
+                          fontFamily: "var(--font-mono)",
+                          fontSize: 9,
+                          letterSpacing: "0.2em",
+                          textTransform: "uppercase",
+                          color: "var(--bg)",
+                          background: "var(--amber)",
+                          padding: "3px 8px",
+                          fontWeight: 600,
+                        }}
+                      >
+                        ★ Featured
+                      </span>
+                      <span
+                        style={{
+                          fontFamily: "var(--font-mono)",
+                          fontSize: 11,
+                          color: "var(--fg-muted)",
+                          letterSpacing: "0.04em",
+                        }}
+                      >
+                        {s.category}
+                      </span>
+                    </div>
+                    <h3
+                      style={{
+                        margin: 0,
+                        fontFamily: "var(--font-display)",
+                        fontSize: 26,
+                        fontWeight: 400,
+                        letterSpacing: "-0.02em",
+                        lineHeight: 1.1,
+                        color: "var(--fg)",
+                      }}
+                    >
+                      {s.name}
+                    </h3>
+                    {s.description && (
+                      <p
+                        style={{
+                          margin: 0,
+                          fontSize: 13,
+                          lineHeight: 1.5,
+                          color: "var(--fg-muted)",
+                          display: "-webkit-box",
+                          WebkitLineClamp: 2,
+                          WebkitBoxOrient: "vertical",
+                          overflow: "hidden",
+                        }}
+                      >
+                        {s.description}
+                      </p>
+                    )}
+                    <div
+                      style={{
+                        display: "flex",
+                        justifyContent: "space-between",
+                        alignItems: "baseline",
+                        marginTop: "auto",
+                        paddingTop: 10,
+                        borderTop: "1px solid color-mix(in oklab, var(--amber) 30%, transparent)",
+                      }}
+                    >
+                      <span
+                        style={{
+                          fontFamily: "var(--font-display)",
+                          fontSize: 22,
+                          color: "var(--accent)",
+                          letterSpacing: "-0.01em",
+                        }}
+                      >
+                        ${Number(s.priceUsd ?? 0).toFixed(2)}
+                      </span>
+                      <span
+                        style={{
+                          fontFamily: "var(--font-mono)",
+                          fontSize: 11,
+                          color: "var(--fg-muted)",
+                          letterSpacing: "0.06em",
+                          textTransform: "uppercase",
+                        }}
+                      >
+                        View →
+                      </span>
+                    </div>
+                  </Link>
+                </RevealItem>
+              ))}
+            </RevealStagger>
+          </Section>
+        </ScrollReveal>
+      )}
 
       {/* ============================================================== */}
       {/* §02 WHAT — c'est quoi Versuz                                    */}

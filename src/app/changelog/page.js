@@ -33,6 +33,7 @@ const ENTRIES = [
       { type: "fix", body: "quality-judge skipped 100% of items as \"content too short\" — post-migration 0042, the bodies live in the public Storage bucket, not the inline column. New resolveItemContent() fetches from Storage as a fallback. The script now actually judges instead of skipping." },
       { type: "fix", body: "Footer \"Boost a skill · $4.99 / 30 days\" link pointed to /marketplace?promote=intro which was never handled. Now anchors to /pricing#boost (id added, scrollMarginTop: 96 so it clears the sticky header)." },
       { type: "content", body: "CLI v0.2.0 published with expanded npm description + keywords (claude-skills, skill-md, registry, benchmark, ranking, elo, anthropic, agent). User-Agent bumped to versuz-cli/0.2.0." },
+      { type: "feat", body: "Native promo surfaces — 5 monetisation slots across home / marketplace / leaderboard / skill detail. Home § Featured strip showcases Versuz first-party picks (vz-bench-debug, vz-scrape-runner). Marketplace + leaderboard get \"Boost a skill · $4.99 / 30d\" promo cards. Skill detail gets author-aware promo (Boost CTA for owners, Submit CTA for visitors) + cross-sell strip with other Featured items. Same editorial tone as the rest of the site — no AdSense aesthetic. New helper getFeaturedItems(kind, limit) in rankings.js." },
     ],
   },
   {
