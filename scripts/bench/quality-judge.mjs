@@ -442,37 +442,62 @@ async function loadCandidates(kind) {
 // Inline equivalent of src/lib/content/storage.js#fetchContentByPath
 // (kept local to avoid importing Next.js-flavored modules into a Node
 // script). Bucket `content` is public, so no auth needed for the fetch.
+//
+// Returns { text, error }. text=null when fetch failed — error string lets
+// the caller report the REAL reason instead of masking it as
+// "content too short" (which was the historical bug : Storage 429/503 or
+// transient network reset → null → false-positive skip).
 const STORAGE_BUCKET = "content";
 async function fetchFromStorage(path) {
-  if (!path) return null;
+  if (!path) return { text: null, error: "no content_path" };
   const base = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  if (!base) return null;
+  if (!base) return { text: null, error: "no NEXT_PUBLIC_SUPABASE_URL" };
   const url = `${base.replace(/\/$/, "")}/storage/v1/object/public/${STORAGE_BUCKET}/${path}`;
-  try {
-    const res = await fetch(url);
-    if (!res.ok) return null;
-    return await res.text();
-  } catch {
-    return null;
+  const MAX_TRIES = 3;
+  let lastErr = "unknown";
+  for (let attempt = 1; attempt <= MAX_TRIES; attempt++) {
+    const ctrl = new AbortController();
+    const timer = setTimeout(() => ctrl.abort(), 15_000);
+    try {
+      const res = await fetch(url, { signal: ctrl.signal });
+      clearTimeout(timer);
+      if (res.ok) {
+        const text = await res.text();
+        return { text, error: null };
+      }
+      lastErr = `storage HTTP ${res.status}`;
+      // 4xx (except 429) is permanent — don't retry
+      if (res.status >= 400 && res.status < 500 && res.status !== 429) break;
+    } catch (err) {
+      clearTimeout(timer);
+      lastErr = `storage fetch: ${err.code || err.name || err.message || "unknown"}`;
+    }
+    if (attempt < MAX_TRIES) {
+      await new Promise((r) => setTimeout(r, 800 * attempt));
+    }
   }
+  return { text: null, error: lastErr };
 }
 
 async function resolveItemContent(item) {
   if (typeof item.content === "string" && item.content.length > 0) {
-    return item.content;
+    return { text: item.content, error: null };
   }
   if (item.contentPath) {
     return await fetchFromStorage(item.contentPath);
   }
-  return null;
+  return { text: null, error: "no inline content and no content_path" };
 }
 
 async function judgeOne({ kind, item }) {
   // Storage fallback : post-migration 0042, content lives in the public
   // `content` bucket. The inline column is NULL for most rows.
-  const body = await resolveItemContent(item);
-  if (!body || body.length < 50) {
-    return { error: "content too short" };
+  const { text: body, error: resolveErr } = await resolveItemContent(item);
+  if (!body) {
+    return { error: resolveErr || "no content resolved" };
+  }
+  if (body.length < 50) {
+    return { error: `content too short (${body.length} chars)` };
   }
   const prompt = buildPrompt({ kind, name: item.name, content: body });
   let res;
