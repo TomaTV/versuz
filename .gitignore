@@ -144,3 +144,14 @@ emergency-backup-*.dump
 
 # Ads video exports (regenerated via `npm run ads:export`, 88M+)
 .ads/exports/
+.ads/videos/
+
+# Voiceover scripts — local-only, never in repo
+docs/ads-voiceover/
+
+# Any rendered media file — never commit these
+*.mp4
+*.mov
+*.webm
+*.wav
+*.mp3

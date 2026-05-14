@@ -826,17 +826,30 @@ export async function getIndexCounts() {
   // anywhere (Storage path OR inline fallback for the few Forbidden) and
   // isn't archived. The marker-file stubs are now caught at scrape time
   // via the quality gate, so we don't need a word_count post-filter.
+  // `count: 'estimated'` plutôt qu'`'exact'` : sur 90k+ lignes l'`exact` fait
+  // un seq scan qui dépasse régulièrement le statement_timeout=3s du rôle
+  // anon (surtout sous la charge parallèle de la landing), ce qui fait
+  // tomber le compteur à 0 dans le snapshot ISR pendant 10 min. L'estimated
+  // lit `pg_class.reltuples` (µs) et reste assez précis pour un compteur
+  // décoratif. PostgREST renvoie automatiquement l'`exact` en dessous d'un
+  // seuil, donc claude_md (10k) reste précis.
   const [skillsRes, claudeMdRes] = await Promise.all([
     sb
       .from("skills")
-      .select("id", { count: "exact", head: true })
+      .select("id", { count: "estimated", head: true })
       .or("is_archived.is.null,is_archived.eq.false"),
     sb
       .from("claude_md_files")
-      .select("id", { count: "exact", head: true })
+      .select("id", { count: "estimated", head: true })
       .or("is_archived.is.null,is_archived.eq.false")
       .or("content_path.not.is.null,content.not.is.null"),
   ]);
+  if (skillsRes.error) {
+    console.warn("[getIndexCounts] skills count failed:", skillsRes.error.message);
+  }
+  if (claudeMdRes.error) {
+    console.warn("[getIndexCounts] claude_md count failed:", claudeMdRes.error.message);
+  }
   return {
     skills: skillsRes.count ?? 0,
     claudeMds: claudeMdRes.count ?? 0,
