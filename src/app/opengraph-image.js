@@ -5,30 +5,26 @@ export const contentType = "image/png";
 export const alt = "Versuz — Skills go in. Only one wins.";
 export const runtime = "nodejs";
 
-// Font sources : Google Fonts repo on GitHub raw. Fetch is cached by Next.
-const FONT_SOURCES = {
-  instrumentSerifRegular:
-    "https://github.com/google/fonts/raw/main/ofl/instrumentserif/InstrumentSerif-Regular.ttf",
-  instrumentSerifItalic:
-    "https://github.com/google/fonts/raw/main/ofl/instrumentserif/InstrumentSerif-Italic.ttf",
-  jetbrainsMono:
-    "https://github.com/google/fonts/raw/main/ofl/jetbrainsmono/JetBrainsMono%5Bwght%5D.ttf",
-  geist:
-    "https://github.com/google/fonts/raw/main/ofl/geist/Geist%5Bwght%5D.ttf",
-};
-
-async function loadFont(url) {
-  const res = await fetch(url, { cache: "force-cache" });
-  if (!res.ok) throw new Error(`Font fetch ${url} → ${res.status}`);
-  return res.arrayBuffer();
+// Fetches a static TTF from the Google Fonts CSS API. Sending a desktop
+// User-Agent forces the API to serve TTF URLs (the default for modern UAs
+// is woff2, which Satori cannot parse). All fetches are cached by Next.
+async function loadFont(family, weight = 400, italic = false) {
+  const url = `https://fonts.googleapis.com/css2?family=${encodeURIComponent(family)}:ital,wght@${italic ? 1 : 0},${weight}&display=swap`;
+  const css = await fetch(url, {
+    headers: { "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)" },
+    cache: "force-cache",
+  }).then((r) => r.text());
+  const match = css.match(/src: url\((https:\/\/[^)]+\.ttf)\)/);
+  if (!match) throw new Error(`OG font ${family} ${weight} ${italic ? "italic" : "regular"} — TTF URL not found`);
+  const buf = await fetch(match[1], { cache: "force-cache" }).then((r) => r.arrayBuffer());
+  return buf;
 }
 
 export default async function Image() {
-  const [serifRegular, serifItalic, mono, sans] = await Promise.all([
-    loadFont(FONT_SOURCES.instrumentSerifRegular),
-    loadFont(FONT_SOURCES.instrumentSerifItalic),
-    loadFont(FONT_SOURCES.jetbrainsMono),
-    loadFont(FONT_SOURCES.geist),
+  const [serifRegular, serifItalic, mono] = await Promise.all([
+    loadFont("Instrument Serif", 400, false),
+    loadFont("Instrument Serif", 400, true),
+    loadFont("JetBrains Mono", 500, false),
   ]);
 
   return new ImageResponse(
@@ -42,7 +38,7 @@ export default async function Image() {
           background: "#f2eee6",
           padding: 72,
           color: "#14120e",
-          fontFamily: "Geist",
+          fontFamily: "Instrument Serif",
           position: "relative",
         }}
       >
@@ -76,18 +72,17 @@ export default async function Image() {
             color: "#6b6557",
           }}
         >
-          <span style={{ color: "#14120e", fontWeight: 600, letterSpacing: "0.18em" }}>
+          <span style={{ color: "#14120e", fontWeight: 500, letterSpacing: "0.2em" }}>
             VERSUZ
           </span>
           <span>THE OPEN PUBLIC BENCHMARK</span>
         </div>
 
-        {/* Hero — tagline using Instrument Serif */}
+        {/* Hero — tagline */}
         <div
           style={{
             display: "flex",
             flexDirection: "column",
-            gap: 0,
             marginTop: 90,
             flex: 1,
           }}
@@ -96,7 +91,6 @@ export default async function Image() {
             style={{
               fontFamily: "Instrument Serif",
               fontSize: 156,
-              fontWeight: 400,
               lineHeight: 0.95,
               letterSpacing: "-0.02em",
               color: "#14120e",
@@ -106,26 +100,27 @@ export default async function Image() {
           </div>
           <div
             style={{
+              display: "flex",
               fontFamily: "Instrument Serif",
-              fontSize: 156,
-              fontWeight: 400,
               fontStyle: "italic",
+              fontSize: 156,
               lineHeight: 0.95,
               letterSpacing: "-0.02em",
-              color: "#c2410c",
-              marginTop: -8,
+              marginTop: -10,
             }}
           >
-            Only one wins.
+            <span style={{ color: "#14120e" }}>Only&nbsp;</span>
+            <span style={{ color: "#c2410c" }}>one</span>
+            <span style={{ color: "#14120e" }}>&nbsp;wins.</span>
           </div>
           <div
             style={{
-              fontFamily: "Geist",
+              fontFamily: "Instrument Serif",
               fontSize: 26,
               lineHeight: 1.5,
               color: "#14120e",
-              opacity: 0.78,
-              marginTop: 32,
+              opacity: 0.75,
+              marginTop: 36,
               maxWidth: 980,
             }}
           >
@@ -150,7 +145,7 @@ export default async function Image() {
               gap: 24,
               fontFamily: "JetBrains Mono",
               fontSize: 16,
-              letterSpacing: "0.16em",
+              letterSpacing: "0.18em",
               textTransform: "uppercase",
             }}
           >
@@ -166,7 +161,7 @@ export default async function Image() {
             style={{
               fontFamily: "Instrument Serif",
               fontStyle: "italic",
-              fontSize: 40,
+              fontSize: 42,
               color: "#c2410c",
               lineHeight: 1,
             }}
@@ -181,8 +176,7 @@ export default async function Image() {
       fonts: [
         { name: "Instrument Serif", data: serifRegular, weight: 400, style: "normal" },
         { name: "Instrument Serif", data: serifItalic, weight: 400, style: "italic" },
-        { name: "JetBrains Mono", data: mono, weight: 400, style: "normal" },
-        { name: "Geist", data: sans, weight: 400, style: "normal" },
+        { name: "JetBrains Mono", data: mono, weight: 500, style: "normal" },
       ],
     }
   );
