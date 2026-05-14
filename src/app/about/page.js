@@ -153,13 +153,13 @@ export default function AboutPage() {
                 overflow: "auto",
               }}
             >
-{`npx versuz                  # interactive
+              {`npx versuz                  # interactive
 npx versuz search pdf
 npx versuz info <slug>
 npx versuz install <slug>`}
             </pre>
             <a
-              href="https://github.com/versuzdev/versuz/tree/main/cli"
+              href="https://github.com/TomaTV/versuz/tree/main/cli"
               target="_blank"
               rel="noreferrer"
               className="vz-link"
@@ -234,7 +234,7 @@ npx versuz install <slug>`}
                 overflow: "auto",
               }}
             >
-{`claude mcp add versuz npx -y @versuz/mcp
+              {`claude mcp add versuz npx -y @versuz/mcp
 
 # .mcp.json
 {
@@ -244,7 +244,7 @@ npx versuz install <slug>`}
 }`}
             </pre>
             <a
-              href="https://github.com/versuzdev/versuz/tree/main/mcp-server"
+              href="https://github.com/TomaTV/versuz/tree/main/mcp-server"
               target="_blank"
               rel="noreferrer"
               className="vz-link"
@@ -367,7 +367,7 @@ npx versuz install <slug>`}
             }}
           >
             <a
-              href="https://github.com/versuzdev/versuz"
+              href="https://github.com/TomaTV/versuz"
               target="_blank"
               rel="noreferrer"
               className="vz-link"

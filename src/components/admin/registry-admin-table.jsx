@@ -308,7 +308,16 @@ function Row({ kind, row, checked, onToggle }) {
         </span>
       </div>
 
-      <form action={setVerificationLevel} style={{ display: "flex", gap: 6 }}>
+      {/* `key` includes the row's current value so React re-mounts the
+          select after a server action revalidatePath. Without this, the
+          select keeps its OLD defaultValue and the admin sees the row
+          "reverting" even though the DB was correctly updated. This was
+          the source of the "I set one to featured but another reverts" bug. */}
+      <form
+        key={`level-${row.slug}-${row.verificationLevel}`}
+        action={setVerificationLevel}
+        style={{ display: "flex", gap: 6 }}
+      >
         <input type="hidden" name="slug" value={row.slug} />
         <input type="hidden" name="kind" value={kind} />
         <select name="level" defaultValue={row.verificationLevel} style={selectStyle}>
@@ -323,7 +332,11 @@ function Row({ kind, row, checked, onToggle }) {
         </button>
       </form>
 
-      <form action={setTier} style={{ display: "flex", gap: 6 }}>
+      <form
+        key={`tier-${row.slug}-${row.tier}-${row.priceUsd ?? ""}`}
+        action={setTier}
+        style={{ display: "flex", gap: 6 }}
+      >
         <input type="hidden" name="slug" value={row.slug} />
         <input type="hidden" name="kind" value={kind} />
         <select name="tier" defaultValue={row.tier} style={selectStyle}>

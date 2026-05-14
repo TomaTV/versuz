@@ -250,6 +250,8 @@ versuz/
 - `npm run bench:enqueue` — créer cycle + queue jobs (cartesian product)
 - `npm run bench` — claim + run + judge + refresh_rankings (resume cycle queued FIFO)
 - `npm run generate-tasks` — Gemini Flash drafts new task_proposals → `/admin/task-proposals`
+- **`npm run pipeline:full`** — batch complet : scrape exhaustif (169 niches) → quality → bench. Une nuit/week-end pour maximiser la découverte.
+- **`npm run pipeline:hot`** — vagues rapides 5 items : scrape → quality → bench par lots. ~8 min/vague, résultats live rapidement. Options : `--wave-size=N`, `--min-stars=0`, `--vagues=N`
 
 > Note PowerShell : `npm run X -- --flag` est cassé sur Windows. Lancer via `node scripts/bench/X.mjs --flag=...`.
 
@@ -311,6 +313,37 @@ Solo build par Toma (FlukX Studio). 21 ans, basé en France, expertise design + 
   de l'API GitHub avant main/master → fini les 404 sur les monorepos
   (openclaw/skills etc.) · (2) upsert tolérant le conflict `github_url`
   (retry avec onConflict: github_url si slug-conflict échoue avec 23505).
+
+### État au 14 mai 2026 (V1.5 launch-ready — Supabase recovered + filters polished + GH Actions configured)
+
+- **48 migrations Supabase** appliquées (0001 → 0048). Toutes en prod via MCP supabase :
+  - 0037 marketplace indexes (composite + GIN topics + trigram — **drops appliqués** sur les 5 trigram saturants)
+  - 0038 license_spdx (60213 items backfilled via GitHub API)
+  - 0039 description_hash (near-dup detection)
+  - 0040 multi_category (`categories jsonb`)
+  - 0041 archive flag (221 hard-deleted dedup near-dups)
+  - 0042 content_storage (`content_path` → Storage bucket public)
+  - 0043 RLS perf wrap `auth.uid()` → `(select auth.uid())`
+  - 0044 `is_bundled` generated col
+  - 0045 widen category check (writing/design/marketing/automation/research)
+  - 0046 `repo_skill_count` denormalized + index
+  - 0047 widen category check v2 (api-integration/macos/communication/media/testing/devops)
+  - 0048 `byte_count` generated col (extracted from metadata.byte_count, indexed)
+- **DB size** : 776 MB → **~281 MB** (sous Free tier 500 MB). Pro tier upgrade temporaire pour la recovery (~$0.83/jour) → downgrade Free ready.
+- **Storage offload complet** : 93607 skills + 10235 claude_md content bodies vers bucket public `content/{kind}/{slug}.md`. ~66 skills security/pentesting Cloudflare WAF-blocked gardent leur inline fallback. Bucket usage ~300 MB / 1 GB free.
+- **Classifier v4** (`scripts/scrape/classify.mjs`) : 27 buckets total. Reclassify-all a bougé 11762 skills depuis "other" → buckets spécifiques (`other` passé de ~40k à ~30k).
+- **Filters server-side complets** : Bundle (mig 0044+0046), Tokens (mig 0048 byte_count), Source (ILIKE patterns + dynamic `getAvailableSources()`), Category (multi-cat via `categories @>`), tier/verified/official/quality/topics (déjà server). Plus de count drift entre header et grid.
+- **License badges** : crimson border pour copyleft GPL/AGPL/LGPL (1215 items), gris muted pour permissive MIT/Apache/BSD (54k+).
+- **Bundle distinction** : `is_bundled` (skill_type='bundled', 1241) vs `repo_skill_count > 1` (multi-skill repo, ~89k). Filter "Bundle" union des 2 = 90927. "Single" = strict 2680.
+- **Featured cards** : 2-cell grid span (`gridColumn: span 2`) quand `tier='featured'`. Auto-flow dense pour pas de holes.
+- **Stripe LIVE config complete** : Platform profile validé, Connect Express activé, branding ember, webhook LIVE avec 3 events. Code 100% compatible — bascule LIVE = push env vars + redeploy.
+- **OG image** : `public/og-images.png` (1200×630) câblée dans `layout.js`. Detail pages skills + claude_md gardent leur dynamique opengraph-image.js.
+- **Resend** : envoie depuis `Versuz <hello@versuz.dev>` avec `reply_to: contact@flukxstudio.fr` → réponses arrivent dans l'inbox flukx perso, branding professionnel côté inbound.
+- **CHANGELOG.md migré en anglais** + `/changelog` page in-app translated.
+- **Submit flows** : skill et claude_md tolèrent locale FR (4,99 → 4.99), step="0.01".
+- **Admin featured bug** : fix `defaultValue` stale via `key={...}` sur form re-mount post-revalidate.
+- **GitHub Actions** (3 workflows) : scrape-daily (02:00 UTC, max 1000), quality-judge (every 4h, Groq free, $0), bench-runner (daily 03:00 UTC, $1/run, monthly cap $25 via `cycles.actual_cost_usd` mig 0049).
+- **Pack ads vidéo** : 7 scènes shippables via `npm run ads:export` (Playwright + ffmpeg).
 
 ### État au 11 mai 2026 (V1.5 + UX overhaul + premium gating + judges or-v1 + CLI/MCP beta)
 
@@ -424,16 +457,25 @@ Solo build par Toma (FlukX Studio). 21 ans, basé en France, expertise design + 
 
 → Tous ces "manuels" deviendront auto plus tard avec un worker / cron supplémentaires (parqué post-launch).
 
-### Reste essentiel (priorisé)
+### Reste essentiel (priorisé · 14 mai 2026 late)
 
-1. **Domaine versuz.dev** — bloque tout le reste prod (DNS, Stripe live webhook,
-   Resend domain, Vercel custom domain, Search Console).
-2. **Stripe live activation** — après domain (génération sk_live_, webhook
-   persistant prod, branding live, customer emails live).
-3. **Bench cycles massifs** — `or-v1` mode avec budget OpenRouter $5-20, scope
-   par catégorie. ~5×10 jobs = 50 outputs × 3 judges = 150 calls = ~$0.30/cycle.
-4. **Stripe Tax** activation si volume EU (Settings → Tax dans Dashboard).
-5. **Resend domain DNS** (3 records SPF/DKIM/DMARC chez registrar).
+**Tech infra** :
+1. **Supabase downgrade Pro → Free** + refund ticket (DB stable @ ~281 MB, sous quota)
+2. **Stripe identity verification finale** (1-5j Stripe side) → push env vars LIVE Vercel
+3. **Domain DNS** Cloudflare → Vercel (A `76.76.21.21` + CNAME www, **proxy OFF** pour Let's Encrypt)
+4. **Resend domain DNS** versuz.dev (SPF + DKIM + return-path MX + DMARC) chez Cloudflare
+5. **GitHub Actions secrets** dans repo settings : NEXT_PUBLIC_SUPABASE_URL,
+   SUPABASE_SERVICE_ROLE_KEY, SCRAPE_GITHUB_TOKENS, OPENROUTER_API_KEY, GROQ_API_KEY
+6. **Vercel env vars production** : copier `.env.local` → Vercel scope Production
+7. **`npm publish`** × 2 (cli + mcp-server, déjà bumpés vers `https://versuz.dev`)
+
+**Optionnel V1.5** :
+- Stripe Tax activation (volume EU)
+- Hero trust signal row sous le headline
+- Mobile hero CTA padding clamp()
+- Multi-compare 4 items
+- Trending rail "Hot this week"
+- Submit flows → Storage direct (au lieu de skill_md_content inline)
 
 Tout le reste est V2+ (real-time battles, dark theme, deterministic
 pre-judge, multi-vertical scaling, API enterprise).

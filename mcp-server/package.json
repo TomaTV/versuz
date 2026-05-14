@@ -29,7 +29,7 @@
   "homepage": "https://versuz.dev",
   "repository": {
     "type": "git",
-    "url": "https://github.com/versuzdev/versuz",
+    "url": "https://github.com/TomaTV/versuz",
     "directory": "mcp-server"
   },
   "license": "MIT",

@@ -1,0 +1,135 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Versuz · Brand Kit v01</title>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=IBM+Plex+Mono:wght@400;500&family=Inter:wght@400;500;600&display=swap" rel="stylesheet" />
+
+  <script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+  <script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+  <script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+  <script src="https://unpkg.com/jszip@3.10.1/dist/jszip.min.js"></script>
+
+  <style>
+    :root {
+      --bone:    #FAF8F3;
+      --ember:   #C2410C;
+      --azure:   #1E40AF;
+      --sage:    #84A98C;
+      --amber:   #D97706;
+      --crimson: #B91C1C;
+      --ink:     #0A0908;
+      --fg-muted:#6B6B6B;
+      --rule:    #E8E4DC;
+      --font-display: 'Instrument Serif', serif;
+      --font-mono:    'IBM Plex Mono', monospace;
+      --font-sans:    'Inter', system-ui, sans-serif;
+    }
+    *, *::before, *::after { box-sizing: border-box; }
+    html, body { margin: 0; padding: 0; }
+    body {
+      background: var(--bone); color: var(--ink);
+      font-family: var(--font-sans); font-size: 14px; line-height: 1.5;
+      -webkit-font-smoothing: antialiased; text-rendering: optimizeLegibility;
+    }
+    a { color: inherit; text-decoration: none; }
+    button { font-family: inherit; color: inherit; background: none; border: none; cursor: pointer; padding: 0; }
+    ::selection { background: var(--ember); color: var(--bone); }
+
+    .bk-section { padding: 96px 0; border-top: 1px solid var(--rule); }
+    .bk-section:first-of-type { border-top: none; }
+
+    .bk-eyebrow {
+      font-family: var(--font-mono); font-size: 11px;
+      letter-spacing: 0.18em; text-transform: uppercase; color: var(--ink);
+    }
+
+    .bk-card {
+      background: var(--bone);
+      border: 1px solid var(--rule);
+      overflow: hidden;
+    }
+
+    .bk-btn {
+      display: inline-flex; align-items: center; gap: 10px;
+      padding: 10px 16px; border: 1px solid var(--rule);
+      background: var(--bone); color: var(--ink);
+      transition: background-color .15s ease, color .15s ease, border-color .15s ease;
+    }
+    .bk-btn:hover { background: var(--ember); border-color: var(--ember); color: var(--bone); }
+    .bk-btn:active { box-shadow: inset 0 -2px 0 rgba(0,0,0,0.18); }
+    .bk-btn-ghost { background: transparent; }
+    .bk-btn-ink { background: var(--ink); color: var(--bone); border-color: var(--ink); }
+    .bk-btn-ink:hover { background: var(--ember); border-color: var(--ember); }
+    .bk-btn-ember { background: var(--ember); color: var(--bone); border-color: var(--ember); }
+    .bk-btn-ember:hover { background: var(--ink); border-color: var(--ink); color: var(--bone); }
+
+    /* ===== Reveal ===== */
+    @keyframes vz-flame-in {
+      from { transform: scale(0.4); opacity: 0; }
+      to   { transform: scale(1);   opacity: 1; }
+    }
+    @keyframes vz-letter-in {
+      from { opacity: 0; transform: translateY(8px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+    @keyframes vz-dot-pulse {
+      0%   { transform: scale(1);    opacity: 1; }
+      50%  { transform: scale(1.3);  opacity: 0.7; }
+      100% { transform: scale(1);    opacity: 1; }
+    }
+    .vz-reveal .vz-stroke-z { animation: vz-flame-in .30s cubic-bezier(.2,.7,.3,1) .00s both; transform-origin: 50px 80px; transform-box: fill-box; }
+    .vz-reveal .vz-stroke-v { animation: vz-flame-in .30s cubic-bezier(.2,.7,.3,1) .10s both; transform-origin: 145px 40px; transform-box: fill-box; }
+    .vz-reveal .vz-wm-letters > * { display: inline-block; opacity: 0; animation: vz-letter-in .12s ease-out both; }
+    .vz-reveal .vz-wm-letters > *:nth-child(1) { animation-delay: .50s; }
+    .vz-reveal .vz-wm-letters > *:nth-child(2) { animation-delay: .58s; }
+    .vz-reveal .vz-wm-letters > *:nth-child(3) { animation-delay: .66s; }
+    .vz-reveal .vz-wm-letters > *:nth-child(4) { animation-delay: .74s; }
+    .vz-reveal .vz-wm-letters > *:nth-child(5) { animation-delay: .82s; }
+    .vz-reveal .vz-wm-letters > *:nth-child(6) { animation-delay: .90s; }
+    .vz-reveal .vz-wm-dot { animation: vz-dot-pulse .4s ease-in-out 1.10s both; transform-origin: center; display: inline-block; }
+
+    /* ===== Heartbeat ===== */
+    @keyframes vz-heartbeat {
+      0%, 100% { transform: scale(1);    opacity: 1; }
+      50%      { transform: scale(1.15); opacity: 0.85; }
+    }
+    .vz-heartbeat .vz-wm-dot { animation: vz-heartbeat 2s ease-in-out infinite; transform-origin: center; display: inline-block; }
+
+    /* ===== Hover ember ===== */
+    .vz-anim-hover-ember .vz-stroke-z { transition: opacity .25s ease; opacity: 1; }
+    .vz-anim-hover-ember .vz-stroke-v { transition: opacity .25s ease; opacity: 0.7; }
+    .vz-anim-hover-ember:hover .vz-stroke-z { opacity: 0.7; }
+    .vz-anim-hover-ember:hover .vz-stroke-v { opacity: 1; }
+
+    /* ===== Glitch ===== */
+    @keyframes vz-glitch-s {
+      0%, 100% { transform: translateX(0); color: inherit; }
+      30%      { transform: translateX(-1px); color: var(--crimson); }
+      60%      { transform: translateX(1px);  color: inherit; }
+    }
+    @keyframes vz-glitch-z {
+      0%, 100% { transform: translateX(0); color: inherit; }
+      30%      { transform: translateX(1px);  color: var(--azure); }
+      60%      { transform: translateX(-1px); color: inherit; }
+    }
+    @keyframes vz-glitch-wash {
+      0%, 100% { filter: none; }
+      40%      { filter: grayscale(0.6); }
+    }
+    .vz-glitch .vz-wm-letters { animation: vz-glitch-wash .35s ease-in-out 1; }
+    .vz-glitch .vz-wm-letters > [data-ltr="S"] { animation: vz-glitch-s .35s ease-in-out 1; display: inline-block; }
+    .vz-glitch .vz-wm-letters > [data-ltr="z"] { animation: vz-glitch-z .35s ease-in-out 1; display: inline-block; }
+  </style>
+</head>
+<body>
+  <div id="root"></div>
+
+  <script type="text/babel" src="brand-kit-logo.jsx"></script>
+  <script type="text/babel" src="brand-kit-app.jsx"></script>
+</body>
+</html>

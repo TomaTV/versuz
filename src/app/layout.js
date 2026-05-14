@@ -53,12 +53,21 @@ export const metadata = {
     url: "https://versuz.dev",
     siteName: "Versuz",
     type: "website",
+    images: [
+      {
+        url: "/og-images.png",
+        width: 1200,
+        height: 630,
+        alt: "Versuz — Skills go in. Only one wins.",
+      },
+    ],
   },
   twitter: {
     card: "summary_large_image",
     title: "Versuz — AI agent skills leaderboard",
     description:
       "Skills go in. Only one wins. Three frontier judges, thirty held-out tasks, Bayesian Elo. Updated every 24h.",
+    images: ["/og-images.png"],
   },
   alternates: {
     types: {

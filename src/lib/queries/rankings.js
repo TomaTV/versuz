@@ -25,16 +25,41 @@ import { cache } from "react";
 import { CLAUDE_MD_FILES, PROJECT_CATEGORIES } from "@/lib/fixtures/claude-md";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { computePrior } from "@/lib/utils";
+import { fetchContentByPath } from "@/lib/content/storage";
 
 const HAS_SUPABASE = Boolean(process.env.NEXT_PUBLIC_SUPABASE_URL);
 
 const CATEGORY_LABELS = {
+  // V0 / V1 canonical buckets
   document: "Document",
   sql: "SQL",
   data: "Data",
   web: "Web",
   shell: "Shell",
   code: "Code",
+  // V1.5 agent-specific buckets (migration 0040 + classifier v3).
+  "claude-skill": "Claude skill",
+  codex: "Codex",
+  "cursor-rule": "Cursor rule",
+  "windsurf-rule": "Windsurf rule",
+  antigravity: "Antigravity",
+  "mcp-server": "MCP server",
+  "continue-rule": "Continue rule",
+  "roo-code": "Roo Code",
+  cline: "Cline",
+  // V1.5+ broader content buckets — catch the long-tail of "other" items.
+  writing: "Writing",
+  design: "Design",
+  marketing: "Marketing",
+  automation: "Automation",
+  research: "Research",
+  // V1.5++ service/platform/macOS/comms/media/testing/devops buckets
+  "api-integration": "API integration",
+  macos: "macOS",
+  communication: "Communication",
+  media: "Media",
+  testing: "Testing",
+  devops: "DevOps",
   other: "Other",
 };
 
@@ -75,6 +100,7 @@ function mapSkillRow(row) {
     repo: meta.repo || null,
     github: row.github_url ? row.github_url.replace(/^https?:\/\//, "") : null,
     stars: row.github_stars || 0,
+    byteCount: row.byte_count ?? null,
     forks: meta.forks ?? null,
     topics: Array.isArray(meta.topics) ? meta.topics : [],
     pushedAt: meta.pushed_at || null,
@@ -83,15 +109,21 @@ function mapSkillRow(row) {
     elo: null,
     metadata: meta,
     skill_md_content: row.skill_md_content || null,
+    contentPath: row.content_path || null,
     tier: row.tier || "free",
     priceUsd: row.price_usd,
     verificationLevel: row.verification_level ?? 0,
     isOfficial: !!row.is_official,
+    source: row.source || "github",
     benchTier: row.bench_tier ?? null,
     privateStoragePath: row.private_storage_path || null,
     promotedUntil: row.promoted_until || null,
     qualityScore: row.quality_score != null ? Number(row.quality_score) : null,
     qualityRationale: row.quality_rationale || null,
+    licenseSpdx: row.license_spdx || meta.license || null,
+    categories: Array.isArray(row.categories) && row.categories.length > 0
+      ? row.categories
+      : (row.category ? [row.category] : []),
   });
   base.prior = computePrior(base);
   base.isBoosted = base.promotedUntil ? new Date(base.promotedUntil) > new Date() : false;
@@ -112,6 +144,7 @@ function mapClaudeMdRow(row) {
     repo: meta.repo || null,
     github: row.github_url ? row.github_url.replace(/^https?:\/\//, "") : null,
     word_count: row.word_count,
+    byteCount: row.byte_count ?? null,
     stars: row.github_stars || 0,
     forks: meta.forks ?? null,
     topics: Array.isArray(meta.topics) ? meta.topics : [],
@@ -120,14 +153,20 @@ function mapClaudeMdRow(row) {
     rank: null,
     metadata: meta,
     content: row.content || null,
+    contentPath: row.content_path || null,
     tier: row.tier || "free",
     priceUsd: row.price_usd,
     verificationLevel: row.verification_level ?? 0,
     isOfficial: !!row.is_official,
+    source: row.source || "github",
     benchTier: row.bench_tier ?? null,
     promotedUntil: row.promoted_until || null,
     qualityScore: row.quality_score != null ? Number(row.quality_score) : null,
     qualityRationale: row.quality_rationale || null,
+    licenseSpdx: row.license_spdx || meta.license || null,
+    categories: Array.isArray(row.categories) && row.categories.length > 0
+      ? row.categories
+      : (row.project_category ? [row.project_category] : []),
   };
   base.prior = computePrior(base);
   base.isBoosted = base.promotedUntil ? new Date(base.promotedUntil) > new Date() : false;
@@ -135,9 +174,14 @@ function mapClaudeMdRow(row) {
 }
 
 // `cache()` dedupes within a single request: calling liveSkills() multiple
-// times during one page render hits Supabase exactly once. Critical for the
-// marketplace + landing pages which need both the items and derived
-// categories (otherwise 4× the queries).
+// times during one page render hits Supabase exactly once.
+//
+// SCALE NOTE (V1.5+ ~100k items) : liveSkills / liveClaudeMds cappent à 2000
+// rows max (was 20000). Suffit pour topics aggregation + sitemap top + sibling
+// skills. Pour le marketplace, on utilise getPaginatedItems (range + count
+// exact). Pour la landing top N, on utilise getTopRankedItems (LIMIT N).
+// Pour les counts, getCategoryCounts / getIndexCounts (count head:true).
+const LIVE_FETCH_CAP = 2000;
 /**
  * Per-repo dampening : compte combien d'items partagent un même (owner, repo).
  * Le prior utilise sqrt(N) pour dampener stars/forks → un mega-repo qui
@@ -192,22 +236,433 @@ async function enrichWithBenchScores(items, kind) {
   });
 }
 
+/* ──────── Server-side paginated query for /marketplace ──────── */
+const MARKETPLACE_PAGE_SIZE = 50;
+
+export async function getPaginatedItems(kind = "skill", params = {}) {
+  if (!HAS_SUPABASE) {
+    const items = kind === "skill" ? SKILLS.map(withTierDefaults) : CLAUDE_MD_FILES;
+    return { items, total: items.length, page: 1, totalPages: 1 };
+  }
+  const sb = await createSupabaseServerClient();
+  if (!sb) return { items: [], total: 0, page: 1, totalPages: 1 };
+
+  const page = Math.max(1, Number(params.page) || 1);
+  const table = kind === "skill" ? "skills" : "claude_md_files";
+  const select = kind === "skill"
+    ? "id, slug, name, description, category, github_url, github_stars, byte_count, tier, price_usd, verification_level, is_official, source, license_spdx, metadata, promoted_until, quality_score, quality_rationale, bench_tier"
+    : "id, slug, description, project_category, github_url, github_stars, word_count, byte_count, tier, price_usd, verification_level, is_official, source, license_spdx, metadata, promoted_until, quality_score, quality_rationale, bench_tier";
+
+  let q = sb.from(table).select(select, { count: "exact" });
+
+  // CLAUDE.md stub filter
+  if (kind === "claude_md") {
+    q = q.or("word_count.gte.40,word_count.is.null");
+  }
+
+  // Category filter — single bucket (la migration 0040 multi-cat n'est pas
+  // encore appliquée en prod). À ré-activer quand `categories` jsonb existe :
+  //   q = q.or(`categories.cs.["${cat}"],${catCol}.eq.${cat}`);
+  const cat = params.cat;
+  if (cat && cat !== "all") {
+    const catCol = kind === "skill" ? "category" : "project_category";
+    q = q.eq(catCol, cat);
+  }
+
+  // Tier filter
+  if (params.tier && params.tier !== "all") {
+    q = q.eq("tier", params.tier);
+  }
+
+  // Verification filter
+  if (params.verified && params.verified !== "any") {
+    q = q.gte("verification_level", Number(params.verified));
+  }
+
+  // Official filter
+  if (params.official === "true") {
+    q = q.eq("is_official", true);
+  }
+
+  // Quality filter
+  if (params.quality && params.quality !== "any") {
+    q = q.gte("quality_score", Number(params.quality));
+  }
+
+  // Source filter — the raw `source` column has many legacy values
+  // (github-search, github-mass, mega-github, web-directory, etc.). We
+  // can't `.eq("source", "github")` directly because that'd only match
+  // 3k of 58k actual GitHub items. Map the canonical filter ids to ILIKE
+  // patterns that catch all variants.
+  if (params.source && params.source !== "any") {
+    const s = params.source;
+    if (s === "github") {
+      q = q.ilike("source", "%github%");
+    } else if (s === "sourcegraph") {
+      q = q.ilike("source", "%sourcegraph%");
+    } else if (s === "grepapp") {
+      q = q.ilike("source", "%grep%");
+    } else if (s === "gitlab") {
+      q = q.ilike("source", "%gitlab%");
+    } else if (s === "web-directory") {
+      q = q.ilike("source", "%directory%");
+    } else if (s === "aggregator") {
+      q = q.or("source.ilike.%aggregator%,source.ilike.%awesome%");
+    } else if (s === "submit") {
+      q = q.or("source.eq.submit,source.ilike.submit:%");
+    } else if (s === "cli") {
+      q = q.or("source.eq.cli,source.ilike.cli:%");
+    }
+    // "other" → no good way to express NOT-in-any-known-pattern via
+    // PostgREST. Skip server filter; client-side normalizeSource will
+    // refine the visible page.
+  }
+
+  // Topics filter — server-side via metadata->'topics' @> jsonb_array.
+  // Index GIN sur metadata créé en migration 0037.
+  // Accept comma-separated `?topics=a,b,c` (AND semantic — must match all).
+  let topicsArr = [];
+  if (params.topics) {
+    topicsArr = String(params.topics)
+      .split(",")
+      .map((t) => t.trim())
+      .filter(Boolean);
+  }
+  if (topicsArr.length > 0) {
+    const jsonbArr = JSON.stringify(topicsArr);
+    q = q.filter("metadata->topics", "cs", jsonbArr);
+  }
+
+  // Bundle filter — considers BOTH signals to match what users see :
+  //   1. is_bundled (migration 0044) : skill_type='bundled' archetype
+  //   2. repo_skill_count > 1 (migration 0046) : the repo has multiple skills
+  // A "bundle" badge appears on the card if EITHER is true (see marketplace-card
+  // "X in bundle" pill). The filter mirrors that union :
+  //   - "bundle" → is_bundled=true OR repo_skill_count>1
+  //   - "single" → is_bundled=false AND repo_skill_count<=1
+  if (kind === "skill" && params.bundle && params.bundle !== "any") {
+    if (params.bundle === "bundle") {
+      q = q.or("is_bundled.eq.true,repo_skill_count.gt.1");
+    } else if (params.bundle === "single") {
+      q = q.eq("is_bundled", false).lte("repo_skill_count", 1);
+    }
+  }
+
+  // Token bucket — for claude_md uses the indexed `word_count` generated
+  // column. For skills uses `metadata.byte_count` (backfilled from Storage
+  // object size via backfill-byte-counts.mjs). approxTokens = bytes / 4.
+  if (params.tokens && params.tokens !== "any") {
+    const tok = params.tokens;
+    if (kind === "claude_md") {
+      if (tok === "small") {
+        q = q.gt("word_count", 0).lt("word_count", 385);
+      } else if (tok === "medium") {
+        q = q.gte("word_count", 385).lte("word_count", 1539);
+      } else if (tok === "large") {
+        q = q.gt("word_count", 1539);
+      }
+    } else if (kind === "skill") {
+      // Bytes thresholds = tokens × 4. Uses the indexed `byte_count`
+      // generated column (migration 0048) — integer compare, not the
+      // string compare on metadata->>byte_count which was broken.
+      if (tok === "small") {
+        q = q.gt("byte_count", 0).lt("byte_count", 2000);
+      } else if (tok === "medium") {
+        q = q.gte("byte_count", 2000).lte("byte_count", 8000);
+      } else if (tok === "large") {
+        q = q.gt("byte_count", 8000);
+      }
+    }
+  }
+
+  // Search
+  if (params.q) {
+    const term = `%${params.q}%`;
+    if (kind === "skill") {
+      q = q.or(`name.ilike.${term},slug.ilike.${term},description.ilike.${term}`);
+    } else {
+      q = q.or(`slug.ilike.${term},description.ilike.${term}`);
+    }
+  }
+
+  // Sort
+  const sort = params.sort || "prior";
+  if (sort === "stars") {
+    q = q.order("github_stars", { ascending: false, nullsFirst: false });
+  } else if (sort === "quality") {
+    q = q.order("quality_score", { ascending: false, nullsFirst: false });
+  } else if (sort === "name") {
+    q = q.order(kind === "skill" ? "name" : "slug", { ascending: true });
+  } else {
+    // prior / elo / recent / default — composite server sort
+    q = q.order("promoted_until", { ascending: false, nullsFirst: false })
+         .order("verification_level", { ascending: false })
+         .order("github_stars", { ascending: false, nullsFirst: false })
+         .order(kind === "skill" ? "name" : "slug", { ascending: true });
+  }
+
+  // Pagination
+  const from = (page - 1) * MARKETPLACE_PAGE_SIZE;
+  const to = from + MARKETPLACE_PAGE_SIZE - 1;
+  q = q.range(from, to);
+
+  const { data, error, count } = await q;
+  if (error) {
+    console.warn(`[rankings] paginated ${kind} query failed: ${error.message}`);
+    return { items: [], total: 0, page, totalPages: 0 };
+  }
+
+  const mapper = kind === "skill" ? mapSkillRow : mapClaudeMdRow;
+  let mapped = (data || []).map(mapper);
+  const total = count ?? 0;
+  const totalPages = Math.max(1, Math.ceil(total / MARKETPLACE_PAGE_SIZE));
+
+  // Infer owner/repo from github URL when metadata is empty (common on scraped rows).
+  for (const it of mapped) {
+    if (it.metadata?.owner && it.metadata?.repo) continue;
+    const url =
+      typeof it.github === "string" && it.github
+        ? it.github.startsWith("http")
+          ? it.github
+          : `https://${it.github}`
+        : null;
+    const p = parseGithubOwnerRepo(url || "");
+    if (p.owner && p.repo) {
+      it.metadata = { ...it.metadata, owner: p.owner, repo: p.repo };
+    }
+  }
+
+  // Apply repo skill count enrichment (needed for bundle filter)
+  mapped = applyRepoSkillCount(mapped);
+
+  // Enrich with bench scores
+  mapped = await enrichWithBenchScores(mapped, kind);
+
+  return { items: mapped, total, page, totalPages };
+}
+
+/** Parse owner/repo from github.com HTTPS or git@github.com SSH URLs. */
+export function parseGithubOwnerRepo(githubUrl) {
+  if (!githubUrl || typeof githubUrl !== "string") return { owner: null, repo: null };
+  const s = githubUrl.trim();
+  const ssh = s.match(/^git@github\.com:([^/]+)\/([^/.]+)(?:\.git)?$/i);
+  if (ssh) return { owner: ssh[1], repo: ssh[2] };
+  const tail = s.replace(/^https?:\/\//i, "");
+  const https = tail.match(/^[^/]*github\.com\/([^/]+)\/([^/?#]+)/i);
+  if (https) return { owner: https[1], repo: https[2].replace(/\.git$/i, "") };
+  return { owner: null, repo: null };
+}
+
+function uniqRowsById(rows) {
+  const m = new Map();
+  for (const r of rows) {
+    if (r?.id) m.set(r.id, r);
+  }
+  return [...m.values()];
+}
+
+/**
+ * Skills + CLAUDE.md for one GitHub repo. Matches metadata.owner/repo OR
+ * github_url containing github.com/owner/repo (many scraped rows lack metadata).
+ * Used by `/repo/[owner]/[repo]` and detail-page navigation.
+ */
+export async function getRegistryByRepo(ownerRaw, repoRaw) {
+  const owner = decodeURIComponent(String(ownerRaw || "").trim());
+  const repo = decodeURIComponent(String(repoRaw || "").trim());
+  if (!owner || !repo) return { skills: [], claudeMds: [], owner: ownerRaw, repo: repoRaw };
+
+  if (!HAS_SUPABASE) {
+    return { skills: [], claudeMds: [], owner, repo };
+  }
+  const sb = await createSupabaseServerClient();
+  if (!sb) return { skills: [], claudeMds: [], owner, repo };
+
+  const skillSel =
+    "id, slug, name, description, category, github_url, github_stars, byte_count, tier, price_usd, verification_level, is_official, source, license_spdx, metadata, promoted_until, quality_score, quality_rationale, bench_tier";
+  const claudeSel =
+    "id, slug, description, project_category, github_url, github_stars, word_count, byte_count, tier, price_usd, verification_level, is_official, source, license_spdx, metadata, promoted_until, quality_score, quality_rationale, bench_tier";
+
+  const ghLike = `%github.com/${owner}/${repo}%`;
+
+  const [
+    { data: skillMeta, error: eSkillMeta },
+    { data: skillUrl, error: eSkillUrl },
+    { data: claudeMeta, error: eClaudeMeta },
+    { data: claudeUrl, error: eClaudeUrl },
+  ] = await Promise.all([
+    sb
+      .from("skills")
+      .select(skillSel)
+      .filter("metadata->>owner", "ilike", owner)
+      .filter("metadata->>repo", "ilike", repo)
+      .order("name", { ascending: true }),
+    sb.from("skills").select(skillSel).ilike("github_url", ghLike).order("name", { ascending: true }),
+    sb
+      .from("claude_md_files")
+      .select(claudeSel)
+      .filter("metadata->>owner", "ilike", owner)
+      .filter("metadata->>repo", "ilike", repo)
+      .or("word_count.gte.40,word_count.is.null")
+      .order("slug", { ascending: true }),
+    sb
+      .from("claude_md_files")
+      .select(claudeSel)
+      .ilike("github_url", ghLike)
+      .or("word_count.gte.40,word_count.is.null")
+      .order("slug", { ascending: true }),
+  ]);
+
+  if (eSkillMeta) console.warn(`[rankings] getRegistryByRepo skills meta: ${eSkillMeta.message}`);
+  if (eSkillUrl) console.warn(`[rankings] getRegistryByRepo skills url: ${eSkillUrl.message}`);
+  if (eClaudeMeta) console.warn(`[rankings] getRegistryByRepo claude meta: ${eClaudeMeta.message}`);
+  if (eClaudeUrl) console.warn(`[rankings] getRegistryByRepo claude url: ${eClaudeUrl.message}`);
+
+  const skillRows = uniqRowsById([...(skillMeta || []), ...(skillUrl || [])]).sort((a, b) =>
+    (a.name || "").localeCompare(b.name || "")
+  );
+  const claudeRows = uniqRowsById([...(claudeMeta || []), ...(claudeUrl || [])]).sort((a, b) =>
+    (a.slug || "").localeCompare(b.slug || "")
+  );
+
+  let skills = skillRows.map(mapSkillRow);
+  let claudeMds = claudeRows.map(mapClaudeMdRow);
+  skills = await enrichWithBenchScores(skills, "skill");
+  claudeMds = await enrichWithBenchScores(claudeMds, "claude_md");
+
+  return { skills, claudeMds, owner, repo };
+}
+
+/**
+ * Lightweight category counts for the marketplace pills.
+ * Uses individual count queries per category to avoid 1000 row limit.
+ * Cached for 60 seconds to avoid repeated queries.
+ */
+const getCategoryCountsInternal = cache(async (kind = "skill") => {
+  if (!HAS_SUPABASE) {
+    if (kind === "skill") return CATEGORIES;
+    return PROJECT_CATEGORIES;
+  }
+  const sb = await createSupabaseServerClient();
+  if (!sb) return [];
+
+  const table = kind === "skill" ? "skills" : "claude_md_files";
+  const catCol = kind === "skill" ? "category" : "project_category";
+  const labels = kind === "skill" ? CATEGORY_LABELS : PROJECT_CATEGORY_LABELS;
+  const categories = kind === "skill" 
+    ? Object.keys(CATEGORY_LABELS)
+    : Object.keys(PROJECT_CATEGORY_LABELS);
+
+  // Count per category with individual queries (avoids 1000 row limit)
+  const counts = await Promise.all(
+    categories.map(async (cat) => {
+      let q = sb.from(table).select("id", { count: "exact", head: true }).eq(catCol, cat);
+      if (kind === "claude_md") {
+        q = q.or("word_count.gte.40,word_count.is.null");
+      }
+      const { count } = await q;
+      return { category: cat, count: count || 0 };
+    })
+  );
+
+  const total = counts.reduce((sum, c) => sum + c.count, 0);
+  const sorted = counts.filter(c => c.count > 0).sort((a, b) => b.count - a.count);
+  return [
+    { id: "all", label: "All", count: total },
+    ...sorted.map(c => ({ id: c.category, label: labels[c.category] || c.category, count: c.count })),
+  ];
+});
+
+export async function getCategoryCounts(kind = "skill") {
+  return getCategoryCountsInternal(kind);
+}
+
+/**
+ * Distinct normalized source values present in the DB, with counts.
+ * Used to populate the marketplace Source filter — hides options that have
+ * 0 items (avoids "GitLab" / "Manual" buckets that no scraper ever wrote
+ * to). Normalization mirrors the client-side normalizeSource() so the
+ * filter ids align.
+ *
+ * Returns : [{ id: "github", count: 12345 }, { id: "sourcegraph", count: 423 }, ...]
+ */
+export const getAvailableSources = cache(async (kind = "skill") => {
+  if (!HAS_SUPABASE) return [];
+  const sb = await createSupabaseServerClient();
+  if (!sb) return [];
+  const table = kind === "skill" ? "skills" : "claude_md_files";
+
+  // Paginate through every row's `source` column and group client-side.
+  // PostgREST has no built-in DISTINCT or GROUP BY for non-aggregated
+  // selects, so we fetch the source column for every row (one ~10-byte
+  // string per row → ~1 MB total at 100k rows, fast). Cached via React
+  // cache() so this runs at most once per request.
+  const sourceCount = new Map();
+  let from = 0;
+  const PAGE = 1000;
+  // eslint-disable-next-line no-constant-condition
+  while (true) {
+    const { data, error } = await sb
+      .from(table)
+      .select("source")
+      .range(from, from + PAGE - 1);
+    if (error) {
+      console.warn(`[getAvailableSources] ${table}: ${error.message}`);
+      break;
+    }
+    if (!data || data.length === 0) break;
+    for (const r of data) {
+      const raw = (r.source || "").toLowerCase() || "github"; // NULL → github (legacy default)
+      sourceCount.set(raw, (sourceCount.get(raw) || 0) + 1);
+    }
+    if (data.length < PAGE) break;
+    from += PAGE;
+  }
+
+  // Aggregate into canonical buckets via the same rules as the client-side
+  // normalizeSource() helper. Anything that doesn't match a canonical
+  // bucket lands in "other".
+  const buckets = new Map();
+  const bump = (id, n) => {
+    if (n > 0) buckets.set(id, (buckets.get(id) || 0) + n);
+  };
+  for (const [raw, count] of sourceCount) {
+    if (raw.includes("github")) bump("github", count);
+    else if (raw.includes("sourcegraph")) bump("sourcegraph", count);
+    else if (raw.includes("grep")) bump("grepapp", count);
+    else if (raw.includes("gitlab")) bump("gitlab", count);
+    else if (raw.includes("aggregator") || raw.includes("awesome")) bump("aggregator", count);
+    else if (raw.includes("web-directory") || raw.includes("directory")) bump("web-directory", count);
+    else if (raw === "submit" || raw.startsWith("submit:")) bump("submit", count);
+    else if (raw === "cli" || raw.startsWith("cli:")) bump("cli", count);
+    else bump("other", count);
+  }
+
+  return [...buckets.entries()]
+    .map(([id, count]) => ({ id, count }))
+    .sort((a, b) => b.count - a.count);
+});
+
+/**
+ * Top N rows for live<Kind> consumers. Cappé à LIVE_FETCH_CAP (2000) — assez
+ * pour topics aggregation, top skills sibling list, sitemap top entries.
+ * Pour le marketplace plein, voir getPaginatedItems. Pour landing top 10,
+ * voir getTopRankedItems.
+ */
 const liveSkills = cache(async () => {
   const sb = await createSupabaseServerClient();
   if (!sb) return null;
   const { data, error } = await sb
     .from("skills")
     .select(
-      "id, slug, name, description, category, github_url, github_stars, tier, price_usd, verification_level, is_official, metadata, promoted_until, quality_score, quality_rationale, bench_tier"
+      "id, slug, name, description, category, github_url, github_stars, byte_count, tier, price_usd, verification_level, is_official, license_spdx, metadata, promoted_until, quality_score, quality_rationale, bench_tier"
     )
-    // Boosted items first (NULLS LAST), then verified, then stars, then name.
-    // Boost expiration is filtered client-side via mapSkillRow.isBoosted.
     .order("promoted_until", { ascending: false, nullsFirst: false })
     .order("verification_level", { ascending: false })
     .order("github_stars", { ascending: false, nullsFirst: false })
-    .order("name", { ascending: true });
+    .order("name", { ascending: true })
+    .limit(LIVE_FETCH_CAP);
   if (error) {
-    console.warn(`[rankings] live skills query failed: ${error.message}`);
+    console.warn(`[rankings] live skills failed: ${error.message}`);
     return null;
   }
   const mapped = applyRepoSkillCount((data || []).map(mapSkillRow));
@@ -220,23 +675,65 @@ const liveClaudeMds = cache(async () => {
   const { data, error } = await sb
     .from("claude_md_files")
     .select(
-      "id, slug, description, project_category, github_url, github_stars, word_count, tier, price_usd, verification_level, is_official, metadata, promoted_until, quality_score, quality_rationale, bench_tier"
+      "id, slug, description, project_category, github_url, github_stars, word_count, byte_count, tier, price_usd, verification_level, is_official, license_spdx, metadata, promoted_until, quality_score, quality_rationale, bench_tier"
     )
-    // Filter out content-poor stubs : a CLAUDE.md with < 40 words (~50
-    // tokens) is almost always a placeholder / marker file, not real
-    // project context. Hides false positives from the marketplace.
     .or("word_count.gte.40,word_count.is.null")
     .order("promoted_until", { ascending: false, nullsFirst: false })
     .order("verification_level", { ascending: false })
     .order("github_stars", { ascending: false, nullsFirst: false })
-    .order("slug", { ascending: true });
+    .order("slug", { ascending: true })
+    .limit(LIVE_FETCH_CAP);
   if (error) {
-    console.warn(`[rankings] live claude_md query failed: ${error.message}`);
+    console.warn(`[rankings] live claude_md failed: ${error.message}`);
     return null;
   }
   const mapped = applyRepoSkillCount((data || []).map(mapClaudeMdRow));
   return enrichWithBenchScores(mapped, "claude_md");
 });
+
+/**
+ * Landing top N skills in a category. Pas de chunked fetch — une seule query
+ * filtered + ORDER BY indexed (migration 0037 skills_marketplace_default_idx).
+ * Utilisé par page.js qui faisait `getStandings("document").slice(0, 10)`.
+ */
+export async function getTopRankedItems(kind = "skill", category = null, limit = 10) {
+  if (!HAS_SUPABASE) {
+    const list = kind === "skill" ? SKILLS.map(withTierDefaults) : CLAUDE_MD_FILES;
+    const filtered = category
+      ? list.filter((s) =>
+          ((s.category || s.categoryId || s.project_category) || "").toLowerCase() === category.toLowerCase()
+        )
+      : list;
+    return filtered.slice(0, limit);
+  }
+  const sb = await createSupabaseServerClient();
+  if (!sb) return [];
+  const table = kind === "skill" ? "skills" : "claude_md_files";
+  const sel = kind === "skill"
+    ? "id, slug, name, description, category, github_url, github_stars, byte_count, tier, price_usd, verification_level, is_official, source, license_spdx, metadata, promoted_until, quality_score, quality_rationale, bench_tier"
+    : "id, slug, description, project_category, github_url, github_stars, word_count, byte_count, tier, price_usd, verification_level, is_official, source, license_spdx, metadata, promoted_until, quality_score, quality_rationale, bench_tier";
+  let q = sb.from(table).select(sel);
+  if (category) {
+    q = q.eq(kind === "skill" ? "category" : "project_category", category);
+  }
+  if (kind === "claude_md") {
+    q = q.or("word_count.gte.40,word_count.is.null");
+  }
+  q = q
+    .order("promoted_until", { ascending: false, nullsFirst: false })
+    .order("verification_level", { ascending: false })
+    .order("github_stars", { ascending: false, nullsFirst: false })
+    .order(kind === "skill" ? "name" : "slug", { ascending: true })
+    .limit(limit);
+  const { data, error } = await q;
+  if (error) {
+    console.warn(`[rankings] getTopRankedItems ${kind}/${category}: ${error.message}`);
+    return [];
+  }
+  const mapper = kind === "skill" ? mapSkillRow : mapClaudeMdRow;
+  const mapped = applyRepoSkillCount((data || []).map(mapper));
+  return enrichWithBenchScores(mapped, kind);
+}
 
 export async function getCurrentCycle() {
   if (!HAS_SUPABASE) return CYCLE;
@@ -301,21 +798,27 @@ export async function getCurrentCycle() {
   return null; // Genuinely no cycle in the last 7 days → ticker falls back to "idle"
 }
 
+/**
+ * Skills list, optionally filtered by category. Quand category fournie,
+ * query SQL directe avec WHERE (pas de scan JS sur 20k items). Quand pas
+ * de category, retourne le top LIVE_FETCH_CAP par défaut order.
+ */
 export async function getStandings(category) {
-  let list;
-  if (HAS_SUPABASE) {
-    list = (await liveSkills()) || [];
-  } else {
-    list = SKILLS.map(withTierDefaults);
+  if (!HAS_SUPABASE) {
+    const list = SKILLS.map(withTierDefaults);
+    if (!category || category === "all") return list;
+    const cat = category.toLowerCase();
+    return list.filter(
+      (s) =>
+        (s.category || "").toLowerCase() === cat ||
+        (s.categoryId || "").toLowerCase() === cat
+    );
   }
-
-  if (!category || category === "all") return list;
-  const cat = category.toLowerCase();
-  return list.filter(
-    (s) =>
-      (s.category || "").toLowerCase() === cat ||
-      (s.categoryId || "").toLowerCase() === cat
-  );
+  if (!category || category === "all") {
+    return (await liveSkills()) || [];
+  }
+  // Filter SQL-side : 1 query au lieu de fetch all + JS filter.
+  return getTopRankedItems("skill", category, LIVE_FETCH_CAP);
 }
 
 /**
@@ -332,9 +835,25 @@ export async function getIndexCounts() {
   if (!sb) {
     return { skills: SKILLS.length, claudeMds: 0, asOf: new Date().toISOString() };
   }
+  // Pre-migration the claude_md filter was `word_count >= 40` to skip marker-
+  // file stubs (3-token CLAUDE.md placeholders). After the Storage offload,
+  // `content` is NULL and the generated `word_count` is NULL too → that
+  // filter excluded ALL migrated rows, breaking the landing count.
+  //
+  // New rule : a claude_md is "indexed" if it has content reachable from
+  // anywhere (Storage path OR inline fallback for the few Forbidden) and
+  // isn't archived. The marker-file stubs are now caught at scrape time
+  // via the quality gate, so we don't need a word_count post-filter.
   const [skillsRes, claudeMdRes] = await Promise.all([
-    sb.from("skills").select("id", { count: "exact", head: true }),
-    sb.from("claude_md_files").select("id", { count: "exact", head: true }).gte("word_count", 40),
+    sb
+      .from("skills")
+      .select("id", { count: "exact", head: true })
+      .or("is_archived.is.null,is_archived.eq.false"),
+    sb
+      .from("claude_md_files")
+      .select("id", { count: "exact", head: true })
+      .or("is_archived.is.null,is_archived.eq.false")
+      .or("content_path.not.is.null,content.not.is.null"),
   ]);
   return {
     skills: skillsRes.count ?? 0,
@@ -345,8 +864,9 @@ export async function getIndexCounts() {
 
 export async function getCategories() {
   if (!HAS_SUPABASE) return CATEGORIES;
-  const skills = (await liveSkills()) || [];
-  return buildCategoryList(skills, "categoryId");
+  // Réutilise getCategoryCountsInternal (cached + indexed) au lieu de scanner
+  // tous les items pour compter par category.
+  return getCategoryCountsInternal("skill");
 }
 
 /**
@@ -753,21 +1273,31 @@ export async function getTopTopics(limit = 18) {
  * marketplace=130" car chaque chip = vraie stat du kind cliqué.
  */
 export async function getTopTopicsByKind(kind, limit = 12) {
-  const source = kind === "claude_md"
-    ? (HAS_SUPABASE ? (await liveClaudeMds()) || [] : CLAUDE_MD_FILES)
-    : (HAS_SUPABASE ? (await liveSkills()) || [] : SKILLS.map(withTierDefaults));
-  const counts = new Map();
-  for (const it of source) {
-    const ts = Array.isArray(it.topics) ? it.topics : [];
-    for (const t of ts) {
-      if (!t || typeof t !== "string") continue;
-      counts.set(t, (counts.get(t) || 0) + 1);
+  if (!HAS_SUPABASE) {
+    const source = kind === "claude_md" ? CLAUDE_MD_FILES : SKILLS.map(withTierDefaults);
+    const counts = new Map();
+    for (const it of source) {
+      const ts = Array.isArray(it.topics) ? it.topics : [];
+      for (const t of ts) {
+        if (!t || typeof t !== "string") continue;
+        counts.set(t, (counts.get(t) || 0) + 1);
+      }
     }
+    return [...counts.entries()]
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, limit)
+      .map(([id, count]) => ({ id, count }));
   }
-  return [...counts.entries()]
-    .sort((a, b) => b[1] - a[1])
-    .slice(0, limit)
-    .map(([id, count]) => ({ id, count }));
+  const sb = await createSupabaseServerClient();
+  if (!sb) return [];
+  // RPC top_topics_by_kind : aggrège jsonb_array_elements_text(metadata->'topics')
+  // côté DB en une query, vs ancien fetch full + JS aggregation. Migration 0037.
+  const { data, error } = await sb.rpc("top_topics_by_kind", { p_kind: kind, p_limit: limit });
+  if (error) {
+    console.warn(`[rankings] top_topics_by_kind RPC failed: ${error.message}`);
+    return [];
+  }
+  return (data || []).map((r) => ({ id: r.topic, count: Number(r.count) || 0 }));
 }
 
 /**
@@ -833,13 +1363,19 @@ export async function getSkillBySlug(slug) {
       const { data, error } = await sb
         .from("skills")
         .select(
-          "id, slug, name, description, category, github_url, github_stars, tier, price_usd, verification_level, is_official, metadata, skill_md_content, scraped_at, private_storage_path, promoted_until, quality_score, quality_rationale"
+          "id, slug, name, description, category, github_url, github_stars, byte_count, tier, price_usd, verification_level, is_official, license_spdx, metadata, skill_md_content, content_path, scraped_at, private_storage_path, promoted_until, quality_score, quality_rationale"
         )
         .eq("slug", slug)
         .maybeSingle();
       if (error) console.warn(`[rankings] getSkillBySlug live failed: ${error.message}`);
       if (!data) return null;
       const mapped = mapSkillRow(data);
+      const parsed = parseGithubOwnerRepo(data.github_url);
+      const mo = mapped.metadata?.owner || parsed.owner;
+      const mr = mapped.metadata?.repo || parsed.repo;
+      if (mo && mr) {
+        mapped.metadata = { ...mapped.metadata, owner: mo, repo: mr };
+      }
       // Enrich avec les bench data si dispo (avg_score + task_count) pour
       // l'afficher dans le §01 Stats sur la skill detail page.
       const { data: ranking } = await sb
@@ -869,6 +1405,11 @@ export async function getSkillBySlug(slug) {
         mapped.taskCount = ranking.task_count || 0;
         mapped.successfulTasks = ranking.successful_tasks || 0;
         mapped.elo = mapped.benchScore;
+      }
+      // Storage fallback : si pas de skill_md_content inline mais une content_path
+      // (migration 0042 storage), fetch depuis le bucket public "content".
+      if (!mapped.skill_md_content && mapped.contentPath) {
+        mapped.skill_md_content = await fetchContentByPath(mapped.contentPath);
       }
       return mapped;
     }
@@ -903,10 +1444,8 @@ export async function getSiblingSkills(slug, count = 4) {
 
 export async function getProjectCategories() {
   if (!HAS_SUPABASE) return PROJECT_CATEGORIES;
-  const list = (await liveClaudeMds()) || [];
-  return buildCategoryList(list, "project_category", PROJECT_CATEGORY_LABELS).filter(
-    (c) => c.id !== "all"
-  );
+  const list = await getCategoryCountsInternal("claude_md");
+  return list.filter((c) => c.id !== "all");
 }
 
 export function getProjectCategoryIds() {
@@ -931,13 +1470,19 @@ export async function getClaudeMdBySlug(slug) {
       const { data, error } = await sb
         .from("claude_md_files")
         .select(
-          "id, slug, description, project_category, github_url, github_stars, word_count, tier, price_usd, verification_level, is_official, metadata, content, scraped_at, quality_score, quality_rationale, promoted_until, private_storage_path"
+          "id, slug, description, project_category, github_url, github_stars, word_count, byte_count, tier, price_usd, verification_level, is_official, license_spdx, metadata, content, content_path, scraped_at, quality_score, quality_rationale, promoted_until, private_storage_path"
         )
         .eq("slug", slug)
         .maybeSingle();
       if (error) console.warn(`[rankings] getClaudeMdBySlug live failed: ${error.message}`);
       if (!data) return null;
       const mapped = mapClaudeMdRow(data);
+      const parsed = parseGithubOwnerRepo(data.github_url);
+      const mo = mapped.metadata?.owner || parsed.owner;
+      const mr = mapped.metadata?.repo || parsed.repo;
+      if (mo && mr) {
+        mapped.metadata = { ...mapped.metadata, owner: mo, repo: mr };
+      }
       // Enrich with bench data (avg_score + task_count) so the detail page §01
       // can show the real bench score with full precision.
       const { data: ranking } = await sb
@@ -965,6 +1510,11 @@ export async function getClaudeMdBySlug(slug) {
         mapped.taskCount = ranking.task_count || 0;
         mapped.successfulTasks = ranking.successful_tasks || 0;
         mapped.elo = mapped.benchScore;
+      }
+      // Storage fallback : si pas de content inline mais une content_path
+      // (migration 0042 storage), fetch depuis le bucket public "content".
+      if (!mapped.content && mapped.contentPath) {
+        mapped.content = await fetchContentByPath(mapped.contentPath);
       }
       return mapped;
     }

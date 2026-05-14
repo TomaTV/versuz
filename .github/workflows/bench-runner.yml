@@ -1,26 +1,37 @@
 name: Bench runner
 
+# Daily bench drain. The Vercel cron `/api/cron/bench` enqueues 14 scopes
+# at 04:00 UTC. This worker drains them under TIGHT budget caps :
+#   - per-run     : $1   (single judge or shallow 3-judge)
+#   - per-day     : $3   (max 3 runs/day if manually triggered)
+#   - per-month   : ~$25-30 (= 30 daily runs × $1, with safety margin)
+#
+# Why so conservative : Versuz V1 budget. We want predictable
+# OpenRouter spend. Quality judging is offloaded to Groq free
+# (quality-judge.yml every 4h) — bench here is just the LMArena-style
+# 5-axis judging for items already quality-screened.
+
 on:
   schedule:
-    # Toutes les 2h. La queue est alimentée par le cron Vercel `/api/cron/bench`
-    # daily à 04:00 UTC qui enqueue les 14 scopes. Le runner ici les draine
-    # progressivement sous BENCH_BUDGET_USD.
-    - cron: "0 */2 * * *"
+    # 1 run/jour à 03:00 UTC (1h après scrape-daily à 02:00, et 1h avant le
+    # Vercel cron à 04:00 → drain le cycle queué la veille pendant que le
+    # nouveau s'enqueue)
+    - cron: "0 3 * * *"
   workflow_dispatch:
     inputs:
       mode:
         description: "Mode bench"
         required: true
-        default: "or-thrift"
+        default: "or-v1"
         type: choice
         options:
-          - or-thrift     # GPT-5 nano seul, rapide + pas cher
-          - or-v1         # Haiku + DeepSeek + GPT-5 mini (3 judges)
-          - dev           # Groq Llama free
+          - or-thrift     # GPT-5 nano seul (~$0.30/run)
+          - or-v1         # Haiku + DeepSeek + GPT-5 mini (~$1/run)
+          - dev           # Groq Llama free (test only)
       budget_usd:
         description: "Budget cap (USD) — runner halt si atteint"
         required: false
-        default: "5"
+        default: "1"
       scope:
         description: "Scope unique (vide = pick le premier cycle queued)"
         required: false
@@ -37,14 +48,54 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
+
+      - name: Check monthly budget
+        id: budget_check
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          MONTHLY_CAP_USD: "25"
+        run: |
+          # Sum the cost of all cycles in the last 30 days. Halt if we've
+          # already burned through the monthly cap. The `cycles` table has
+          # an `actual_cost_usd` column populated at cycle completion.
+          node -e "
+            import('@supabase/supabase-js').then(async ({createClient}) => {
+              const sb = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY);
+              const since = new Date(Date.now() - 30 * 24 * 3600 * 1000).toISOString();
+              const { data, error } = await sb
+                .from('cycles')
+                .select('actual_cost_usd')
+                .gte('started_at', since)
+                .not('actual_cost_usd', 'is', null);
+              if (error) { console.warn('[budget] check failed (non-fatal):', error.message); return; }
+              const total = (data || []).reduce((s, c) => s + Number(c.actual_cost_usd || 0), 0);
+              const cap = Number(process.env.MONTHLY_CAP_USD || 25);
+              console.log('[budget] 30-day spend: $' + total.toFixed(2) + ' / cap $' + cap);
+              if (total >= cap) {
+                console.log('[budget] MONTHLY CAP REACHED — skipping run');
+                process.exit(78); // Special exit code: budget exceeded
+              }
+            });
+          " || {
+            EXIT=$?
+            if [ "$EXIT" = "78" ]; then
+              echo "skip=true" >> $GITHUB_OUTPUT
+              echo "Monthly budget cap reached. Halting bench run."
+              exit 0
+            fi
+            exit $EXIT
+          }
+
       - name: Run bench
+        if: steps.budget_check.outputs.skip != 'true'
         env:
           NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
           OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
           GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
-          BENCH_MODE: ${{ inputs.mode || 'or-thrift' }}
-          BENCH_BUDGET_USD: ${{ inputs.budget_usd || '5' }}
+          BENCH_MODE: ${{ inputs.mode || 'or-v1' }}
+          BENCH_BUDGET_USD: ${{ inputs.budget_usd || '1' }}
           BENCH_JUDGE_COUNT: ${{ inputs.mode == 'or-v1' && '3' || '1' }}
         run: |
           if [ -n "${{ inputs.scope }}" ]; then
@@ -53,8 +104,9 @@ jobs:
             # No scope = drain le premier cycle queued (resume FIFO)
             node scripts/bench/index.mjs --concurrency=6
           fi
+
       - name: Refresh rankings
-        if: success()
+        if: success() && steps.budget_check.outputs.skip != 'true'
         env:
           NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}

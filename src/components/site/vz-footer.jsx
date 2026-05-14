@@ -21,7 +21,7 @@ export function VzFooter() {
         <div
           style={{
             display: "grid",
-            gridTemplateColumns: "180px 1fr 1fr 1fr 1.4fr",
+            gridTemplateColumns: "180px 1fr 1fr 1fr 1fr 1.4fr",
             gap: 40,
             marginBottom: 80,
           }}
@@ -52,8 +52,17 @@ export function VzFooter() {
             <Link href="/methodology" className="vz-link">
               Methodology
             </Link>
+            <Link href="/pricing" className="vz-link">
+              Pricing
+            </Link>
             <Link href="/about" className="vz-link">
               About
+            </Link>
+            <Link href="/faq" className="vz-link">
+              FAQ
+            </Link>
+            <Link href="/changelog" className="vz-link">
+              Changelog
             </Link>
             <Link href="/status" className="vz-link">
               Status
@@ -65,6 +74,9 @@ export function VzFooter() {
             <Link href="/feed" className="vz-link">
               RSS feeds
             </Link>
+            <Link href="/api-docs" className="vz-link">
+              API docs
+            </Link>
             <a href="/api/v1/skills" className="vz-link" target="_blank" rel="noreferrer">
               JSON API ↗
             </a>
@@ -72,7 +84,7 @@ export function VzFooter() {
               Sitemap
             </a>
             <a
-              href="https://github.com/versuzdev/versuz"
+              href="https://github.com/TomaTV/versuz"
               target="_blank"
               rel="noreferrer"
               className="vz-link"
@@ -84,7 +96,7 @@ export function VzFooter() {
           <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
             <Eyebrow>Tools</Eyebrow>
             <a
-              href="https://github.com/versuzdev/versuz/tree/main/cli"
+              href="https://github.com/TomaTV/versuz/tree/main/cli"
               target="_blank"
               rel="noreferrer"
               className="vz-link"
@@ -94,7 +106,7 @@ export function VzFooter() {
               <BetaBadge />
             </a>
             <a
-              href="https://github.com/versuzdev/versuz/tree/main/mcp-server"
+              href="https://github.com/TomaTV/versuz/tree/main/mcp-server"
               target="_blank"
               rel="noreferrer"
               className="vz-link"
@@ -105,6 +117,25 @@ export function VzFooter() {
             </a>
             <Link href="/about#tools" className="vz-link">
               Install guide
+            </Link>
+          </div>
+
+          <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+            <Eyebrow>Legal</Eyebrow>
+            <Link href="/legal/terms" className="vz-link">
+              Terms of Service
+            </Link>
+            <Link href="/legal/privacy" className="vz-link">
+              Privacy Policy
+            </Link>
+            <Link href="/legal/refund" className="vz-link">
+              Refund Policy
+            </Link>
+            <Link href="/legal/dmca" className="vz-link">
+              DMCA & Takedown
+            </Link>
+            <Link href="/legal/imprint" className="vz-link">
+              Imprint
             </Link>
           </div>
 

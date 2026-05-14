@@ -110,7 +110,7 @@ Full methodology : [versuz.dev/methodology](https://versuz.dev/methodology).
 ## Local dev
 
 ```bash
-git clone https://github.com/versuzdev/versuz
+git clone https://github.com/TomaTV/versuz
 cd versuz
 npm install
 cp .env.local.example .env.local   # fill Supabase, Stripe, Resend, GitHub PATs

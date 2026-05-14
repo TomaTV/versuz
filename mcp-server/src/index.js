@@ -18,8 +18,8 @@
  *     }
  *   }
  *
- * VERSUZ_API defaults to http://localhost:3000 for dev; switch to versuz.dev
- * for prod via the env var above.
+ * VERSUZ_API defaults to https://versuz.dev for prod; switch to
+ * http://localhost:3000 for local dev via the env var above.
  */
 
 import { Server } from "@modelcontextprotocol/sdk/server/index.js";
@@ -31,7 +31,7 @@ import {
 import fs from "node:fs/promises";
 import path from "node:path";
 
-const API_BASE = (process.env.VERSUZ_API || "http://localhost:3000").replace(/\/$/, "");
+const API_BASE = (process.env.VERSUZ_API || "https://versuz.dev").replace(/\/$/, "");
 
 async function api(pathStr, params = {}) {
   const url = new URL(`${API_BASE}${pathStr}`);

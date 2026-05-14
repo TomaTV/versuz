@@ -2,6 +2,7 @@ import Link from "next/link";
 import { CmdKHint } from "@/components/site/cmd-k-hint";
 import { UserMenu } from "@/components/site/user-menu";
 import { MobileNavMenu } from "@/components/site/mobile-nav-menu";
+import { VersuzMark } from "@/components/brand/versuz-mark";
 import { getCurrentUser } from "@/lib/auth/server";
 import { isAdmin, ghLogin } from "@/lib/auth/admin";
 import { signOut } from "@/lib/auth/actions";
@@ -58,37 +59,33 @@ export async function VzNav() {
           gap: "clamp(12px, 3vw, 32px)",
         }}
       >
-        {/* Logo : wordmark seul, propre. Le "s" italique ember = signature. */}
+        {/* Logo : mark officiel seul. Le mark 2-flammes est distinctif —
+            il porte l'identité sans avoir besoin du wordmark. Pattern
+            standard : Vercel / Linear / GitHub utilisent leur mark seul
+            dans la nav. Wordmark visible dans le footer + page titles. */}
         <Link
           href="/"
-          aria-label="Versuz"
+          aria-label="Versuz — homepage"
           className="vz-nav-logo"
           style={{
             display: "inline-flex",
-            alignItems: "baseline",
+            alignItems: "center",
             textDecoration: "none",
             color: "var(--fg)",
-            fontFamily: "var(--font-display)",
-            fontSize: 30,
-            fontWeight: 400,
-            letterSpacing: "-0.03em",
-            lineHeight: 1,
+            lineHeight: 0,
           }}
         >
-          ver
-          <em style={{ fontStyle: "italic", color: "var(--accent)" }}>s</em>
-          uz
-          <em style={{ fontStyle: "italic", color: "var(--accent)", marginLeft: 1 }}>.</em>
+          <VersuzMark size={64} />
         </Link>
 
-        {/* Nav links : minimal underline-on-hover, plus aérés */}
+        {/* Nav links : minimal underline-on-hover, hit area élargie */}
         <nav
           className="vz-nav-links"
           style={{
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
-            gap: 28,
+            gap: 4,
           }}
         >
           {NAV_LINKS.map((l) => (
@@ -98,8 +95,8 @@ export async function VzNav() {
               className="vz-nav-link-minimal"
               style={{
                 display: "inline-block",
-                fontSize: 13,
-                padding: "8px 0",
+                fontSize: 13.5,
+                padding: "10px 14px",
                 fontFamily: "var(--font-sans)",
                 textDecoration: "none",
                 fontWeight: 500,
@@ -125,14 +122,21 @@ export async function VzNav() {
             ) : (
               <Link
                 href="/login"
-                className="vz-nav-link-minimal"
+                className="vz-nav-signin-ink"
                 style={{
-                  display: "inline-block",
+                  padding: "9px 18px",
                   fontSize: 13,
-                  padding: "8px 0",
                   fontFamily: "var(--font-sans)",
+                  fontWeight: 600,
                   textDecoration: "none",
-                  fontWeight: 500,
+                  background: "var(--ink)",
+                  color: "var(--bone)",
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: 8,
+                  letterSpacing: "-0.005em",
+                  transition: "transform 0.18s ease, box-shadow 0.18s ease",
+                  boxShadow: "0 0 0 1px var(--ink), inset 0 -2px 0 color-mix(in oklab, black 30%, transparent)",
                 }}
               >
                 Sign in

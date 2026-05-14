@@ -30,7 +30,7 @@ export function CopyContentButton({ text, label = "Copy" }) {
       style={{
         position: "absolute",
         top: 12,
-        right: 12,
+        right: 28,
         zIndex: 2,
         padding: "6px 12px",
         fontFamily: "var(--font-mono)",

@@ -22,7 +22,8 @@ export function EmbedBadgeBlock({ kind, slug, name }) {
 
   const [tab, setTab] = useState("markdown");
   const [copied, setCopied] = useState(false);
-  const snippet = tab === "markdown" ? markdown : html;
+  const snippet =
+    tab === "markdown" ? markdown : tab === "html" ? html : badgeUrl;
 
   const onCopy = async () => {
     try {
@@ -73,7 +74,7 @@ export function EmbedBadgeBlock({ kind, slug, name }) {
             background: "var(--bg)",
           }}
         >
-          {["markdown", "html"].map((t) => (
+          {["markdown", "html", "url"].map((t) => (
             <button
               key={t}
               type="button"

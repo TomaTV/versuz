@@ -9,12 +9,16 @@ on:
       mode:
         description: "Quel scrape lancer ?"
         required: true
-        default: "max"
+        default: "codesearch"
         type: choice
         options:
-          - max          # exhaustive Sourcegraph (40 sub-queries × 2 kinds)
-          - all          # scrape:all (skills + claude-md + aggregators + codesearch single pass)
-          - codesearch   # codesearch only
+          - codesearch   # single-pass Sourcegraph + grep.app — modéré, bon pour daily
+          - all          # github + aggregators + codesearch séquentiel — plus lourd
+          - max          # exhaustive (40 sub-queries × 2 kinds) — manuel only
+      max_new:
+        description: "Cap nouveaux items par run (défaut 1000)"
+        required: false
+        default: "1000"
 
 jobs:
   scrape:
@@ -32,16 +36,30 @@ jobs:
           NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
           GITHUB_TOKENS: ${{ secrets.SCRAPE_GITHUB_TOKENS }}
-          SCRAPE_BATCH_SIZE: "10"     # flushe DB tous les 10 items
+          SCRAPE_BATCH_SIZE: "10"          # flushe DB tous les 10 items
           SCRAPE_CONCURRENCY: "2"
+          SCRAPE_USE_STORAGE: "1"          # write to Storage bucket directly
+          SCRAPE_MAX_NEW: ${{ inputs.max_new || '1000' }}
         run: |
-          case "${{ inputs.mode || 'max' }}" in
-            max) npm run scrape:max ;;
-            all) npm run scrape:all ;;
+          MODE="${{ inputs.mode || 'codesearch' }}"
+          echo "Running scrape mode=$MODE with SCRAPE_MAX_NEW=$SCRAPE_MAX_NEW"
+          case "$MODE" in
+            max)        npm run scrape:max ;;
+            all)        npm run scrape ;;             # unified scraper, all sources serial
             codesearch) npm run scrape:codesearch ;;
+            *)          npm run scrape:codesearch ;;
           esac
+
+      - name: Backfill byte counts
+        if: success()
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+        run: node scripts/backfill-byte-counts.mjs --apply
+
       - name: Summary
         if: always()
         run: |
-          echo "Scrape mode : ${{ inputs.mode || 'max' }}"
+          echo "Scrape mode : ${{ inputs.mode || 'codesearch' }}"
+          echo "Max new : ${{ inputs.max_new || '1000' }}"
           echo "Done at : $(date -u +%Y-%m-%dT%H:%M:%SZ)"

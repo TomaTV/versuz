@@ -134,3 +134,13 @@ dist
 .yarn/build-state.yml
 .yarn/install-state.gz
 .pnp.*
+
+# Versuz DB backups (incremental + emergency dumps)
+.backup/
+emergency-backup-*.dump
+
+# Claude Code internal worktrees (local-only)
+.claude/worktrees/
+
+# Ads video exports (regenerated via `npm run ads:export`, 88M+)
+.ads/exports/

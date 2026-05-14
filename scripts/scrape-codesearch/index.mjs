@@ -1,6 +1,8 @@
 #!/usr/bin/env node
 import "../_env.mjs";
 
+import { listSkillBundle } from "../scrape/github.mjs";
+
 /**
  * Versuz code-search scraper — orchestrateur Sourcegraph + grep.app.
  *
@@ -115,6 +117,137 @@ const EXHAUSTIVE_QUERIES = [
   "docker",
   "aws",
   "vercel",
+  // Ajouts pour maximiser la découverte
+  "workflow",
+  "automation",
+  "script",
+  "cli",
+  "bot",
+  "integration",
+  "plugin",
+  "extension",
+  "sdk",
+  "library",
+  "framework",
+  "template",
+  "boilerplate",
+  "starter",
+  "kit",
+  "gcp",
+  "azure",
+  "vue",
+  "angular",
+  "svelte",
+  "mysql",
+  "postgres",
+  "mongodb",
+  "redis",
+  "grpc",
+  "websocket",
+  "e2e",
+  "unit",
+  "ci",
+  "cd",
+  "pipeline",
+  // Niches / frameworks spécifiques (non couverts)
+  "langchain",
+  "llamaindex",
+  "autogen",
+  "crewai",
+  "dify",
+  "flowise",
+  "n8n",
+  "zapier",
+  "make",
+  "ifttt",
+  "homeassistant",
+  "homebridge",
+  "nodered",
+  "obsidian",
+  "notion",
+  "figma",
+  "sketch",
+  "blender",
+  "unity",
+  "unreal",
+  "godot",
+  "shopify",
+  "wordpress",
+  "drupal",
+  "magento",
+  "webflow",
+  "framer",
+  "bubble",
+  "outsystems",
+  "retool",
+  "airplane",
+  "internal",
+  "dashboard",
+  "analytics",
+  "bi",
+  "etl",
+  "data",
+  "mlops",
+  "jupyter",
+  "colab",
+  "huggingface",
+  "transformers",
+  "openai",
+  "anthropic",
+  "claude",
+  "gemini",
+  "vertex",
+  "bedrock",
+  "azure",
+  "cognitive",
+  "supabase",
+  "prisma",
+  "drizzle",
+  "trpc",
+  "tanstack",
+  "shadcn",
+  "radix",
+  "tailwind",
+  "storybook",
+  "chromatic",
+  "playwright",
+  "cypress",
+  "vitest",
+  "jest",
+  "mocha",
+  "k6",
+  "artillery",
+  "locust",
+  "fastapi",
+  "flask",
+  "django",
+  "rails",
+  "laravel",
+  "symfony",
+  "spring",
+  "dotnet",
+  "nestjs",
+  "express",
+  "hono",
+  "elysia",
+  "sveltekit",
+  "remix",
+  "astro",
+  "solid",
+  "qwik",
+  "fresh",
+  "bun",
+  "deno",
+  "tauri",
+  "electron",
+  "capacitor",
+  "ionic",
+  "reactnative",
+  "flutter",
+  "swiftui",
+  "jetpack",
+  "compose",
+  "ktor",
 ];
 
 function makeSupabase() {
@@ -266,7 +399,8 @@ async function processKind({ kind, args, sb, octokit }) {
     console.log(`[codesearch] ${candidates.length} new (${unique.length - candidates.length} already in DB)`);
   }
 
-  // 3. Per-candidate : fetch content + meta + parse + classify + upsert
+  // 3. Per-candidate : fetch RAW FIRST (free & unlimited), then meta if needed.
+  // This skips ~60-80% of GitHub API calls on dead repos or low-quality content.
   const rows = [];
   const repoMetaCache = new Map();
   let processed = 0;
@@ -275,23 +409,36 @@ async function processKind({ kind, args, sb, octokit }) {
   for (const m of candidates) {
     processed += 1;
     try {
-      // Fetch repo metadata FIRST so we know default_branch + can skip
-      // dead/private repos before wasting a raw fetch attempt.
+      // Try raw fetch FIRST without knowing default_branch (we try HEAD/main/master)
+      let content;
+      try {
+        content = await fetchRaw(m.owner, m.repo, m.path, m.branch, null);
+      } catch (rawErr) {
+        // Raw failed (404/403) → repo dead or path invalid → skip without wasting API call
+        continue;
+      }
+      // Quick content pre-filter (saves bandwidth & parse time)
+      if (!content || content.length < 50) {
+        continue;
+      }
+      // For skills: quick parse check before fetching meta
+      if (kind === "skill") {
+        const quickParsed = parseSkillMd(content);
+        if (!quickParsed.ok) continue;
+      }
+
+      // Raw succeeded and content looks valid → NOW fetch metadata (stars, forks, etc.)
       const metaKey = `${m.owner}/${m.repo}`;
       if (!repoMetaCache.has(metaKey)) {
         repoMetaCache.set(metaKey, await fetchRepoMeta(octokit, m.owner, m.repo));
       }
       const repoMeta = repoMetaCache.get(metaKey);
       if (!repoMeta) {
-        // 404/403 sur le repo (probablement supprimé ou privé) → skip
+        // Race condition: raw succeeded but repo now 404 (deleted during scrape)
         continue;
       }
-      // Pre-filter stars before pulling raw content (saves bandwidth)
+      // Post-filter stars (now that we have real star count)
       if (args.minStars > 0 && (repoMeta.stars || 0) < args.minStars) {
-        continue;
-      }
-      const content = await fetchRaw(m.owner, m.repo, m.path, m.branch, repoMeta.default_branch);
-      if (!content || content.length < 50) {
         continue;
       }
 
@@ -301,6 +448,15 @@ async function processKind({ kind, args, sb, octokit }) {
         if (!parsed.ok) continue;
         const cls = classifySkill(parsed);
         const slug = slugify(parsed.name) || slugify(`${m.owner}-${m.repo}`);
+        // Detect bundle files in the same directory as SKILL.md
+        const bundle = await listSkillBundle(octokit, {
+          owner: m.owner,
+          repo: m.repo,
+          path: m.path,
+          ref: repoMeta.default_branch,
+        });
+        const skillType = bundle.length === 0 ? "minimal" : "bundled";
+        const bundleSize = bundle.reduce((sum, f) => sum + (f.size || 0), 0);
         row = {
           slug,
           name: parsed.name,
@@ -308,9 +464,11 @@ async function processKind({ kind, args, sb, octokit }) {
           github_url: repoMeta.html_url,
           github_stars: repoMeta.stars,
           category: cls.id,
+          categories: cls.categories || [cls.id],
           skill_md_content: content,
           content_hash: contentHash(content),
           is_official: isOfficialOwner(m.owner),
+          license_spdx: repoMeta.license || null,
           metadata: {
             owner: m.owner,
             repo: m.repo,
@@ -325,9 +483,9 @@ async function processKind({ kind, args, sb, octokit }) {
             model: parsed.model,
             classifier_confidence: cls.confidence,
             pushed_at: repoMeta.pushed_at,
-            skill_type: "minimal",
-            bundle_files: [],
-            bundle_size_bytes: 0,
+            skill_type: skillType,
+            bundle_files: bundle.map((f) => ({ name: f.name, type: f.type, size: f.size })),
+            bundle_size_bytes: bundleSize,
             source: `codesearch:${m.source}`,
           },
         };
@@ -345,6 +503,7 @@ async function processKind({ kind, args, sb, octokit }) {
           content,
           content_hash: contentHash(content),
           is_official: isOfficialOwner(m.owner),
+          license_spdx: repoMeta.license || null,
           // word_count est une GENERATED column (migration 0002) calculée
           // automatiquement à partir de `content` — NE PAS écrire dedans.
           metadata: {

@@ -267,10 +267,10 @@ a.vz-nav-link-minimal::after,
 .vz-nav-link-minimal::after {
   content: "";
   position: absolute;
-  left: 0;
-  right: 0;
-  bottom: 2px;
-  height: 1.5px;
+  left: 14px;
+  right: 14px;
+  bottom: 6px;
+  height: 2px;
   background: var(--accent);
   transform: scaleX(0);
   transform-origin: left center;
@@ -302,13 +302,34 @@ a.vz-nav-link-minimal[aria-current="page"]::after,
   transform: translateY(0);
 }
 
-/* Logo : subtle hover scale on the mark */
-.vz-nav-logo:hover svg {
-  transform: rotate(-3deg);
-  transition: transform 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
+/* Ink-filled sign-in CTA in nav — symmetric to submit but neutral */
+.vz-nav-signin-ink:hover {
+  transform: translateY(-1px);
+  box-shadow:
+    0 0 0 1px var(--ink),
+    inset 0 -2px 0 color-mix(in oklab, black 38%, transparent),
+    0 6px 20px -8px color-mix(in oklab, var(--ink) 50%, transparent);
 }
+.vz-nav-signin-ink:active {
+  transform: translateY(0);
+}
+
+/* Logo : the official 2-flame mark — subtle scale + rotate on hover. */
 .vz-nav-logo svg {
-  transition: transform 0.25s ease;
+  transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+.vz-nav-logo:hover svg {
+  transform: scale(1.06) rotate(-3deg);
+}
+
+/* ----- CLI demo cursor blink ----- */
+.vz-cli-cursor-blink {
+  display: inline-block;
+  animation: vz-cli-cursor-blink 1s steps(2, start) infinite;
+}
+@keyframes vz-cli-cursor-blink {
+  0%, 50%   { opacity: 1; }
+  51%, 100% { opacity: 0; }
 }
 
 /* =========================================================
@@ -337,12 +358,12 @@ a.vz-nav-link-minimal[aria-current="page"]::after,
 /* Method flow cards (§03) — subtle hover + ember left-border on hover */
 .vz-method-flow > * {
   transition: transform 0.32s cubic-bezier(0.16, 1, 0.3, 1),
-              box-shadow 0.32s ease;
+              background 0.32s ease;
   position: relative;
 }
 .vz-method-flow > *:hover {
   transform: translateY(-3px);
-  box-shadow: inset 3px 0 0 var(--accent);
+  background: color-mix(in oklab, var(--accent) 4%, transparent);
 }
 
 /* Topic pills (the "Browse by topic" chips) — hover ember bg + lift */
@@ -581,7 +602,44 @@ a.vz-nav-link-minimal[aria-current="page"]::after,
   }
 }
 
+/* Marketplace filter navigation — thin top bar while URL/sync loads */
+@keyframes vz-filter-nav-indeterminate {
+  0% {
+    transform: translateX(-105%);
+  }
+  100% {
+    transform: translateX(320%);
+  }
+}
+
+.vz-filter-nav-bar {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  z-index: 99998;
+  pointer-events: none;
+  overflow: hidden;
+  background: color-mix(in oklch, var(--accent) 18%, transparent);
+}
+
+.vz-filter-nav-bar__chunk {
+  position: absolute;
+  top: 0;
+  left: 0;
+  height: 100%;
+  width: min(38vw, 260px);
+  background: var(--accent);
+  animation: vz-filter-nav-indeterminate 0.95s ease-in-out infinite;
+}
+
 @media (prefers-reduced-motion: reduce) {
+  .vz-filter-nav-bar__chunk {
+    animation: none;
+    width: 100%;
+    opacity: 0.35;
+  }
   .vz-skeleton {
     animation: none;
     background: rgba(20, 18, 14, 0.06);
@@ -881,3 +939,4 @@ a.vz-nav-link-minimal[aria-current="page"]::after,
     display: none !important;
   }
 }
+

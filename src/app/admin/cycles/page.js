@@ -319,7 +319,10 @@ async function loadJudgeStats() {
     acc.scores.push(score);
     grouped.set(s.judge_model, acc);
   }
+  // Filter out obsolete models no longer in active ensemble
+  const OBSOLETE_MODELS = new Set(["deepseek/deepseek-chat"]);
   return Array.from(grouped.entries())
+    .filter(([model]) => !OBSOLETE_MODELS.has(model))
     .map(([model, { count, sum, scores }]) => {
       // 10-bucket histogram (0-9, 10-19, ..., 90-100)
       const histogram = Array(10).fill(0);

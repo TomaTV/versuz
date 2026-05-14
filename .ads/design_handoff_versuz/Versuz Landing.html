@@ -1,0 +1,123 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Versuz — An open arena for Claude skills</title>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Geist:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+
+  <script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+  <script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+  <script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+
+  <style>
+    :root {
+      --bg: #F2EEE6;
+      --surface: #ECE7DD;
+      --surface-hover: rgba(20, 18, 14, 0.04);
+      --fg: #14120E;
+      --fg-muted: #6B6557;
+      --rule: rgba(20, 18, 14, 0.12);
+      --rule-strong: rgba(20, 18, 14, 0.24);
+      --accent: #C2410C;
+      --accent-soft: rgba(194, 65, 12, 0.12);
+      --leader-tint: rgba(31, 92, 61, 0.08);
+      --leader-tint-strong: rgba(31, 92, 61, 0.14);
+      --danger: #991B1B;
+      --warning: #92400E;
+      --font-display: 'Instrument Serif', 'Times New Roman', serif;
+      --font-ui: 'Geist', system-ui, sans-serif;
+      --font-mono: 'JetBrains Mono', ui-monospace, monospace;
+    }
+    *, *::before, *::after { box-sizing: border-box; }
+    html, body { margin: 0; padding: 0; }
+    body {
+      background: var(--bg); color: var(--fg);
+      font-family: var(--font-ui); font-size: 15px; line-height: 1.5;
+      -webkit-font-smoothing: antialiased; text-rendering: optimizeLegibility;
+    }
+    button, input { font-family: inherit; color: inherit; }
+    a { color: inherit; text-decoration: none; }
+    ::selection { background: var(--accent); color: var(--bg); }
+
+    .vz-btn {
+      display: inline-flex; align-items: center; gap: 12px;
+      padding: 14px 22px;
+      font-family: var(--font-ui); font-size: 14px; font-weight: 500;
+      letter-spacing: 0.01em; cursor: pointer;
+      border: 1px solid transparent;
+      transition: background-color .2s, color .2s, border-color .2s;
+      text-decoration: none;
+    }
+    .vz-btn-primary { background: var(--fg); color: var(--bg); border-color: var(--fg); }
+    .vz-btn-primary:hover { background: var(--accent); color: #fff; border-color: var(--accent); }
+    .vz-btn-ghost { background: transparent; color: var(--fg); border-color: var(--rule-strong); }
+    .vz-btn-ghost:hover { border-color: var(--accent); color: var(--accent); }
+    .vz-link {
+      display: inline-flex; align-items: center; gap: 8px;
+      font-family: var(--font-mono); font-size: 12px;
+      letter-spacing: 0.04em; color: var(--fg);
+      cursor: pointer; background: transparent; border: none; padding: 8px 0;
+      border-bottom: 1px solid var(--rule);
+      transition: border-color .2s, color .2s;
+    }
+    .vz-link:hover { color: var(--accent); border-color: var(--accent); }
+
+    @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
+    @keyframes fadein { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: translateY(0); } }
+    @keyframes vz-marquee { from { transform: translateX(0); } to { transform: translateX(-33.333%); } }
+    .screen-enter > * { animation: fadein .5s ease-out both; }
+
+    ::-webkit-scrollbar { width: 10px; height: 10px; }
+    ::-webkit-scrollbar-track { background: var(--bg); }
+    ::-webkit-scrollbar-thumb { background: var(--rule-strong); }
+    ::-webkit-scrollbar-thumb:hover { background: var(--accent); }
+  </style>
+</head>
+<body>
+  <div id="root"></div>
+
+  <script type="text/babel" src="brand.jsx"></script>
+  <script type="text/babel" src="components.jsx"></script>
+  <script type="text/babel" src="data.jsx"></script>
+  <script type="text/babel" src="screen-leaderboard.jsx"></script>
+  <script type="text/babel" src="screen-landing.jsx"></script>
+  <script type="text/babel" src="vz-chrome.jsx"></script>
+
+  <script type="text/babel" data-presets="env,react">
+    const HEADLINE = {
+      line1: 'Skills go in.',
+      line2: [{ text: 'Only one ' }, { text: 'wins', accent: true }, { text: '.' }],
+    };
+
+    function navigate(s, id) {
+      if (s === 'detail') {
+        const slug = id || 'pdf-extract';
+        window.location.href = 'Versuz Skill.html?id=' + encodeURIComponent(slug);
+      } else if (s === 'leaderboard') {
+        window.location.href = 'Versuz Prototype.html';
+      } else if (s === 'landing') {
+        window.location.href = 'Versuz Landing.html';
+      }
+    }
+
+    function App() {
+      return (
+        <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
+          <VzNav current="landing" />
+          <VzTicker />
+          <main className="screen-enter" style={{ flex: 1 }}>
+            <Landing navigate={navigate} headline={HEADLINE} theme="light" />
+          </main>
+          <VzFooter />
+        </div>
+      );
+    }
+
+    ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+  </script>
+</body>
+</html>

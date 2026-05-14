@@ -7,6 +7,32 @@ import { createClient } from "@supabase/supabase-js";
 import { contentHash } from "../_hash.mjs";
 import { purgeContentDuplicates } from "../_dedup.mjs";
 
+const BUCKET = "content";
+
+/**
+ * Upload skill_md_content to Storage bucket `content` (public).
+ * Activé via env `SCRAPE_USE_STORAGE=1` — sinon comportement legacy
+ * (content inline en DB). Le bucket doit exister (créé par
+ * `scripts/migrate-content-to-storage.mjs` ou Supabase Dashboard).
+ *
+ * Quand activé, retourne le `content_path` à stocker en DB ; on garde
+ * `skill_md_content` inline en fallback rollback (l'utilisateur peut
+ * purger via `migrate-content-to-storage.mjs --purge`).
+ */
+async function uploadContentToStorage(sb, prefix, slug, body) {
+  if (!body) return null;
+  const path = `${prefix}/${slug}.md`;
+  const { error } = await sb.storage.from(BUCKET).upload(path, body, {
+    contentType: "text/markdown; charset=utf-8",
+    upsert: true,
+  });
+  if (error) {
+    console.warn(`[upsert] storage upload ${path}: ${error.message}`);
+    return null;
+  }
+  return path;
+}
+
 export function makeSupabase() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -87,7 +113,22 @@ async function filterContentDuplicates(sb, rows) {
   return kept;
 }
 
+// Module-level counter for the per-run scrape cap. When the process upserts
+// more than `SCRAPE_MAX_NEW` rows total (across all calls), `upsertSkills`
+// short-circuits and signals the caller to stop. Used by daily GH Actions
+// to keep one run under ~1000 new items (Supabase free-tier friendly +
+// avoids one bad scraper run flooding the catalog).
+let UPSERT_RUN_COUNT = 0;
+function readMaxNew() {
+  const v = Number(process.env.SCRAPE_MAX_NEW);
+  return Number.isFinite(v) && v > 0 ? v : Infinity;
+}
+
 export async function upsertSkills(sb, skills) {
+  if (UPSERT_RUN_COUNT >= readMaxNew()) {
+    console.log(`[upsert] SCRAPE_MAX_NEW=${readMaxNew()} reached (${UPSERT_RUN_COUNT}). Skipping batch.`);
+    return { skipped: true, count: 0, capped: true };
+  }
   // Compute content_hash on every row up-front
   for (const s of skills) {
     if (!s.content_hash) s.content_hash = contentHash(s.skill_md_content);
@@ -107,14 +148,34 @@ export async function upsertSkills(sb, skills) {
     console.log(`[upsert] dropped ${removed} content-duplicate row(s) (same SHA, different repo)`);
   }
   if (!filtered.length) return { skipped: false, count: 0 };
+
+  // Storage offload : si SCRAPE_USE_STORAGE=1, upload content vers le bucket
+  // public "content" et stamp content_path. Met aussi skill_md_content=null
+  // pour libérer la place DB (sinon le content reste dupliqué inline + Storage).
+  // Le bucket doit pré-exister.
+  if (process.env.SCRAPE_USE_STORAGE === "1") {
+    for (const row of filtered) {
+      if (!row.skill_md_content) continue;
+      const path = await uploadContentToStorage(sb, "skills", row.slug, row.skill_md_content);
+      if (path) {
+        row.content_path = path;
+        row.skill_md_content = null; // free DB row size
+      }
+    }
+  }
+
   const { error, count } = await sb.from("skills").upsert(filtered, {
     onConflict: "slug",
     count: "exact",
   });
   if (error) throw new Error(`[upsert] ${error.message}`);
+  UPSERT_RUN_COUNT += count || 0;
+  if (UPSERT_RUN_COUNT >= readMaxNew()) {
+    console.log(`[upsert] reached SCRAPE_MAX_NEW=${readMaxNew()} (run total : ${UPSERT_RUN_COUNT}). Further batches will be skipped.`);
+  }
   // Auto-purge any pre-existing dups (covers the case where a NEW upsert
   // landed under a slug whose old content was a dup of someone else's row)
   const { deleted } = await purgeContentDuplicates(sb, "skills");
   if (deleted > 0) console.log(`[upsert] auto-purged ${deleted} content duplicate(s)`);
-  return { skipped: false, count };
+  return { skipped: false, count, runTotal: UPSERT_RUN_COUNT };
 }

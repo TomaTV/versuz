@@ -9,8 +9,9 @@ import {
   getJudgeLifetimeStats,
 } from "@/lib/queries/rankings";
 
-export const dynamic = "force-dynamic";
-export const revalidate = 0;
+// ISR 5 min : le bench tourne en cycles, le ranking change rarement.
+// `force-dynamic + revalidate=0` à 100k items mettait > 30s par request.
+export const revalidate = 300;
 
 export const metadata = {
   title: "Leaderboard — Versuz",

@@ -146,8 +146,10 @@ async function main() {
         github_url: repoMeta.html_url,
         github_stars: repoMeta.stars,
         category: cls.id,
+        categories: cls.categories || [cls.id],
         skill_md_content: content,
         is_official: isOfficialOwner(c.owner),
+        license_spdx: repoMeta.license || null,
         metadata: {
           owner: c.owner,
           repo: c.repo,

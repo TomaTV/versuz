@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo, useEffect, useTransition, useRef } from "react";
 import { createPortal } from "react-dom";
 import Link from "next/link";
 import { useRouter, usePathname } from "next/navigation";
@@ -24,6 +24,38 @@ const OFFICIAL_OPTIONS = [
   { id: "any", label: "Any" },
   { id: "true", label: "Official only" },
 ];
+
+const SOURCE_OPTIONS = [
+  { id: "any", label: "Any source" },
+  { id: "github", label: "GitHub" },
+  { id: "web-directory", label: "Web directory" },
+  { id: "gitlab", label: "GitLab" },
+  { id: "sourcegraph", label: "Sourcegraph" },
+  { id: "grepapp", label: "grep.app" },
+  { id: "aggregator", label: "Awesome list" },
+  { id: "submit", label: "Submitted" },
+  { id: "cli", label: "CLI" },
+  { id: "other", label: "Other" },
+];
+
+// Normalize raw `source` strings written by various scrapers (legacy +
+// current). Real values seen in production : github-search, web-directory,
+// gitlab, sourcegraph, github-mass, mega-github, github-fresh, etc. We
+// merge them into the canonical SOURCE_OPTIONS buckets above.
+function normalizeSource(raw) {
+  if (!raw) return "github";
+  const s = String(raw).toLowerCase();
+  // Anything containing "github" maps to GitHub (catches mega-github too)
+  if (s.includes("github")) return "github";
+  if (s.includes("sourcegraph")) return "sourcegraph";
+  if (s.includes("grep")) return "grepapp";
+  if (s.includes("gitlab")) return "gitlab";
+  if (s.includes("aggregator") || s.includes("awesome")) return "aggregator";
+  if (s.includes("web-directory") || s.includes("directory")) return "web-directory";
+  if (s === "submit" || s.startsWith("submit:")) return "submit";
+  if (s === "cli" || s.startsWith("cli:")) return "cli";
+  return "other";
+}
 
 const QUALITY_OPTIONS = [
   { id: "any", label: "Any quality" },
@@ -54,24 +86,56 @@ const TYPE_OPTIONS = [
   { id: "claude-md", label: "CLAUDE.md" },
 ];
 
+const BUNDLE_OPTIONS = [
+  { id: "any", label: "Any" },
+  { id: "bundle", label: "Bundles only" },
+  { id: "single", label: "Single items" },
+];
+
 const PAGE_SIZE = 50;
 
 /**
- * Marketplace grid — fully client-side filtering for instant UX (no page
- * reload). Initial state seeds from URL searchParams (passed in as
- * `initial`), but subsequent filter changes only update local state.
+ * Marketplace grid — filter state syncs to the URL so the server returns the
+ * correct page of matching rows. Search input is debounced (500ms). Client-side
+ * refinements (topics, elo/recent sort, skills token bucket) apply on top of
+ * the server page where the API does not yet mirror the filter.
  */
 export function MarketplaceGrid({
-  skills,
-  claudeMds,
-  skillCategories,
-  projectCategories,
+  items: serverItems = [],
+  totalCount = 0,
+  currentPage = 1,
+  totalPages: serverTotalPages = 1,
+  skillCategories = [],
+  projectCategories = [],
+  availableSources = [],
   ownedSkillSlugs = [],
   ownedClaudeMdSlugs = [],
   authoredSkillSlugs = [],
   authoredClaudeMdSlugs = [],
   initial = {},
 }) {
+  // Trim SOURCE_OPTIONS to only the sources actually present in the DB
+  // (with optional counts shown). Avoids dead filter buckets that no row
+  // populates (GitLab / Manual / searchcode etc. that no scraper writes).
+  const availableSourceIds = useMemo(
+    () => new Set(availableSources.map((s) => s.id)),
+    [availableSources]
+  );
+  const sourceCountById = useMemo(() => {
+    const m = new Map();
+    for (const s of availableSources) m.set(s.id, s.count);
+    return m;
+  }, [availableSources]);
+  const filteredSourceOptions = useMemo(() => {
+    if (availableSources.length === 0) return SOURCE_OPTIONS;
+    return SOURCE_OPTIONS.filter(
+      (o) => o.id === "any" || availableSourceIds.has(o.id)
+    ).map((o) =>
+      o.id === "any"
+        ? o
+        : { ...o, label: `${o.label} (${sourceCountById.get(o.id) || 0})` }
+    );
+  }, [availableSourceIds, sourceCountById, availableSources.length]);
   const ownedSkills = useMemo(() => new Set(ownedSkillSlugs), [ownedSkillSlugs]);
   const ownedClaudeMds = useMemo(() => new Set(ownedClaudeMdSlugs), [ownedClaudeMdSlugs]);
   const authoredSkills = useMemo(() => new Set(authoredSkillSlugs), [authoredSkillSlugs]);
@@ -84,14 +148,16 @@ export function MarketplaceGrid({
   const [tier, setTier] = useState(initial.tier || "all");
   const [verified, setVerified] = useState(initial.verified || "any");
   const [official, setOfficial] = useState(initial.official === "true" ? "true" : "any");
+  const [source, setSource] = useState(initial.source || "any");
   const [quality, setQuality] = useState(initial.quality || "any");
   const [tokens, setTokens] = useState(initial.tokens || "any");
+  const [bundle, setBundle] = useState(initial.bundle || "any");
   const [sort, setSort] = useState(initial.sort || "prior");
   const [query, setQuery] = useState(initial.q || "");
   const [topics, setTopics] = useState(() =>
     initial.topics ? initial.topics.split(",").filter(Boolean) : []
   );
-  const [page, setPage] = useState(Number(initial.page) || 1);
+  const urlPage = Math.max(1, Number(initial.page) || 1);
 
   // Refine panel toggle — collapsed by default to keep the page lean.
   // Auto-opens if any filter or sort is already active via URL.
@@ -99,8 +165,10 @@ export function MarketplaceGrid({
     initial.tier !== undefined ||
     initial.verified !== undefined ||
     initial.official !== undefined ||
+    initial.source !== undefined ||
     initial.quality !== undefined ||
     initial.tokens !== undefined ||
+    initial.bundle !== undefined ||
     initial.sort !== undefined
   );
 
@@ -119,29 +187,84 @@ export function MarketplaceGrid({
     });
   };
 
-  // Sync state → URL (replace, no scroll, debounced for `query`)
-  useEffect(() => {
-    const params = new URLSearchParams();
-    if (type !== "skills") params.set("type", type);
-    if (cat !== "all") params.set("cat", cat);
-    if (tier !== "all") params.set("tier", tier);
-    if (verified !== "any") params.set("verified", verified);
-    if (official !== "any") params.set("official", official);
-    if (quality !== "any") params.set("quality", quality);
-    if (tokens !== "any") params.set("tokens", tokens);
-    if (sort !== "prior") params.set("sort", sort);
-    if (query.trim()) params.set("q", query.trim());
-    if (topics.length) params.set("topics", topics.join(","));
-    if (page > 1) params.set("page", String(page));
+  const [isPending, startTransition] = useTransition();
+
+  // Helper: navigate with transition (non-blocking UI)
+  const navigate = (params) => {
     const qs = params.toString();
     const url = qs ? `${pathname}?${qs}` : pathname;
-    const handle = setTimeout(() => {
+    startTransition(() => {
       router.replace(url, { scroll: false });
-    }, 150);
-    return () => clearTimeout(handle);
-  }, [type, cat, tier, verified, official, quality, tokens, sort, query, topics, page, pathname, router]);
+    });
+  };
 
-  const sourceItems = type === "skills" ? skills : claudeMds;
+  // Build params from current state
+  const buildParams = (overrides = {}) => {
+    const s = {
+      type,
+      cat,
+      tier,
+      verified,
+      official,
+      source,
+      quality,
+      tokens,
+      bundle,
+      sort,
+      query,
+      topics,
+      page: urlPage,
+      ...overrides,
+    };
+    const p = new URLSearchParams();
+    if (s.type !== "skills") p.set("type", s.type);
+    if (s.cat !== "all") p.set("cat", s.cat);
+    if (s.tier !== "all") p.set("tier", s.tier);
+    if (s.verified !== "any") p.set("verified", s.verified);
+    if (s.official !== "any") p.set("official", s.official);
+    if (s.source !== "any") p.set("source", s.source);
+    if (s.quality !== "any") p.set("quality", s.quality);
+    if (s.tokens !== "any") p.set("tokens", s.tokens);
+    if (s.bundle !== "any") p.set("bundle", s.bundle);
+    if (s.sort !== "prior") p.set("sort", s.sort);
+    if (s.query?.trim()) p.set("q", s.query.trim());
+    if (s.topics?.length) p.set("topics", s.topics.join(","));
+    if (s.page > 1) p.set("page", String(s.page));
+    return p;
+  };
+
+  const queryNavSkipRef = useRef(true);
+  // Debounce search input only (500ms)
+  useEffect(() => {
+    if (queryNavSkipRef.current) {
+      queryNavSkipRef.current = false;
+      return;
+    }
+    const handle = setTimeout(() => {
+      navigate(buildParams({ page: 1 }));
+    }, 500);
+    return () => clearTimeout(handle);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [query]);
+
+  const filtersNavSkipRef = useRef(true);
+  const filterDebounceRef = useRef(null);
+  // Tokens is now server-side (via metadata->>byte_count for skills, and
+  // word_count for claude_md) → triggers nav like bundle.
+  useEffect(() => {
+    if (filtersNavSkipRef.current) {
+      filtersNavSkipRef.current = false;
+      return;
+    }
+    clearTimeout(filterDebounceRef.current);
+    filterDebounceRef.current = setTimeout(() => {
+      navigate(buildParams({ page: 1 }));
+    }, 140);
+    return () => clearTimeout(filterDebounceRef.current);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [official, tier, verified, source, quality, bundle, tokens, sort, cat, type, topics]);
+
+  const sourceItems = serverItems;
   const dedupCats = (cats) => {
     const seen = new Set();
     return cats.filter((c) => {
@@ -151,66 +274,128 @@ export function MarketplaceGrid({
     });
   };
   const categories = dedupCats(
-    type === "skills"
-      ? [{ id: "all", label: "All" }, ...skillCategories]
-      : [{ id: "all", label: "All" }, ...projectCategories]
+    type === "skills" ? skillCategories : projectCategories
   );
 
   const filtered = useMemo(() => {
     let list = sourceItems;
-    if (cat !== "all") {
-      list = list.filter((s) => {
-        if (type === "skills") {
-          return (
-            (s.category || "").toLowerCase() === cat.toLowerCase() ||
-            (s.categoryId || "").toLowerCase() === cat.toLowerCase()
-          );
-        }
-        return s.project_category === cat;
-      });
-    }
-    if (tier !== "all") list = list.filter((s) => (s.tier || "free") === tier);
-    if (verified !== "any") {
-      const minLvl = Number(verified);
-      list = list.filter((s) => (s.verificationLevel ?? 0) >= minLvl);
-    }
-    if (official === "true") {
-      list = list.filter((s) => !!s.isOfficial);
-    }
-    if (quality !== "any") {
-      const minQ = Number(quality);
-      list = list.filter((s) => (s.qualityScore ?? 0) >= minQ);
-    }
-    if (tokens !== "any") {
-      // word_count column is words ; tokens ≈ words × 1.3
-      const tokenCount = (s) => Math.round((s.word_count || 0) * 1.3);
-      list = list.filter((s) => {
-        const t = tokenCount(s);
-        if (tokens === "small") return t > 0 && t < 500;
-        if (tokens === "medium") return t >= 500 && t <= 2000;
-        if (tokens === "large") return t > 2000;
-        return true;
-      });
-    }
+
+    // Single-pass filtering for better performance
+    const catLower = cat.toLowerCase();
     const q = query.trim().toLowerCase();
-    if (q) {
-      list = list.filter((s) => {
-        return (
-          (s.name || "").toLowerCase().includes(q) ||
-          (s.slug || "").toLowerCase().includes(q) ||
-          (s.author || "").toLowerCase().includes(q) ||
-          (s.repo || "").toLowerCase().includes(q) ||
-          (s.description || "").toLowerCase().includes(q)
+    const minVerified = verified !== "any" ? Number(verified) : null;
+    const minQuality = quality !== "any" ? Number(quality) : null;
+    const isOfficialOnly = official === "true";
+    const sourceFilter = source !== "any" ? source : null;
+    const tokensFilter = tokens !== "any" ? tokens : null;
+    const bundleFilter = bundle !== "any" ? bundle : null;
+    const hasTopics = topics.length > 0;
+
+    list = list.filter((s) => {
+      // Category filter — multi-cat aware (migration 0040).
+      // Un item avec `categories=["mcp-server","document"]` doit apparaître
+      // quand l'user filtre par "document". On checke d'abord l'array
+      // `categories`, puis fallback à la primary `category` / `categoryId` /
+      // `project_category` pour les rows legacy.
+      if (cat !== "all") {
+        const catArray = Array.isArray(s.categories) ? s.categories : [];
+        const matchesArray = catArray.some(
+          (c) => (c || "").toLowerCase() === catLower
         );
-      });
-    }
-    if (topics.length) {
-      list = list.filter((s) => {
+        if (!matchesArray) {
+          if (type === "skills") {
+            if (
+              (s.category || "").toLowerCase() !== catLower &&
+              (s.categoryId || "").toLowerCase() !== catLower
+            ) {
+              return false;
+            }
+          } else if (s.project_category !== cat) {
+            return false;
+          }
+        }
+      }
+
+      // Tier filter
+      if (tier !== "all" && (s.tier || "free") !== tier) return false;
+
+      // Verified filter
+      if (minVerified !== null && (s.verificationLevel ?? 0) < minVerified) return false;
+
+      // Official filter
+      if (isOfficialOnly && !s.isOfficial) return false;
+
+      // Source filter — normalize the raw DB value (codesearch:sourcegraph,
+      // grep.app, aggregator:awesome-list, etc.) to a canonical id before
+      // comparing against the filter selection.
+      if (sourceFilter && normalizeSource(s.source) !== sourceFilter) return false;
+
+      // Quality filter
+      if (minQuality !== null && (s.qualityScore ?? 0) < minQuality) return false;
+
+      // Tokens filter — signal hierarchy :
+      //   1. word_count (claude_md only, generated col)
+      //   2. metadata.byte_count (set by backfill-byte-counts.mjs from
+      //      Storage object size, post-migration) → bytes/4 ≈ tokens
+      //   3. metadata.word_count_hint (legacy scrape signal, ~25% coverage)
+      //   4. metadata.bundle_size_bytes (bundled skills only, ~2%)
+      //   5. skill_md_content.length (legacy inline, ~66 Forbidden rows)
+      if (tokensFilter) {
+        let approxTokens = null;
+        if (s.word_count != null) {
+          approxTokens = Math.round(s.word_count * 1.3);
+        } else if (s.metadata?.byte_count != null) {
+          approxTokens = Math.round(Number(s.metadata.byte_count) / 4);
+        } else if (s.metadata?.word_count_hint != null) {
+          approxTokens = Math.round(Number(s.metadata.word_count_hint) * 1.3);
+        } else if (s.metadata?.bundle_size_bytes != null) {
+          approxTokens = Math.round(Number(s.metadata.bundle_size_bytes) / 4);
+        } else if (typeof s.skill_md_content === "string" && s.skill_md_content.length > 0) {
+          approxTokens = Math.round(s.skill_md_content.length / 4);
+        }
+        if (approxTokens != null) {
+          if (tokensFilter === "small" && approxTokens >= 500) return false;
+          if (tokensFilter === "medium" && (approxTokens < 500 || approxTokens > 2000)) return false;
+          if (tokensFilter === "large" && approxTokens <= 2000) return false;
+        }
+      }
+
+      // Bundle filter — handled SERVER-side via is_bundled generated column
+      // (migration 0044). Skipping the client refinement that was previously
+      // here : it used 3 signals (skill_type, repoSkillCount, bundle_files)
+      // whose semantics drifted from what the server returns, so the client
+      // would re-exclude items the server had correctly included.
+      //
+      // Note on the two "bundle" concepts in Versuz :
+      //   1. skill_type=bundled : the SKILL.md itself ships with companions
+      //      (scripts/, refs/) → this filter targets this
+      //   2. repoSkillCount > 1 : the GitHub repo contains multiple skills
+      //      → surfaced via the /repo/[owner]/[repo] page + bundle callout
+      // We treat them separately on purpose.
+
+      // Search filter
+      if (q) {
+        if (
+          !(s.name || "").toLowerCase().includes(q) &&
+          !(s.slug || "").toLowerCase().includes(q) &&
+          !(s.author || "").toLowerCase().includes(q) &&
+          !(s.repo || "").toLowerCase().includes(q) &&
+          !(s.description || "").toLowerCase().includes(q)
+        ) {
+          return false;
+        }
+      }
+
+      // Topics filter
+      if (hasTopics) {
         const itemTopics = Array.isArray(s.topics) ? s.topics : [];
-        return topics.every((t) => itemTopics.includes(t));
-      });
-    }
-    list = [...list];
+        if (!topics.every((t) => itemTopics.includes(t))) return false;
+      }
+
+      return true;
+    });
+
+    // Sorting
     if (sort === "stars") list.sort((a, b) => (b.stars || 0) - (a.stars || 0));
     else if (sort === "quality") {
       list.sort((a, b) => (b.qualityScore ?? -1) - (a.qualityScore ?? -1));
@@ -308,7 +493,7 @@ export function MarketplaceGrid({
     //      convention : sponsored content is most prominent because it's paid).
     //   2. FEATURED next — Versuz editorial. Distinctive sponsored-style card
     //      treatment regardless of position.
-    // V1.5 sponsored distribution — 3 sponsored per page at FIXED ZONES :
+    // V1.5 sponsored distribution — 4 sponsored per page at FIXED ZONES :
     //   - 1 top zone (positions 0-3, first row)
     //   - 1 middle zone (positions ~22-28)
     //   - 1 bottom zone (positions ~38-44, leaves 4-6 items after so it's
@@ -319,7 +504,7 @@ export function MarketplaceGrid({
     // disruptive than random placement. Each zone has small jitter (seeded
     // per item) so different sponsored land at slightly different positions
     // page-to-page, no specific item always at slot #1.
-    const SPONSORED_PER_PAGE = 3;
+    const SPONSORED_PER_PAGE = 4;
     const ZONES = [
       { min: 0, max: 3 },     // top : within first row
       { min: 22, max: 28 },   // middle : center of page
@@ -352,7 +537,11 @@ export function MarketplaceGrid({
       const slice = sponsoredShuffled.slice(sponsoredCursor, sponsoredCursor + SPONSORED_PER_PAGE);
       sponsoredCursor += slice.length;
 
-      const restNeeded = Math.max(0, PAGE_SIZE - slice.length);
+      // Sponsored items are now 1-column items (no longer 2-col span)
+      // We want 50 visual slots total, so calculate how many normal items needed
+      const sponsoredSlots = slice.length;
+      const targetVisualSlots = 50;
+      const restNeeded = Math.max(0, targetVisualSlots - sponsoredSlots);
       const restSlice = restPool.slice(restCursor, restCursor + restNeeded);
       restCursor += restSlice.length;
 
@@ -383,7 +572,7 @@ export function MarketplaceGrid({
       out.push(...sponsoredShuffled.slice(sponsoredCursor));
     }
     return out;
-  }, [sourceItems, cat, tier, verified, official, quality, tokens, sort, type, query, topics]);
+  }, [sourceItems, cat, tier, verified, official, source, quality, tokens, bundle, sort, type, query, topics]);
 
   // "Sponsored" treatment : pinned items (boosted + featured) get a taller
   // card with description always visible, distinctive outline. Same width as
@@ -429,29 +618,64 @@ export function MarketplaceGrid({
     return popular.slice(0, 12).map(([id, count]) => ({ id, count }));
   }, [sourceItems, topics]);
 
-  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
-  const safePage = Math.min(page, totalPages);
-  const visible = useMemo(
-    () => filtered.slice((safePage - 1) * PAGE_SIZE, safePage * PAGE_SIZE),
-    [filtered, safePage]
-  );
+  // Items are already paginated by the server — display them directly
+  const visible = filtered;
 
-  const resetPage = () => setPage(1);
+  // Filtres CLIENT-side seulement (le serveur en applique déjà beaucoup) :
+  //   - bundle : dépend de metadata.repoSkillCount calculé en JS
+  //   - tokens : pour skills, pas indexé côté server (word_count absent)
+  // Le serveur applique : cat, tier, verified, official, source, quality,
+  // tokens-pour-claude_md, q (search), topics (migration 0037).
+  // Tous les filtres marketplace sont désormais server-side : tier, verified,
+  // official, source, quality, bundle (mig 0044+0046), tokens (mig 0048).
+  // `totalCount` du server reflète déjà le bon count → on l'affiche direct
+  // sans compensation client-side.
+  const isSkillKind = type === "skills";
+  const hasClientSideFilters = false;
+  const displayCount = hasClientSideFilters ? filtered.length : totalCount;
+  const VISUAL_SLOTS_PER_PAGE = 50;
+  const totalPages = Math.max(
+    1,
+    Math.ceil(
+      (hasClientSideFilters ? filtered.length : totalCount) / VISUAL_SLOTS_PER_PAGE
+    )
+  );
+  const safePage = Math.min(currentPage, totalPages);
+
   const toggleTopic = (id) => {
     setTopics((prev) =>
       prev.includes(id) ? prev.filter((t) => t !== id) : [...prev, id]
     );
-    resetPage();
   };
   const onTypeChange = (id) => {
     setType(id);
     setCat("all");
     setTopics([]);
-    resetPage();
   };
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 32 }}>
+    <div
+      style={{
+        display: "flex",
+        flexDirection: "column",
+        gap: 32,
+        // Keep the grid fully visible during server refetch — the client-side
+        // `filtered` useMemo above already applies every active filter to the
+        // currently-visible items, so users get instant feedback. The thin
+        // progress bar below is enough signal that something is refreshing.
+        opacity: 1,
+      }}
+    >
+      {isPending && (
+        <div
+          className="vz-filter-nav-bar"
+          role="progressbar"
+          aria-busy="true"
+          aria-label="Mise à jour des filtres"
+        >
+          <div className="vz-filter-nav-bar__chunk" />
+        </div>
+      )}
       {/* Type toggle */}
       <div
         style={{
@@ -505,7 +729,6 @@ export function MarketplaceGrid({
             active={cat === c.id}
             onClick={() => {
               setCat(c.id);
-              resetPage();
             }}
           />
         ))}
@@ -538,7 +761,7 @@ export function MarketplaceGrid({
           <input
             type="search"
             value={query}
-            onChange={(e) => { setQuery(e.target.value); resetPage(); }}
+            onChange={(e) => setQuery(e.target.value)}
             placeholder={`Search ${type === "skills" ? "skills" : "CLAUDE.md"} by name, author, description…`}
             style={{
               flex: 1,
@@ -555,7 +778,7 @@ export function MarketplaceGrid({
           {query && (
             <button
               type="button"
-              onClick={() => { setQuery(""); resetPage(); }}
+              onClick={() => setQuery("")}
               aria-label="Clear search"
               style={{
                 padding: "0 14px",
@@ -577,8 +800,10 @@ export function MarketplaceGrid({
             (tier !== "all" ? 1 : 0) +
             (verified !== "any" ? 1 : 0) +
             (official !== "any" ? 1 : 0) +
+            (source !== "any" ? 1 : 0) +
             (quality !== "any" ? 1 : 0) +
             (tokens !== "any" ? 1 : 0) +
+            (bundle !== "any" ? 1 : 0) +
             (sort !== "prior" ? 1 : 0);
           return (
             <button
@@ -644,55 +869,71 @@ export function MarketplaceGrid({
           <CompactSelect
             label="Tier"
             value={tier}
-            onChange={(v) => { setTier(v); resetPage(); }}
+            onChange={(v) => setTier(v)}
             options={TIER_OPTIONS}
           />
           <CompactSelect
             label="Trust"
             value={verified}
-            onChange={(v) => { setVerified(v); resetPage(); }}
+            onChange={(v) => setVerified(v)}
             options={VERIFIED_OPTIONS}
           />
           <CompactSelect
             label="Official"
             value={official}
-            onChange={(v) => { setOfficial(v); resetPage(); }}
+            onChange={(v) => setOfficial(v)}
             options={OFFICIAL_OPTIONS}
+          />
+          <CompactSelect
+            label="Source"
+            value={source}
+            onChange={(v) => setSource(v)}
+            options={filteredSourceOptions}
           />
           <CompactSelect
             label="Quality"
             value={quality}
-            onChange={(v) => { setQuality(v); resetPage(); }}
+            onChange={(v) => setQuality(v)}
             options={QUALITY_OPTIONS}
           />
+          {/* Tokens filter — works on claude_md via word_count (generated)
+              and on skills via metadata.byte_count (backfilled from Storage
+              object size). Run `node scripts/backfill-byte-counts.mjs --apply`
+              once to populate the skills side. */}
           <CompactSelect
             label="Tokens"
             value={tokens}
-            onChange={(v) => { setTokens(v); resetPage(); }}
+            onChange={(v) => setTokens(v)}
             options={TOKENS_OPTIONS}
           />
+          {/* Bundle filter only applies to skills (claude_md is always one file). */}
+          {type === "skills" && (
+            <CompactSelect
+              label="Bundle"
+              value={bundle}
+              onChange={(v) => setBundle(v)}
+              options={BUNDLE_OPTIONS}
+            />
+          )}
           <TopicAdder
             topTopics={topTopics}
             currentTopics={topics}
             onAdd={(t) => {
-              if (!topics.includes(t)) {
-                setTopics([...topics, t]);
-                resetPage();
-              }
+              if (!topics.includes(t)) setTopics([...topics, t]);
             }}
           />
           <span style={{ borderLeft: "1px solid var(--rule)", height: 20, opacity: 0.5 }} />
           <CompactSelect
             label="Sort"
             value={sort}
-            onChange={(v) => { setSort(v); resetPage(); }}
+            onChange={(v) => setSort(v)}
             options={SORT_OPTIONS}
           />
-          {(tier !== "all" || verified !== "any" || official !== "any" || quality !== "any" || tokens !== "any" || sort !== "prior" || cat !== "all" || topics.length > 0) && (
+          {(tier !== "all" || verified !== "any" || official !== "any" || source !== "any" || quality !== "any" || tokens !== "any" || bundle !== "any" || sort !== "prior" || cat !== "all" || topics.length > 0) && (
             <button
               type="button"
               onClick={() => {
-                setTier("all"); setVerified("any"); setOfficial("any"); setQuality("any"); setTokens("any"); setSort("prior"); setCat("all"); setTopics([]); resetPage();
+                setTier("all"); setVerified("any"); setOfficial("any"); setSource("any"); setQuality("any"); setTokens("any"); setBundle("any"); setSort("prior"); setCat("all"); setTopics([]); setQuery("");
               }}
               style={{
                 marginLeft: "auto",
@@ -719,7 +960,7 @@ export function MarketplaceGrid({
           l'URL (`?topics=mcp`, `?official=true`, etc.). Sans ça, l'user
           tape l'URL et voit la liste filtrée mais aucune trace du critère
           actif → impossible de désélectionner. */}
-      {(topics.length > 0 || official !== "any" || verified !== "any" || tier !== "all" || quality !== "any" || tokens !== "any") && (
+      {(topics.length > 0 || official !== "any" || verified !== "any" || tier !== "all" || source !== "any" || quality !== "any" || tokens !== "any" || bundle !== "any") && (
         <div
           style={{
             display: "flex",
@@ -742,22 +983,28 @@ export function MarketplaceGrid({
             Active:
           </span>
           {topics.map((t) => (
-            <FilterChip key={`topic-${t}`} label={`topic: ${t}`} onRemove={() => { setTopics((prev) => prev.filter((x) => x !== t)); resetPage(); }} />
+            <FilterChip key={`topic-${t}`} label={`topic: ${t}`} onRemove={() => setTopics((prev) => prev.filter((x) => x !== t))} />
           ))}
           {official === "true" && (
-            <FilterChip label="official only" onRemove={() => { setOfficial("any"); resetPage(); }} />
+            <FilterChip label="official only" onRemove={() => setOfficial("any")} />
+          )}
+          {source !== "any" && (
+            <FilterChip label={`source: ${filteredSourceOptions.find((o) => o.id === source)?.label || source}`} onRemove={() => setSource("any")} />
           )}
           {verified !== "any" && (
-            <FilterChip label={`trust ≥ ${VERIFIED_OPTIONS.find((o) => o.id === verified)?.label || verified}`} onRemove={() => { setVerified("any"); resetPage(); }} />
+            <FilterChip label={`trust ≥ ${VERIFIED_OPTIONS.find((o) => o.id === verified)?.label || verified}`} onRemove={() => setVerified("any")} />
           )}
           {tier !== "all" && (
-            <FilterChip label={`tier: ${tier}`} onRemove={() => { setTier("all"); resetPage(); }} />
+            <FilterChip label={`tier: ${tier}`} onRemove={() => setTier("all")} />
           )}
           {quality !== "any" && (
-            <FilterChip label={`quality ≥ ${quality}`} onRemove={() => { setQuality("any"); resetPage(); }} />
+            <FilterChip label={`quality ≥ ${quality}`} onRemove={() => setQuality("any")} />
           )}
           {tokens !== "any" && (
-            <FilterChip label={`size: ${tokens}`} onRemove={() => { setTokens("any"); resetPage(); }} />
+            <FilterChip label={`size: ${tokens}`} onRemove={() => setTokens("any")} />
+          )}
+          {bundle !== "any" && (
+            <FilterChip label={`bundle: ${BUNDLE_OPTIONS.find((o) => o.id === bundle)?.label || bundle}`} onRemove={() => setBundle("any")} />
           )}
         </div>
       )}
@@ -769,18 +1016,27 @@ export function MarketplaceGrid({
           justifyContent: "space-between",
           alignItems: "center",
           fontFamily: "var(--font-mono)",
-          fontSize: 11,
-          color: "var(--fg-muted)",
+          fontSize: 12,
+          color: "var(--fg)",
           letterSpacing: "0.04em",
+          borderBottom: "1px solid var(--rule)",
+          paddingBottom: 12,
         }}
       >
-        <span>
-          {filtered.length} of {sourceItems.length} {type === "skills" ? "skills" : "files"}
-          {cat !== "all" && ` · ${cat}`}
-          {query && ` · matching "${query.slice(0, 30)}"`}
+        <span style={{ fontWeight: 500 }}>
+          {displayCount} {type === "skills" ? "skills" : "files"}
+          {cat !== "all" && <span style={{ color: "var(--fg-muted)" }}> in {cat}</span>}
+          {query && <span style={{ color: "var(--fg-muted)" }}> matching &quot;{query.slice(0, 30)}&quot;</span>}
+          {isPending && (
+            <span style={{ color: "var(--accent)", marginLeft: 10, fontWeight: 400 }}>
+              Updating…
+            </span>
+          )}
         </span>
         {totalPages > 1 && (
-          <span style={{ whiteSpace: "nowrap" }}>page {safePage} / {totalPages}</span>
+          <span style={{ whiteSpace: "nowrap", color: "var(--fg-muted)" }}>
+            Page <strong style={{ color: "var(--fg)" }}>{safePage}</strong> / {totalPages}
+          </span>
         )}
       </div>
 
@@ -788,14 +1044,95 @@ export function MarketplaceGrid({
       {filtered.length === 0 ? (
         <div
           style={{
-            padding: "80px 0",
+            padding: "80px 24px",
             textAlign: "center",
-            fontFamily: "var(--font-display)",
-            fontSize: 22,
-            color: "var(--fg-muted)",
+            display: "flex",
+            flexDirection: "column",
+            alignItems: "center",
+            gap: 16,
+            border: "1px dashed var(--rule-strong)",
+            background: "var(--surface)",
           }}
         >
-          No items match these filters.
+          <span
+            aria-hidden
+            style={{
+              fontFamily: "var(--font-mono)",
+              fontSize: 10,
+              letterSpacing: "0.22em",
+              textTransform: "uppercase",
+              color: "var(--fg-muted)",
+              padding: "4px 10px",
+              border: "1px solid var(--rule-strong)",
+            }}
+          >
+            0 results
+          </span>
+          <p
+            style={{
+              margin: 0,
+              fontFamily: "var(--font-display)",
+              fontSize: 28,
+              fontWeight: 400,
+              letterSpacing: "-0.02em",
+              color: "var(--fg)",
+              maxWidth: 480,
+              lineHeight: 1.25,
+            }}
+          >
+            No items <em style={{ color: "var(--accent)" }}>match</em> these filters.
+          </p>
+          <p
+            style={{
+              margin: 0,
+              fontSize: 13,
+              lineHeight: 1.6,
+              color: "var(--fg-muted)",
+              maxWidth: 420,
+            }}
+          >
+            Try clearing one or more filters, or browse a different kind
+            (<button
+              type="button"
+              onClick={() => onTypeChange(type === "skills" ? "claude-md" : "skills")}
+              style={{
+                background: "transparent",
+                border: "none",
+                color: "var(--accent)",
+                borderBottom: "1px solid var(--accent)",
+                cursor: "pointer",
+                fontFamily: "inherit",
+                fontSize: "inherit",
+                padding: 0,
+              }}
+            >
+              switch to {type === "skills" ? "CLAUDE.md" : "skills"}
+            </button>).
+          </p>
+          <button
+            type="button"
+            onClick={() => {
+              setTier("all"); setVerified("any"); setOfficial("any");
+              setSource("any"); setQuality("any"); setTokens("any");
+              setBundle("any"); setSort("prior"); setCat("all");
+              setTopics([]); setQuery("");
+            }}
+            style={{
+              marginTop: 8,
+              padding: "10px 20px",
+              fontFamily: "var(--font-mono)",
+              fontSize: 11,
+              fontWeight: 600,
+              letterSpacing: "0.18em",
+              textTransform: "uppercase",
+              color: "var(--bg)",
+              background: "var(--accent)",
+              border: "1px solid var(--accent)",
+              cursor: "pointer",
+            }}
+          >
+            ↺ Clear all filters
+          </button>
         </div>
       ) : (
         <>
@@ -865,7 +1202,7 @@ export function MarketplaceGrid({
             <Pagination
               page={safePage}
               totalPages={totalPages}
-              onChange={(p) => setPage(p)}
+              onChange={(p) => navigate(buildParams({ page: p }))}
             />
           )}
         </>

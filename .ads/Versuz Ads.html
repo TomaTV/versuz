@@ -1,0 +1,236 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Versuz — Ads & Motion</title>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Geist:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+
+  <script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+  <script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+  <script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+
+  <style>
+    *, *::before, *::after { box-sizing: border-box; }
+    html, body {
+      margin: 0; padding: 0; height: 100%;
+      background: #0a0a0a; color: #F2EEE6;
+      font-family: 'Geist', system-ui, sans-serif;
+      overflow: hidden;
+    }
+    button { font-family: inherit; color: inherit; }
+    a { color: inherit; text-decoration: none; }
+
+    .topbar {
+      position: fixed; top: 0; left: 0; right: 0;
+      height: 78px;
+      background: #14120E;
+      border-bottom: 1px solid rgba(246, 244, 239, 0.08);
+      display: flex; align-items: stretch;
+      padding: 10px 20px;
+      gap: 18px;
+      z-index: 100;
+    }
+    .brand-tag {
+      display: flex; align-items: center; gap: 10px;
+      font-family: 'Instrument Serif', serif;
+      font-style: italic;
+      font-size: 22px;
+      color: #F2EEE6;
+      letter-spacing: -0.02em;
+      align-self: center;
+      flex-shrink: 0;
+    }
+    .brand-tag .dot {
+      width: 10px; height: 10px; background: #C2410C;
+    }
+    .pip {
+      color: rgba(246,244,239,0.35);
+      margin-left: 6px;
+      font-size: 11px;
+      font-style: normal;
+      font-family: 'JetBrains Mono', monospace;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+    }
+
+    .scene-tabs {
+      display: flex; gap: 14px;
+      margin-left: 12px;
+      overflow-x: auto;
+      flex: 1; min-width: 0;
+      align-items: stretch;
+    }
+    .scene-tabs::-webkit-scrollbar { height: 4px; }
+    .scene-tabs::-webkit-scrollbar-thumb { background: rgba(246,244,239,0.18); border-radius: 2px; }
+
+    .group {
+      display: flex; flex-direction: column;
+      padding-right: 14px;
+      border-right: 1px solid rgba(246,244,239,0.08);
+      gap: 4px;
+    }
+    .group:last-child { border-right: none; padding-right: 0; }
+    .group-label {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 9px;
+      color: rgba(246,244,239,0.40);
+      letter-spacing: 0.20em;
+      text-transform: uppercase;
+      padding: 0 4px;
+      white-space: nowrap;
+    }
+    .group-tabs {
+      display: flex; gap: 4px;
+    }
+
+    .scene-tab {
+      display: flex; flex-direction: column; gap: 2px;
+      padding: 6px 12px;
+      background: transparent;
+      border: 1px solid transparent;
+      color: rgba(246,244,239,0.55);
+      cursor: pointer;
+      font-family: 'Geist', sans-serif;
+      font-size: 12px;
+      text-align: left;
+      white-space: nowrap;
+      transition: all 120ms ease;
+    }
+    .scene-tab:hover {
+      color: #F2EEE6;
+      background: rgba(246,244,239,0.05);
+    }
+    .scene-tab.active {
+      color: #F2EEE6;
+      background: rgba(194,65,12,0.15);
+      border-color: #C2410C;
+    }
+    .scene-tab .title { font-weight: 500; font-size: 12px; }
+    .scene-tab .meta {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 9px;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: rgba(246,244,239,0.40);
+    }
+    .scene-tab.active .meta { color: #C2410C; }
+
+    .right-info {
+      align-self: center;
+      display: flex; align-items: center; gap: 12px;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 11px;
+      color: rgba(246,244,239,0.50);
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      flex-shrink: 0;
+    }
+    .hint {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 9px;
+      color: rgba(246,244,239,0.28);
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+    }
+    .stage-host {
+      position: absolute;
+      top: 78px; left: 0; right: 0; bottom: 0;
+    }
+  </style>
+</head>
+<body>
+  <div id="root"></div>
+
+  <script type="text/babel" src="animations.jsx"></script>
+  <script type="text/babel" src="versuz-ads-logo.jsx"></script>
+  <script type="text/babel" src="versuz-ads-scenes.jsx"></script>
+  <script type="text/babel" src="versuz-ads-scenes-2.jsx"></script>
+  <script type="text/babel" src="versuz-ads-scenes-3.jsx"></script>
+
+  <script type="text/babel" data-presets="env,react">
+    const { Stage, VERSUZ_SCENES } = window;
+    const SCENE_KEYS = Object.keys(VERSUZ_SCENES);
+
+    // Curated group order — Logo first (the showpiece), then social formats,
+    // then LinkedIn, then web/hero.
+    const GROUP_ORDER = ['Logo', 'TikTok / Insta', 'Square (Insta)', 'LinkedIn', 'Web / hero'];
+    const groupedScenes = GROUP_ORDER
+      .map(g => ({ group: g, scenes: SCENE_KEYS.filter(k => VERSUZ_SCENES[k].group === g) }))
+      .filter(g => g.scenes.length);
+
+    function App() {
+      const [active, setActive] = React.useState(() => {
+        try {
+          const saved = localStorage.getItem('versuz-ads-scene');
+          if (saved && VERSUZ_SCENES[saved]) return saved;
+        } catch {}
+        return VERSUZ_SCENES.logoReveal ? 'logoReveal' : SCENE_KEYS[0];
+      });
+      React.useEffect(() => {
+        try { localStorage.setItem('versuz-ads-scene', active); } catch {}
+      }, [active]);
+
+      const scene = VERSUZ_SCENES[active];
+      const SceneComp = scene.Component;
+
+      return (
+        <>
+          <div className="topbar">
+            <div className="brand-tag">
+              <span className="dot"></span>
+              Versuz
+              <span className="pip">Ads · Motion v02</span>
+            </div>
+            <div className="scene-tabs">
+              {groupedScenes.map(g => (
+                <div className="group" key={g.group}>
+                  <span className="group-label">{g.group}</span>
+                  <div className="group-tabs">
+                    {g.scenes.map(k => {
+                      const s = VERSUZ_SCENES[k];
+                      return (
+                        <button key={k}
+                          className={"scene-tab" + (k === active ? ' active' : '')}
+                          onClick={() => setActive(k)}
+                          title={s.subtitle}>
+                          <span className="title">{s.title}</span>
+                          <span className="meta">{s.format}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              ))}
+            </div>
+            <div className="right-info">
+              <span>{scene.width} × {scene.height}</span>
+              <span style={{ color: 'rgba(246,244,239,0.20)' }}>·</span>
+              <span style={{ color: '#C2410C' }}>{scene.duration}s</span>
+              <span className="hint" style={{ marginLeft: 6 }}>SPACE · ←→ · 0</span>
+            </div>
+          </div>
+
+          <div className="stage-host" data-screen-label={scene.title}>
+            <Stage
+              key={active}
+              width={scene.width}
+              height={scene.height}
+              duration={scene.duration}
+              background="#F2EEE6"
+              persistKey={`versuz-ads-${active}`}
+            >
+              <SceneComp />
+            </Stage>
+          </div>
+        </>
+      );
+    }
+
+    ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+  </script>
+</body>
+</html>

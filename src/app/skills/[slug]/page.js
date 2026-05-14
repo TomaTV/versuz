@@ -13,6 +13,7 @@ import {
   getSkillBySlug,
   getSiblingSkills,
   getJudgeDisagreement,
+  getRegistryByRepo,
 } from "@/lib/queries/rankings";
 import { approximateTokens, formatTokenCount } from "@/lib/utils";
 import { EmbedBadgeBlock } from "@/components/embed-badge-block";
@@ -21,6 +22,7 @@ import { getCurrentUser } from "@/lib/auth/server";
 import { getOwnedSlugs, getAuthoredSlugs } from "@/lib/purchases/server";
 import { signPremiumDownloadUrl } from "@/lib/premium/storage";
 import { BackButton } from "@/components/site/back-button";
+import { RepoBundleCallout } from "@/components/site/repo-bundle-callout";
 
 function formatCount(n) {
   if (n == null) return "—";
@@ -37,7 +39,7 @@ function formatDate(s) {
   }
 }
 
-function InstallSection({ detail, isOwned, isAuthored }) {
+function InstallSection({ detail, isOwned, isAuthored, repoBundleHref, bundleTotal }) {
   const meta = detail.metadata || {};
   const repoPath = meta.path || "SKILL.md";
   const repoFull = meta.owner && meta.repo ? `${meta.owner}/${meta.repo}` : null;
@@ -71,6 +73,9 @@ function InstallSection({ detail, isOwned, isAuthored }) {
         subtitle={subtitle}
       />
 
+      {/* Repo bundle callout removed here — it's already shown in the hero
+          section (line ~1090) at full size. Was duplicated. */}
+
       <div
         style={{
           marginTop: 40,
@@ -83,12 +88,17 @@ function InstallSection({ detail, isOwned, isAuthored }) {
         <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
           {showInstallCommands ? (
             <>
+              <CommandBlock
+                label="One-line install · Claude Code"
+                command={`npx versuz@latest install ${detail.slug}`}
+                primary
+              />
               {cloneCmd && (
-                <CommandBlock label="Clone the repo" command={cloneCmd} />
+                <CommandBlock label="Or clone the repo" command={cloneCmd} />
               )}
               {repoFull && (
                 <CommandBlock
-                  label={`Copy ${skillType === "bundled" ? "the skill folder" : "the SKILL.md"}`}
+                  label={`Or copy ${skillType === "bundled" ? "the skill folder" : "the SKILL.md"} manually`}
                   command={
                     skillType === "bundled"
                       ? `cp -r ${meta.repo}/${repoPath.replace(/\/?SKILL\.md$/i, "")} ~/.claude/skills/${detail.slug}/`
@@ -766,14 +776,14 @@ function PremiumDownloadSection({ detail, downloadUrl, isAuthored }) {
   );
 }
 
-function CommandBlock({ label, command }) {
+function CommandBlock({ label, command, primary = false }) {
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
       <span
         style={{
           fontFamily: "var(--font-mono)",
           fontSize: 10,
-          color: "var(--fg-muted)",
+          color: primary ? "var(--accent)" : "var(--fg-muted)",
           letterSpacing: "0.18em",
           textTransform: "uppercase",
         }}
@@ -782,20 +792,22 @@ function CommandBlock({ label, command }) {
       </span>
       <div
         style={{
-          padding: "16px 20px",
-          border: "1px solid var(--rule-strong)",
-          background: "var(--surface)",
+          position: "relative",
+          padding: "18px 56px 18px 20px",
+          border: primary ? "1px solid var(--accent)" : "1px solid var(--rule-strong)",
+          background: primary ? "var(--accent-soft)" : "var(--surface)",
           display: "flex",
           alignItems: "center",
           gap: 12,
           fontFamily: "var(--font-mono)",
-          fontSize: 13,
+          fontSize: primary ? 14 : 13,
           color: "var(--fg)",
           overflowX: "auto",
         }}
       >
         <span style={{ color: "var(--accent)" }}>$</span>
         <code style={{ whiteSpace: "nowrap" }}>{command}</code>
+        <CopyContentButton text={command} label="Copy" />
       </div>
     </div>
   );
@@ -825,19 +837,54 @@ export async function generateMetadata({ params }) {
 
 export default async function SkillDetailPage({ params }) {
   const { slug } = await params;
-  const detail = await getSkillBySlug(slug);
-  if (!detail) notFound();
-  const [siblings, user, disagreement] = await Promise.all([
-    getSiblingSkills(slug, 3),
+  
+  // Parallel data fetching - get everything we can at once
+  const [detail, user] = await Promise.all([
+    getSkillBySlug(slug),
     getCurrentUser(),
-    getJudgeDisagreement({ kind: "skill", subjectId: detail.id }),
   ]);
-  const [owned, authored] = await Promise.all([
+  
+  if (!detail) notFound();
+  const meta = detail.metadata || {};
+  
+  // Fetch remaining data in parallel
+  const [siblings, disagreement, repoRegistry, owned, authored] = await Promise.all([
+    getSiblingSkills(slug, 3),
+    getJudgeDisagreement({ kind: "skill", subjectId: detail.id }),
+    meta.owner && meta.repo ? getRegistryByRepo(meta.owner, meta.repo) : Promise.resolve(null),
     getOwnedSlugs(user?.id),
     getAuthoredSlugs(user?.id),
   ]);
+  
+  const repoBundleHref =
+    repoRegistry &&
+    repoRegistry.skills.length + repoRegistry.claudeMds.length > 1 &&
+    meta.owner &&
+    meta.repo
+      ? `/repo/${encodeURIComponent(meta.owner)}/${encodeURIComponent(meta.repo)}`
+      : null;
+  
   const isOwned = owned.skills.has(slug);
   const isAuthored = authored.skills.has(slug);
+
+  const statCells = [];
+  if (detail.stars != null && Number(detail.stars) > 0) {
+    statCells.push(["Stars", formatCount(detail.stars)]);
+  }
+  if (detail.forks != null && Number(detail.forks) > 0) {
+    statCells.push(["Forks", formatCount(detail.forks)]);
+  }
+  statCells.push(
+    ["Prior", detail.prior != null ? Math.round(detail.prior) : "—"],
+    ["Quality", detail.qualityScore != null ? Number(detail.qualityScore).toFixed(1) : "—"],
+    ["Score", detail.elo != null ? Number(detail.elo).toFixed(1) : "—"],
+    [
+      "Tasks",
+      detail.taskCount > 0
+        ? `${detail.successfulTasks ?? detail.taskCount}/${detail.taskCount}`
+        : "—",
+    ]
+  );
 
   // Mint a fresh signed URL on every render — cheap, server-only, never
   // shipped to clients who shouldn't have it (we gate on isOwned/isAuthored
@@ -1033,6 +1080,19 @@ export default async function SkillDetailPage({ params }) {
             </p>
           </Reveal>
 
+          {repoBundleHref && (
+            <Reveal delay={0.3}>
+              <div style={{ marginTop: 36, maxWidth: 920 }}>
+                <RepoBundleCallout
+                  href={repoBundleHref}
+                  owner={meta.owner}
+                  repo={meta.repo}
+                  total={repoRegistry.skills.length + repoRegistry.claudeMds.length}
+                />
+              </div>
+            </Reveal>
+          )}
+
           <Reveal delay={0.35}>
             <div
               style={{
@@ -1165,31 +1225,19 @@ export default async function SkillDetailPage({ params }) {
           stagger={0.06}
           style={{
             display: "grid",
-            gridTemplateColumns: "repeat(6, 1fr)",
+            gridTemplateColumns: `repeat(${statCells.length}, minmax(0, 1fr))`,
             borderTop: "1px solid var(--rule-strong)",
             borderBottom: "1px solid var(--rule)",
             marginTop: 24,
           }}
           className="vz-stat-grid"
         >
-          {[
-            ["Stars", formatCount(detail.stars)],
-            ["Forks", formatCount(detail.forks)],
-            ["Prior", detail.prior != null ? Math.round(detail.prior) : "—"],
-            ["Quality", detail.qualityScore != null ? Number(detail.qualityScore).toFixed(1) : "—"],
-            ["Score", detail.elo != null ? Number(detail.elo).toFixed(1) : "—"],
-            [
-              "Tasks",
-              detail.taskCount > 0
-                ? `${detail.successfulTasks ?? detail.taskCount}/${detail.taskCount}`
-                : "—",
-            ],
-          ].map(([label, val], i) => (
+          {statCells.map(([label, val], i) => (
             <RevealItem
-              key={label}
+              key={`${label}-${i}`}
               style={{
                 padding: "28px 18px",
-                borderRight: i < 5 ? "1px solid var(--rule)" : "none",
+                borderRight: i < statCells.length - 1 ? "1px solid var(--rule)" : "none",
                 display: "flex",
                 flexDirection: "column",
                 gap: 12,
@@ -1245,7 +1293,15 @@ export default async function SkillDetailPage({ params }) {
 
       {disagreement && <DisagreementSection disagreement={disagreement} />}
 
-      <InstallSection detail={detail} isOwned={isOwned} isAuthored={isAuthored} />
+      <InstallSection
+        detail={detail}
+        isOwned={isOwned}
+        isAuthored={isAuthored}
+        repoBundleHref={repoBundleHref}
+        bundleTotal={
+          repoRegistry ? repoRegistry.skills.length + repoRegistry.claudeMds.length : 0
+        }
+      />
 
       {premiumDownloadUrl && (
         <PremiumDownloadSection

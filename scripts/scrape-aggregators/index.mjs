@@ -264,9 +264,11 @@ async function processCandidate({ owner, repo, kinds, octokit, want, knownSkillS
           github_url: repoMeta.html_url,
           github_stars: repoMeta.stars,
           category: cls.id,
+          categories: cls.categories || [cls.id],
           skill_md_content: found.skill.content,
           content_hash: contentHash(found.skill.content),
           is_official: isOfficialOwner(owner),
+          license_spdx: repoMeta.license || null,
           metadata: {
             owner,
             repo,
@@ -310,6 +312,7 @@ async function processCandidate({ owner, repo, kinds, octokit, want, knownSkillS
       content: found.claudeMd.content,
       content_hash: contentHash(found.claudeMd.content),
       is_official: isOfficialOwner(owner),
+      license_spdx: repoMeta.license || null,
       metadata: {
         owner,
         repo,

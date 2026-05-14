@@ -25,7 +25,7 @@ const SG_BASE = "https://sourcegraph.com/.api/search/stream";
  * SG limite chaque query à `count` matches (max ~5000). Use `count=all` pour
  * tout récupérer en un seul stream.
  */
-export async function searchSourcegraph({ query, count = 1000, signal }) {
+export async function searchSourcegraph({ query, count = 10000, signal }) {
   const url = new URL(SG_BASE);
   url.searchParams.set("q", `${query} count:${count}`);
   url.searchParams.set("v", "V3");

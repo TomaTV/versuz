@@ -1,0 +1,66 @@
+name: Quality judge
+
+# Run the LLM-rated quality judge across the catalog. Each item gets a
+# 5-axis score (clarity / specificity / completeness / structure / usefulness)
+# via Groq Llama free → 14400 RPD per token, effectively unlimited budget.
+#
+# Strategy : drain as many unjudged items as the timeout allows per run,
+# multiple runs per day to chip away at the backlog quickly.
+
+on:
+  schedule:
+    # Every 4 hours → 6 runs/day. Combined with --limit=50000 per run, we
+    # blast through any backlog. Groq free is generous, no $ cost.
+    - cron: "5 */4 * * *"
+  workflow_dispatch:
+    inputs:
+      limit:
+        description: "Max items processed per run"
+        required: false
+        default: "50000"
+      kind:
+        description: "Subject kind"
+        required: false
+        default: "both"
+        type: choice
+        options:
+          - both
+          - skill
+          - claude_md
+
+jobs:
+  quality:
+    runs-on: ubuntu-latest
+    timeout-minutes: 55
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Run quality judge
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
+          # Quality judge uses Groq free tier — pad the rate-limit handling
+          # since we're going wide.
+          QUALITY_CONCURRENCY: "8"
+        run: |
+          LIMIT="${{ inputs.limit || '50000' }}"
+          KIND="${{ inputs.kind || 'both' }}"
+          echo "Quality judge · limit=$LIMIT kind=$KIND"
+          if [ "$KIND" = "skill" ]; then
+            node scripts/bench/quality-judge.mjs --limit=$LIMIT --kind=skill
+          elif [ "$KIND" = "claude_md" ]; then
+            node scripts/bench/quality-judge.mjs --limit=$LIMIT --kind=claude_md
+          else
+            node scripts/bench/quality-judge.mjs --limit=$LIMIT
+          fi
+      - name: Summary
+        if: always()
+        run: |
+          echo "Limit : ${{ inputs.limit || '50000' }}"
+          echo "Kind : ${{ inputs.kind || 'both' }}"
+          echo "Done at : $(date -u +%Y-%m-%dT%H:%M:%SZ)"

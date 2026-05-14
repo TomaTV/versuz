@@ -66,19 +66,41 @@ export async function claimSubject(formData) {
     };
   }
 
-  const { error } = await sb
-    .from(table)
-    .update({
-      author_user_id: user.id,
-      verification_level: 1,
-      verified_at: new Date().toISOString(),
-    })
-    .eq("id", row.id);
-  if (error) return { error: error.message };
+  const verifiedAt = new Date().toISOString();
+  const patch = {
+    author_user_id: user.id,
+    verification_level: 1,
+    verified_at: verifiedAt,
+  };
+
+  let bulkTotal = 0;
+  for (const tbl of ["skills", "claude_md_files"]) {
+    const { data: candidates, error: selErr } = await sb
+      .from(tbl)
+      .select("id, author_user_id")
+      .filter("metadata->>owner", "ilike", owner);
+    if (selErr) return { error: selErr.message };
+
+    const ids = (candidates || [])
+      .filter((r) => !r.author_user_id || r.author_user_id === user.id)
+      .map((r) => r.id);
+    if (!ids.length) continue;
+
+    const CHUNK = 250;
+    for (let i = 0; i < ids.length; i += CHUNK) {
+      const chunk = ids.slice(i, i + CHUNK);
+      const { error: upErr } = await sb.from(tbl).update(patch).in("id", chunk);
+      if (upErr) return { error: upErr.message };
+      bulkTotal += chunk.length;
+    }
+  }
 
   revalidatePath(`/${kind === "claude_md" ? "claude-md" : "skills"}/${slug}`);
+  revalidatePath("/marketplace");
   revalidatePath("/profile");
-  return { ok: true, slug, kind };
+  revalidatePath("/skills", "layout");
+  revalidatePath("/claude-md", "layout");
+  return { ok: true, slug, kind, bulkClaimed: bulkTotal };
 }
 
 async function verifyOwnership({ login, owner }) {

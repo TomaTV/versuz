@@ -6,7 +6,7 @@
 
 Plug Claude Code into the open Versuz registry. Browse, inspect and install skills + CLAUDE.md as **native tools**, without leaving your conversation.
 
-**Beta** · MIT · [Source](https://github.com/versuzdev/versuz/tree/main/mcp-server)
+**Beta** · MIT · [Source](https://github.com/TomaTV/versuz/tree/main/mcp-server)
 
 </div>
 

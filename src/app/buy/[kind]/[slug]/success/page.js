@@ -50,7 +50,7 @@ export default async function CheckoutSuccessPage({ params, searchParams }) {
         subtitle={
           paid
             ? `Payment of $${amount || "—"} confirmed. The author has been notified and will receive 70% directly via Stripe.`
-            : `Payment status: ${status}. If something looks off, check your email or contact support@versuz.dev.`
+            : `Payment status: ${status}. If something looks off, check your email or contact contact@flukxstudio.fr.`
         }
       />
 
@@ -142,7 +142,7 @@ export default async function CheckoutSuccessPage({ params, searchParams }) {
               title="Refund window: 30 days"
               body={
                 <>
-                  Not happy? Email <a href="mailto:support@versuz.dev" style={{ color: "var(--accent)", borderBottom: "1px solid var(--accent)" }}>support@versuz.dev</a> within 30 days for a full refund. Your purchase shows up under <Link href="/profile" style={{ color: "var(--accent)", borderBottom: "1px solid var(--accent)" }}>/profile</Link>.
+                  Not happy? Email <a href="mailto:contact@flukxstudio.fr" style={{ color: "var(--accent)", borderBottom: "1px solid var(--accent)" }}>contact@flukxstudio.fr</a> within 30 days for a full refund. Your purchase shows up under <Link href="/profile" style={{ color: "var(--accent)", borderBottom: "1px solid var(--accent)" }}>/profile</Link>.
                 </>
               }
             />

@@ -147,7 +147,8 @@ export function SubmitForm({
                   name="price_usd"
                   min="0.50"
                   max="999"
-                  step="0.50"
+                  step="0.01"
+                  inputMode="decimal"
                   value={price}
                   onChange={(e) => setPrice(e.target.value)}
                   style={{

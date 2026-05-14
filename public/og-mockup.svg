@@ -1,0 +1,112 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 630" width="1200" height="630">
+  <!--
+    Versuz · OG image mockup · 1200×630
+    Brand tokens:
+      BONE  #F2EEE6  bg
+      INK   #151411  text
+      INK2  #6B6557  muted
+      EMBER #C2410C  accent
+      PAPER #ECE7DD  panel
+      AZURE #2A5FA8
+      SAGE  #3F7D4F
+      AMBER #D69E2E
+    Fonts fall back to system serif/mono — re-export via Figma with
+    Instrument Serif + JetBrains Mono for production.
+  -->
+
+  <!-- BG -->
+  <rect width="1200" height="630" fill="#F2EEE6"/>
+
+  <!-- Subtle dot pattern -->
+  <defs>
+    <pattern id="dots" x="0" y="0" width="28" height="28" patternUnits="userSpaceOnUse">
+      <circle cx="2" cy="2" r="1" fill="rgba(20,18,14,0.05)"/>
+    </pattern>
+  </defs>
+  <rect width="1200" height="630" fill="url(#dots)"/>
+
+  <!-- Top eyebrow strip -->
+  <line x1="60" y1="78" x2="170" y2="78" stroke="#C2410C" stroke-width="2"/>
+  <text x="186" y="84" font-family="ui-monospace, 'JetBrains Mono', monospace" font-size="13" letter-spacing="3.5" fill="#6B6557" font-weight="500">
+    VERSUZ · OPEN PUBLIC BENCHMARK FOR AI AGENT SKILLS
+  </text>
+
+  <!-- LEFT — Brand block -->
+  <!-- Big wordmark "versuz" with ember S -->
+  <text x="60" y="290" font-family="'Instrument Serif', Georgia, serif" font-style="italic" font-size="180" letter-spacing="-6" fill="#151411">
+    ver<tspan fill="#C2410C">s</tspan>uz
+  </text>
+
+  <!-- Tagline -->
+  <text x="60" y="360" font-family="'Instrument Serif', Georgia, serif" font-style="italic" font-size="36" letter-spacing="-0.5" fill="#151411">
+    Skills go in. <tspan fill="#C2410C">Only one wins.</tspan>
+  </text>
+
+  <!-- Subline -->
+  <text x="60" y="402" font-family="ui-monospace, 'JetBrains Mono', monospace" font-size="13" letter-spacing="2" fill="#6B6557">
+    The open leaderboard for AI agent skills · updated every 4h
+  </text>
+
+  <!-- RIGHT — Mini leaderboard panel -->
+  <!-- Panel BG -->
+  <rect x="700" y="120" width="440" height="380" fill="#ECE7DD"/>
+  <line x1="700" y1="120" x2="700" y2="500" stroke="#C2410C" stroke-width="3"/>
+
+  <!-- Panel title -->
+  <text x="724" y="156" font-family="ui-monospace, 'JetBrains Mono', monospace" font-size="11" letter-spacing="3" fill="#6B6557">
+    LEADERBOARD · CYCLE #184
+  </text>
+  <line x1="724" y1="172" x2="1116" y2="172" stroke="rgba(20,18,14,0.10)" stroke-width="1"/>
+
+  <!-- Row 1 — pdf-extract -->
+  <text x="724" y="216" font-family="ui-monospace, 'JetBrains Mono', monospace" font-size="16" fill="#C2410C" font-weight="600">#01</text>
+  <text x="780" y="218" font-family="'Instrument Serif', Georgia, serif" font-style="italic" font-size="26" fill="#C2410C">pdf-extract</text>
+  <text x="1100" y="218" font-family="'Instrument Serif', Georgia, serif" font-size="26" fill="#C2410C" text-anchor="end" font-weight="500">88</text>
+  <line x1="724" y1="234" x2="1116" y2="234" stroke="rgba(20,18,14,0.06)" stroke-width="1"/>
+
+  <!-- Row 2 — sql-genie -->
+  <text x="724" y="266" font-family="ui-monospace, 'JetBrains Mono', monospace" font-size="14" fill="#6B6557">#02</text>
+  <text x="780" y="268" font-family="'Instrument Serif', Georgia, serif" font-size="22" fill="#151411">sql-genie</text>
+  <text x="1100" y="268" font-family="'Instrument Serif', Georgia, serif" font-size="22" fill="#151411" text-anchor="end">84</text>
+  <line x1="724" y1="284" x2="1116" y2="284" stroke="rgba(20,18,14,0.06)" stroke-width="1"/>
+
+  <!-- Row 3 — web-scry -->
+  <text x="724" y="316" font-family="ui-monospace, 'JetBrains Mono', monospace" font-size="14" fill="#6B6557">#03</text>
+  <text x="780" y="318" font-family="'Instrument Serif', Georgia, serif" font-size="22" fill="#151411">web-scry</text>
+  <text x="1100" y="318" font-family="'Instrument Serif', Georgia, serif" font-size="22" fill="#151411" text-anchor="end">81</text>
+  <line x1="724" y1="334" x2="1116" y2="334" stroke="rgba(20,18,14,0.06)" stroke-width="1"/>
+
+  <!-- Row 4 — csv-surgeon -->
+  <text x="724" y="366" font-family="ui-monospace, 'JetBrains Mono', monospace" font-size="14" fill="#6B6557">#04</text>
+  <text x="780" y="368" font-family="'Instrument Serif', Georgia, serif" font-size="22" fill="#151411">csv-surgeon</text>
+  <text x="1100" y="368" font-family="'Instrument Serif', Georgia, serif" font-size="22" fill="#151411" text-anchor="end">78</text>
+  <line x1="724" y1="384" x2="1116" y2="384" stroke="rgba(20,18,14,0.06)" stroke-width="1"/>
+
+  <!-- Row 5 — graph-walker -->
+  <text x="724" y="416" font-family="ui-monospace, 'JetBrains Mono', monospace" font-size="14" fill="#6B6557">#05</text>
+  <text x="780" y="418" font-family="'Instrument Serif', Georgia, serif" font-size="22" fill="#151411">graph-walker</text>
+  <text x="1100" y="418" font-family="'Instrument Serif', Georgia, serif" font-size="22" fill="#151411" text-anchor="end">76</text>
+
+  <!-- Panel footer -->
+  <text x="724" y="476" font-family="ui-monospace, 'JetBrains Mono', monospace" font-size="10" letter-spacing="2" fill="#6B6557">
+    3 JUDGES · 30 TASKS · BAYESIAN ELO
+  </text>
+
+  <!-- BOTTOM — Judges + URL strip -->
+  <line x1="60" y1="552" x2="1140" y2="552" stroke="rgba(20,18,14,0.12)" stroke-width="1"/>
+
+  <!-- Judge dots -->
+  <rect x="60" y="582" width="12" height="12" fill="#C2410C"/>
+  <text x="80" y="592" font-family="ui-monospace, 'JetBrains Mono', monospace" font-size="13" letter-spacing="1.5" fill="#151411">Haiku 4.5</text>
+
+  <rect x="220" y="582" width="12" height="12" fill="#2A5FA8"/>
+  <text x="240" y="592" font-family="ui-monospace, 'JetBrains Mono', monospace" font-size="13" letter-spacing="1.5" fill="#151411">DeepSeek V4</text>
+
+  <rect x="400" y="582" width="12" height="12" fill="#3F7D4F"/>
+  <text x="420" y="592" font-family="ui-monospace, 'JetBrains Mono', monospace" font-size="13" letter-spacing="1.5" fill="#151411">GPT-5 mini</text>
+
+  <!-- URL right -->
+  <text x="1140" y="592" font-family="ui-monospace, 'JetBrains Mono', monospace" font-size="14" letter-spacing="2" fill="#151411" text-anchor="end" font-weight="500">
+    versuz<tspan fill="#C2410C">.</tspan>dev
+  </text>
+</svg>

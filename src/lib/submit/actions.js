@@ -37,7 +37,15 @@ const MAX_PREMIUM_FILE_BYTES = 10 * 1024 * 1024;
 function parseTierChoice(formData) {
   const tier = String(formData.get("tier") || "free");
   if (tier !== "premium") return { tier: "free", priceUsd: null, useAdmin: false };
-  const raw = Number(formData.get("price_usd"));
+  // Tolerate locale quirks : a French user may type "4,99" or "$4.99 " or
+  // "  4.99  ". Strip currency markers + whitespace, normalize comma→dot,
+  // then parse. Without this, `Number("4,99")` returns NaN and the submit
+  // fails with the generic "between $0.50 and $999" error even though the
+  // user typed a valid price.
+  const rawStr = String(formData.get("price_usd") || "")
+    .replace(/[\s$€£,]/g, (m) => (m === "," ? "." : ""))
+    .trim();
+  const raw = Number(rawStr);
   if (!Number.isFinite(raw) || raw < 0.5 || raw > 999) {
     return { error: "Premium price must be between $0.50 and $999." };
   }

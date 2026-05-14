@@ -1,0 +1,239 @@
+import { PageHero } from "@/components/section";
+import { Reveal, RevealStagger, RevealItem } from "@/components/motion/reveal";
+
+export const metadata = {
+  title: "Changelog — Versuz",
+  description: "What we've shipped on Versuz, newest first. Bugs, features, infrastructure, all in public.",
+};
+
+// Static changelog. Edit this array when you ship. Each entry can have any
+// number of bullets — keep them terse, "what changed + why" not "how".
+// Group buckets : feat (new) · fix (bug) · perf (optimisation) · infra (ops) ·
+// content (data / scrape) · docs.
+
+const ENTRIES = [
+  {
+    date: "2026-05-13",
+    title: "V1.5 — perf overhaul + legal pages",
+    items: [
+      { type: "perf", body: "Marketplace + landing refactor: full-table loads replaced by range pagination + 14 composite indexes. Landing TTFB drops from 43s to <2s." },
+      { type: "perf", body: "ISR caching enabled on landing (60s) and leaderboard (300s). The /stats API stays no-cache for live counts." },
+      { type: "feat", body: "Multi-category: a skill can now belong to multiple categories (mcp-server + document, etc.). 9 new agent-specific buckets." },
+      { type: "feat", body: "License SPDX captured at scrape + license badge on cards. Copyleft items (GPL/AGPL) flagged crimson." },
+      { type: "feat", body: "Near-duplicate detection via normalized description_hash + automated archive script." },
+      { type: "feat", body: "Source view: badge on each card to distinguish GitHub / Sourcegraph / awesome-list / CLI submission." },
+      { type: "feat", body: "Full legal pages: Terms, Privacy (GDPR), Refund, DMCA, Imprint." },
+      { type: "fix", body: "Repo bundle page: crash on skill display (prop name mismatch between RepoSkillCard and its consumer)." },
+      { type: "fix", body: "Inconsistent marketplace count when a client-side filter was active (bundle / tokens-skills). Topics filter moved server-side." },
+      { type: "infra", body: "CLI + MCP server: default URL switched to https://versuz.dev." },
+      { type: "infra", body: "RLS performance fix: `auth.uid()` wrapped in `(select auth.uid())` across 14 policies. Per-query CPU divided by ~N (where N = rows scanned)." },
+      { type: "infra", body: "Content offload prep: SKILL.md / CLAUDE.md bodies are migratable to a public Supabase Storage bucket (frees 200-400 MB on the DB)." },
+      { type: "content", body: "Classifier v3: extended with 9 new buckets (claude-skill, codex, cursor-rule, windsurf-rule, antigravity, mcp-server, continue-rule, roo-code, cline). Multi-cat output." },
+    ],
+  },
+  {
+    date: "2026-05-11",
+    title: "Rubric v4 + live pipeline + auto-queue",
+    items: [
+      { type: "feat", body: "Rubric v4 aligned with FLASK / JudgeBench / HELM. 5 weighted axes (instruction_following 0.35 / correctness 0.30 / completeness 0.20 / usefulness 0.10 / safety 0.05)." },
+      { type: "perf", body: "Prompt caching active on the bench (marker END SYSTEM RUBRIC). Hit rate 30-85% depending on the judge." },
+      { type: "feat", body: "Live drip pipeline: items show up on /marketplace seconds after the scrape, not after the full batch. Bench refresh every 25 outputs." },
+      { type: "feat", body: "Auto-queue submit: new items submitted via web or CLI are judged in the background + prioritized for the next bench cycle." },
+      { type: "feat", body: "Admin /admin/cycles dashboard refresh: Raw/Quality/Benched funnel, judge histograms, ETA on agent + judge wall-time." },
+      { type: "feat", body: "LMArena-style leaderboard table: Model + 5 axis columns + Score, client-side sort, inline search, stats strip." },
+      { type: "content", body: "+5 awesome-lists and +16 GitHub topics scraped (mcp, cursor-rules, windsurf, continue-dev, agentic-coding, etc.)." },
+      { type: "fix", body: "Scraper bugs: fetchRaw fallback on the default_branch GitHub API + upsert tolerant onConflict on slug-collision." },
+    ],
+  },
+  {
+    date: "2026-05",
+    title: "V1 polish — CLI + MCP + Stripe + Premium",
+    items: [
+      { type: "feat", body: "`npx versuz` CLI v0.1.0: 8 commands (list/search/info/install/login/whoami/logout/submit). Interactive mode, ANSI shadow logo, colored tables." },
+      { type: "feat", body: "`@versuz/mcp` MCP server v0.1.0: 5 tools for Claude Code (search, list, get, install, list_skills/list_claude_md)." },
+      { type: "feat", body: "Stripe Connect Express + destination charges: automatic 30/70 split, 6 webhook events handled (purchase, refund, dispute, account update)." },
+      { type: "feat", body: "Premium content gating: private Supabase Storage bucket + signed URLs (7-day TTL) for premium downloads." },
+      { type: "feat", body: "Pay-to-promote (Boost): flat $4.99 / 30 days, stacking up to 365 days max, 6 visible top-of-grid slots." },
+      { type: "feat", body: "Real-time landing KPIs: poll /api/stats every 8s, CountUp animation, ember dot pulse on update." },
+      { type: "feat", body: "Official badge: whitelist of 30 orgs (anthropics, google, openai, vercel, stripe, supabase…). Auto-flagged at scrape." },
+      { type: "feat", body: "Compare picker: checkbox top-left on each MarketplaceCard, floating compare bar, /compare side-by-side." },
+      { type: "feat", body: "3-slide onboarding modal (Browse / Earn / Trust) on first /profile visit, persisted in localStorage." },
+      { type: "feat", body: "Mobile responsive: Section + PageHero clamp() padding, hamburger drawer, mark logo shrinks below 1024px." },
+    ],
+  },
+  {
+    date: "2026-03-04",
+    title: "V0 — public benchmark + marketplace",
+    items: [
+      { type: "feat", body: "First mass scrape: ~93 skills + ~129 CLAUDE.md indexed." },
+      { type: "feat", body: "End-to-end bench engine: agent + 3 judges + retry + rotation + circuit breaker + output dedup." },
+      { type: "feat", body: "All canonical pages: marketplace, leaderboard, methodology, about, skills/[slug], standings, profile, admin." },
+      { type: "feat", body: "Supabase auth + GitHub OAuth, session caching." },
+      { type: "feat", body: "Global Cmd+K search modal, dynamic OG images, sitemap, RSS feeds, JSON API v1." },
+      { type: "feat", body: "Submit form (URL fetch + content paste), claim flow, SVG embed badge." },
+      { type: "feat", body: "5 verification levels + 3 commercial tiers (free / premium / featured)." },
+    ],
+  },
+];
+
+const TYPE_STYLES = {
+  feat: { label: "feat", color: "var(--accent)" },
+  fix: { label: "fix", color: "var(--crimson)" },
+  perf: { label: "perf", color: "var(--azure)" },
+  infra: { label: "infra", color: "var(--amber)" },
+  content: { label: "content", color: "var(--sage)" },
+  docs: { label: "docs", color: "var(--fg-muted)" },
+};
+
+export default function ChangelogPage() {
+  return (
+    <div>
+      <PageHero
+        eyebrow="Changelog"
+        title={
+          <>
+            What&apos;s <em style={{ color: "var(--accent)" }}>new</em>.
+          </>
+        }
+        subtitle="Ship log of Versuz, newest first. Bugs, features, infrastructure, data — all in public."
+      />
+
+      <section
+        style={{
+          maxWidth: 920,
+          margin: "0 auto",
+          padding: "32px clamp(16px, 4.5vw, 64px) clamp(80px, 12vw, 160px)",
+        }}
+      >
+        <RevealStagger
+          stagger={0.08}
+          style={{ display: "flex", flexDirection: "column", gap: 64 }}
+        >
+          {ENTRIES.map((entry) => (
+            <RevealItem key={entry.date}>
+              <article
+                style={{
+                  display: "flex",
+                  flexDirection: "column",
+                  gap: 16,
+                  paddingBottom: 32,
+                  borderBottom: "1px solid var(--rule)",
+                }}
+              >
+                <header style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                  <span
+                    style={{
+                      fontFamily: "var(--font-mono)",
+                      fontSize: 10,
+                      color: "var(--fg-muted)",
+                      letterSpacing: "0.18em",
+                      textTransform: "uppercase",
+                    }}
+                  >
+                    {entry.date}
+                  </span>
+                  <h2
+                    style={{
+                      margin: 0,
+                      fontFamily: "var(--font-display)",
+                      fontSize: "clamp(24px, 3vw, 32px)",
+                      fontWeight: 400,
+                      letterSpacing: "-0.02em",
+                      lineHeight: 1.15,
+                      color: "var(--fg)",
+                    }}
+                  >
+                    {entry.title}
+                  </h2>
+                </header>
+                <ul
+                  style={{
+                    listStyle: "none",
+                    padding: 0,
+                    margin: 0,
+                    display: "flex",
+                    flexDirection: "column",
+                    gap: 12,
+                  }}
+                >
+                  {entry.items.map((item, idx) => {
+                    const style = TYPE_STYLES[item.type] || TYPE_STYLES.feat;
+                    return (
+                      <li
+                        key={idx}
+                        style={{
+                          display: "grid",
+                          gridTemplateColumns: "auto 1fr",
+                          gap: 16,
+                          alignItems: "baseline",
+                        }}
+                      >
+                        <span
+                          style={{
+                            fontFamily: "var(--font-mono)",
+                            fontSize: 9,
+                            letterSpacing: "0.18em",
+                            textTransform: "uppercase",
+                            padding: "2px 6px",
+                            color: style.color,
+                            border: `1px solid ${style.color}`,
+                            background: "color-mix(in oklab, " + style.color + " 5%, transparent)",
+                            minWidth: 52,
+                            textAlign: "center",
+                            display: "inline-block",
+                          }}
+                        >
+                          {style.label}
+                        </span>
+                        <span
+                          style={{
+                            fontSize: 14,
+                            lineHeight: 1.6,
+                            color: "var(--fg)",
+                          }}
+                        >
+                          {item.body}
+                        </span>
+                      </li>
+                    );
+                  })}
+                </ul>
+              </article>
+            </RevealItem>
+          ))}
+        </RevealStagger>
+
+        <Reveal>
+          <div
+            style={{
+              marginTop: 48,
+              padding: "20px 24px",
+              background: "var(--surface)",
+              border: "1px solid var(--rule)",
+              fontFamily: "var(--font-mono)",
+              fontSize: 12,
+              color: "var(--fg-muted)",
+              letterSpacing: "0.04em",
+              lineHeight: 1.6,
+            }}
+          >
+            Want raw commits? See{" "}
+            <a
+              href="https://github.com/TomaTV/versuz/commits/main"
+              target="_blank"
+              rel="noreferrer"
+              className="vz-link"
+            >
+              the GitHub repo ↗
+            </a>{" "}
+            for the full history. RSS feed available at{" "}
+            <a href="/feed" className="vz-link">
+              /feed
+            </a>
+            .
+          </div>
+        </Reveal>
+      </section>
+    </div>
+  );
+}

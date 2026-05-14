@@ -97,7 +97,7 @@ export default async function ClaimPage({ params }) {
           ) : alreadyClaimedByOther ? (
             <Pane tone="danger">
               Another GitHub account claimed this item already. If that was a mistake,
-              email <a href="mailto:hello@versuz.dev" className="vz-link">hello@versuz.dev</a>.
+              email <a href="mailto:contact@flukxstudio.fr" className="vz-link">contact@flukxstudio.fr</a>.
             </Pane>
           ) : !matchesLogin ? (
             <Pane tone="amber">

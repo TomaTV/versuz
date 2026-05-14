@@ -1,11 +1,10 @@
 import { PageHero } from "@/components/section";
 import { MarketplaceGrid } from "@/components/marketplace/marketplace-grid";
 import {
-  getStandings,
-  getRankableCategories,
-  getProjectCategories,
-  getClaudeMds,
+  getPaginatedItems,
+  getCategoryCounts,
   getAllRanksBySlug,
+  getAvailableSources,
 } from "@/lib/queries/rankings";
 import { getCurrentUser } from "@/lib/auth/server";
 import { getOwnedSlugs, getAuthoredSlugs } from "@/lib/purchases/server";
@@ -18,34 +17,27 @@ export const metadata = {
 
 export default async function MarketplacePage({ searchParams }) {
   const params = (await searchParams) || {};
+  const type = params.type === "claude-md" ? "claude-md" : "skills";
+  const kind = type === "claude-md" ? "claude_md" : "skill";
 
   const user = await getCurrentUser();
-  const [skills, claudeMds, skillCategories, projectCategories, owned, authored, ranks] = await Promise.all([
-    getStandings(),
-    getClaudeMds(),
-    getRankableCategories(),
-    getProjectCategories(),
+  const [result, skillCats, claudeCats, owned, authored, ranks, availableSources] = await Promise.all([
+    getPaginatedItems(kind, params),
+    getCategoryCounts("skill"),
+    getCategoryCounts("claude_md"),
     getOwnedSlugs(user?.id),
     getAuthoredSlugs(user?.id),
     getAllRanksBySlug(),
+    getAvailableSources(kind),
   ]);
 
-  // Stamp `rank` onto items when we have a ranking for them (from bench cycles).
-  // This lets MarketplaceCard show a "TOP N" badge for top 3/5/10.
-  function stampRank(item, kind) {
-    const k = kind === "skill" ? "skill" : "claude_md";
-    const hit = ranks[`${k}:${item.slug}`];
+  // Stamp bench ranks onto items
+  function stampRank(item, k) {
+    const key = `${k}:${item.slug}`;
+    const hit = ranks[key];
     return hit ? { ...item, rank: hit.rank, avgScore: hit.avg_score } : item;
   }
-  const skillsRanked = skills.map((s) => stampRank(s, "skill"));
-  const claudeMdsRanked = claudeMds.map((c) => stampRank(c, "claude_md"));
-
-  // Normalise CLAUDE.md rows to share a common shape with skills (tier defaults).
-  const normalisedClaudeMds = claudeMdsRanked.map((c) => ({
-    ...c,
-    tier: c.tier || "free",
-    verificationLevel: c.verificationLevel ?? 0,
-  }));
+  const items = result.items.map((it) => stampRank(it, kind === "skill" ? "skill" : "claude_md"));
 
   return (
     <div>
@@ -62,10 +54,13 @@ export default async function MarketplacePage({ searchParams }) {
 
       <section style={{ maxWidth: 1440, margin: "0 auto", padding: "32px clamp(16px, 4.5vw, 64px) clamp(80px, 12vw, 160px)" }}>
         <MarketplaceGrid
-          skills={skillsRanked}
-          claudeMds={normalisedClaudeMds}
-          skillCategories={skillCategories}
-          projectCategories={projectCategories}
+          items={items}
+          totalCount={result.total}
+          currentPage={result.page}
+          totalPages={result.totalPages}
+          skillCategories={skillCats}
+          projectCategories={claudeCats}
+          availableSources={availableSources}
           ownedSkillSlugs={Array.from(owned.skills)}
           ownedClaudeMdSlugs={Array.from(owned.claudeMds)}
           authoredSkillSlugs={Array.from(authored.skills)}

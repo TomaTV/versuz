@@ -1,11 +1,11 @@
-// API client : default localhost (versuz.dev not deployed yet). Override via :
-//   VERSUZ_API=https://versuz.dev npx versuz ...
-//   ou flag --api=https://versuz.dev
+// API client : default versuz.dev (live since 2026-05). Override via :
+//   VERSUZ_API=http://localhost:3000 npx versuz ...   # for dev
+//   ou flag --api=http://localhost:3000
 let overrideBase = null;
 export function setApiBase(url) {
   if (url) overrideBase = url.replace(/\/$/, "");
 }
-const DEFAULT_BASE = process.env.VERSUZ_API || "http://localhost:3000";
+const DEFAULT_BASE = process.env.VERSUZ_API || "https://versuz.dev";
 
 export function apiBase() {
   return (overrideBase || DEFAULT_BASE).replace(/\/$/, "");

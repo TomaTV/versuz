@@ -145,6 +145,7 @@ async function main() {
         content,
         content_hash: contentHash(content),
         is_official: isOfficialOwner(c.owner),
+        license_spdx: repoMeta.license || null,
         metadata: {
           owner: c.owner,
           repo: c.repo,

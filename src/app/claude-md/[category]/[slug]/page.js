@@ -5,12 +5,13 @@ import { Reveal, RevealStagger, RevealItem } from "@/components/motion/reveal";
 import { TierBadge } from "@/components/marketplace/tier-badge";
 import { VerificationBadge } from "@/components/marketplace/verification-badge";
 import { OfficialBadge } from "@/components/marketplace/official-badge";
-import { getClaudeMdBySlug } from "@/lib/queries/rankings";
+import { getClaudeMdBySlug, getRegistryByRepo } from "@/lib/queries/rankings";
 import { approximateTokens, formatTokenCount } from "@/lib/utils";
 import { EmbedBadgeBlock } from "@/components/embed-badge-block";
 import { CopyContentButton } from "@/components/copy-content-button";
 import { getCurrentUser } from "@/lib/auth/server";
 import { getOwnedSlugs, getAuthoredSlugs } from "@/lib/purchases/server";
+import { RepoBundleCallout } from "@/components/site/repo-bundle-callout";
 
 export async function generateMetadata({ params }) {
   const { slug } = await params;
@@ -53,8 +54,19 @@ export default async function ClaudeMdDetailPage({ params }) {
   const license = meta.license;
   const language = meta.language;
 
+  const [user, repoRegistry] = await Promise.all([
+    getCurrentUser(),
+    meta.owner && meta.repo ? getRegistryByRepo(meta.owner, meta.repo) : Promise.resolve(null),
+  ]);
+  const repoBundleHref =
+    repoRegistry &&
+    repoRegistry.skills.length + repoRegistry.claudeMds.length > 1 &&
+    meta.owner &&
+    meta.repo
+      ? `/repo/${encodeURIComponent(meta.owner)}/${encodeURIComponent(meta.repo)}`
+      : null;
+
   // Premium gating : check ownership / authorship before exposing full content
-  const user = await getCurrentUser();
   const isPremium = detail.tier && detail.tier !== "free";
   let isOwned = false;
   let isAuthored = false;
@@ -66,6 +78,25 @@ export default async function ClaudeMdDetailPage({ params }) {
     isOwned = owned.claudeMds.has(slug);
     isAuthored = authored.claudeMds.has(slug);
   }
+
+  const statCells = [];
+  if (detail.stars != null && Number(detail.stars) > 0) {
+    statCells.push(["Stars", formatCount(detail.stars)]);
+  }
+  if (detail.forks != null && Number(detail.forks) > 0) {
+    statCells.push(["Forks", formatCount(detail.forks)]);
+  }
+  statCells.push(
+    ["Prior", detail.prior != null ? Math.round(detail.prior) : "—"],
+    ["Quality", detail.qualityScore != null ? Number(detail.qualityScore).toFixed(1) : "—"],
+    ["Score", detail.elo != null ? Number(detail.elo).toFixed(1) : "—"],
+    [
+      "Tasks",
+      detail.taskCount > 0
+        ? `${detail.successfulTasks ?? detail.taskCount}/${detail.taskCount}`
+        : "—",
+    ]
+  );
 
   return (
     <div style={{ position: "relative" }}>
@@ -213,6 +244,19 @@ export default async function ClaudeMdDetailPage({ params }) {
           </Reveal>
         )}
 
+        {repoBundleHref && (
+          <Reveal delay={0.3}>
+            <div style={{ marginTop: 36, maxWidth: 920 }}>
+              <RepoBundleCallout
+                href={repoBundleHref}
+                owner={meta.owner}
+                repo={meta.repo}
+                total={repoRegistry.skills.length + repoRegistry.claudeMds.length}
+              />
+            </div>
+          </Reveal>
+        )}
+
         <Reveal delay={0.35}>
           <div style={{ marginTop: 40, display: "flex", gap: 12, flexWrap: "wrap" }}>
             {detail.github && (
@@ -266,31 +310,19 @@ export default async function ClaudeMdDetailPage({ params }) {
           stagger={0.06}
           style={{
             display: "grid",
-            gridTemplateColumns: "repeat(6, 1fr)",
+            gridTemplateColumns: `repeat(${statCells.length}, minmax(0, 1fr))`,
             borderTop: "1px solid var(--rule-strong)",
             borderBottom: "1px solid var(--rule)",
             marginTop: 24,
           }}
           className="vz-stat-grid"
         >
-          {[
-            ["Stars", formatCount(detail.stars)],
-            ["Forks", formatCount(detail.forks)],
-            ["Prior", detail.prior != null ? Math.round(detail.prior) : "—"],
-            ["Quality", detail.qualityScore != null ? Number(detail.qualityScore).toFixed(1) : "—"],
-            ["Score", detail.elo != null ? Number(detail.elo).toFixed(1) : "—"],
-            [
-              "Tasks",
-              detail.taskCount > 0
-                ? `${detail.successfulTasks ?? detail.taskCount}/${detail.taskCount}`
-                : "—",
-            ],
-          ].map(([label, val], i) => (
+          {statCells.map(([label, val], i) => (
             <RevealItem
-              key={label}
+              key={`${label}-${i}`}
               style={{
                 padding: "28px 18px",
-                borderRight: i < 5 ? "1px solid var(--rule)" : "none",
+                borderRight: i < statCells.length - 1 ? "1px solid var(--rule)" : "none",
                 display: "flex",
                 flexDirection: "column",
                 gap: 12,
@@ -335,6 +367,18 @@ export default async function ClaudeMdDetailPage({ params }) {
           subtitle="A CLAUDE.md is just a markdown file at the root of your repo. Copy the content below into your own project's CLAUDE.md to give your agent the same context."
         />
 
+        {repoBundleHref && (
+          <div style={{ marginTop: 28, maxWidth: 920 }}>
+            <RepoBundleCallout
+              compact
+              href={repoBundleHref}
+              owner={meta.owner}
+              repo={meta.repo}
+              total={repoRegistry.skills.length + repoRegistry.claudeMds.length}
+            />
+          </div>
+        )}
+
         <div
           style={{
             marginTop: 40,
@@ -345,9 +389,14 @@ export default async function ClaudeMdDetailPage({ params }) {
           className="vz-install-grid"
         >
           <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+            <CommandBlock
+              label="One-line install · current directory"
+              command={`npx versuz@latest install ${detail.slug} --kind=claude-md`}
+              primary
+            />
             {repoFull && (
               <CommandBlock
-                label="Curl directly into your project"
+                label="Or curl directly"
                 command={`curl -o CLAUDE.md https://raw.githubusercontent.com/${repoFull}/HEAD/CLAUDE.md`}
               />
             )}
@@ -539,14 +588,14 @@ export default async function ClaudeMdDetailPage({ params }) {
   );
 }
 
-function CommandBlock({ label, command }) {
+function CommandBlock({ label, command, primary = false }) {
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
       <span
         style={{
           fontFamily: "var(--font-mono)",
           fontSize: 10,
-          color: "var(--fg-muted)",
+          color: primary ? "var(--accent)" : "var(--fg-muted)",
           letterSpacing: "0.18em",
           textTransform: "uppercase",
         }}
@@ -555,20 +604,22 @@ function CommandBlock({ label, command }) {
       </span>
       <div
         style={{
-          padding: "16px 20px",
-          border: "1px solid var(--rule-strong)",
-          background: "var(--surface)",
+          position: "relative",
+          padding: "18px 56px 18px 20px",
+          border: primary ? "1px solid var(--accent)" : "1px solid var(--rule-strong)",
+          background: primary ? "var(--accent-soft)" : "var(--surface)",
           display: "flex",
           alignItems: "center",
           gap: 12,
           fontFamily: "var(--font-mono)",
-          fontSize: 13,
+          fontSize: primary ? 14 : 13,
           color: "var(--fg)",
           overflowX: "auto",
         }}
       >
         <span style={{ color: "var(--accent)" }}>$</span>
         <code style={{ whiteSpace: "nowrap" }}>{command}</code>
+        <CopyContentButton text={command} label="Copy" />
       </div>
     </div>
   );

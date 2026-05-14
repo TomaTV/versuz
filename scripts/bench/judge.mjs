@@ -62,8 +62,9 @@ function buildRubricPrompt({ subjectKind, subjectName, taskTitle, taskDescriptio
   // calibration AND it stabilizes scoring variance across judges.
   // ─────────────────────────────────────────────────────────────────────────
   const cacheablePrefix = [
-    `You are a HARSH, calibrated evaluator of a ${kind}. Score the agent's task output on 5 axes (0-100 each), then compute the final score.`,
-    "Most outputs are MEDIOCRE — score honestly. Target distribution : mean ~55, stdev ~12. Only ~3% deserve 85+. NEVER give 100 unless the output beats what a senior engineer would write.",
+    `You are a calibrated evaluator of a ${kind}. Score the agent's task output on 5 axes (0-100 each), then compute the final score.`,
+    "Most outputs are MEDIOCRE — score honestly. Target distribution : mean ~50, stdev ~15. Only ~5% deserve 85+. NEVER give 100 unless the output beats what a senior engineer would write.",
+    "CRITICAL for DeepSeek models: Do NOT emit reasoning tokens. Output the JSON directly without any thinking, chain-of-thought, or internal monologue.",
     "",
     "═══ LENGTH-BIAS NEUTRALITY ═══",
     "DO NOT reward long outputs for being long. A concise output that hits all 5 axes is BETTER than a verbose one. Length-padding, repetition, and unnecessary prose REDUCE usefulness — penalize them. Conversely, do not penalize short outputs that are complete. Judge content, not word count.",

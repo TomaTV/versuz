@@ -218,7 +218,7 @@ A few things that might be interesting :
 
 Free, MIT, open in public.
 
-Code : https://github.com/versuzdev/versuz
+Code : https://github.com/TomaTV/versuz
 Methodology : https://versuz.dev/methodology
 
 Would love feedback on the judging approach (5-axis quality rubric + 3-LLM

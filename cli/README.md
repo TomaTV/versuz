@@ -15,7 +15,7 @@ Browse, search, inspect, install — and publish your own — Claude skills + CL
   ╚═══╝  ╚══════╝╚═╝  ╚═╝╚══════╝ ╚═════╝ ╚══════╝
 ```
 
-**Beta** · MIT · [Source](https://github.com/versuzdev/versuz/tree/main/cli)
+**Beta** · MIT · [Source](https://github.com/TomaTV/versuz/tree/main/cli)
 
 </div>
 

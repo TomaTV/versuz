@@ -334,12 +334,15 @@ async function main() {
 
     if (budgetExhausted) {
       await setCycleStatus(sb, cycle.id, "partial", {
+        actual_cost_usd: Math.round(totalCostUsd * 10000) / 10000,
         metadata: { reason: "budget_exhausted", spent_usd: totalCostUsd, budget_usd: budgetUsd },
       });
       console.log(`[bench] cycle #${cycle.id} marked PARTIAL — re-run with higher BENCH_BUDGET_USD to continue`);
     } else {
-      await setCycleStatus(sb, cycle.id, "completed");
-      console.log(`[bench] cycle #${cycle.id} complete`);
+      await setCycleStatus(sb, cycle.id, "completed", {
+        actual_cost_usd: Math.round(totalCostUsd * 10000) / 10000,
+      });
+      console.log(`[bench] cycle #${cycle.id} complete · cost $${totalCostUsd.toFixed(4)}`);
     }
   } catch (err) {
     await setCycleStatus(sb, cycle.id, "failed", { metadata: { error: err.message } });
