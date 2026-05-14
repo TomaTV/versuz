@@ -15,6 +15,8 @@ export const metadata = {
     "Browse the full Versuz registry: free SKILL.md and CLAUDE.md verified, plus premium expert items. Filter by tier, category, verification level. Instant client-side filtering.",
 };
 
+export const revalidate = 60;
+
 export default async function MarketplacePage({ searchParams }) {
   const params = (await searchParams) || {};
   const type = params.type === "claude-md" ? "claude-md" : "skills";
