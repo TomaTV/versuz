@@ -1,4 +1,5 @@
 import { Geist, Instrument_Serif, JetBrains_Mono } from "next/font/google";
+import { Analytics } from "@vercel/analytics/next";
 import "./globals.css";
 import { VzNav } from "@/components/site/vz-nav";
 import { VzTicker } from "@/components/site/vz-ticker";
@@ -105,9 +106,11 @@ const JSON_LD = {
       description:
         "The open public benchmark for AI agent skills. Versuz scrapes, judges, and ranks SKILL.md and CLAUDE.md files used by Claude Code, Cursor, Codex, and modern AI coding agents.",
       sameAs: [
-        "https://github.com/versuzdev",
+        "https://github.com/TomaTV/versuz",
         "https://x.com/versuzdev",
-        "https://www.linkedin.com/company/versuz",
+        "https://www.linkedin.com/company/versuz-dev",
+        "https://www.instagram.com/versuz.dev/",
+        "https://www.tiktok.com/@versuz.dev",
       ],
     },
     {
@@ -149,6 +152,7 @@ export default function RootLayout({ children }) {
         <main className="flex-1 vz-fadein">{children}</main>
         <VzFooter />
         <CmdKSearch />
+        <Analytics />
       </body>
     </html>
   );

@@ -471,6 +471,12 @@ a.vz-nav-link-minimal[aria-current="page"]::after,
   color: var(--accent) !important;
 }
 
+.vz-social-icon:hover {
+  border-color: var(--accent) !important;
+  color: var(--accent) !important;
+  background: var(--accent-soft);
+}
+
 /* duplicate .vz-skill-row block removed — hover is defined once above. */
 
 .vz-latest-card {
