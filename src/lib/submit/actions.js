@@ -23,6 +23,8 @@ import { revalidatePath } from "next/cache";
 import { parseSkillMd } from "../../../scripts/scrape/parse.mjs";
 import { classifySkill } from "../../../scripts/scrape/classify.mjs";
 import { uploadPremiumFile } from "@/lib/premium/storage";
+import { sendEmail } from "@/lib/resend";
+import { submitConfirmationEmail } from "@/lib/emails/transactional";
 
 // Cap premium uploads at 10 MB. Server action body limit is configurable
 // (next.config.mjs `experimental.serverActions.bodySizeLimit`) but we don't
@@ -195,6 +197,22 @@ async function insertSkillRow(sb, user, { content, owner, repo, path, urlOwnerLo
       console.warn(`[submit] inline quality judge failed: ${e.message}`);
     }
   });
+
+  // Confirmation email — best-effort, non-blocking
+  if (user?.email) {
+    after(async () => {
+      try {
+        const { subject, html } = submitConfirmationEmail({
+          kind: "skill",
+          slug: judgedSlug,
+          name: parsed.name,
+        });
+        await sendEmail({ to: user.email, subject, html });
+      } catch (e) {
+        console.warn(`[submit] confirmation email failed: ${e.message}`);
+      }
+    });
+  }
 
   // Premium tier with an uploaded payload → push it into the private bucket
   // and stamp `private_storage_path` onto the row. Failure here is fatal:
@@ -418,6 +436,22 @@ async function insertClaudeMdRow(sb, user, { content, owner, repo, urlOwnerLogin
       console.warn(`[submit] inline quality judge failed: ${e.message}`);
     }
   });
+
+  // Confirmation email — best-effort, non-blocking
+  if (user?.email) {
+    after(async () => {
+      try {
+        const { subject, html } = submitConfirmationEmail({
+          kind: "claude_md",
+          slug: judgedSlug,
+          name: judgedSlug,
+        });
+        await sendEmail({ to: user.email, subject, html });
+      } catch (e) {
+        console.warn(`[submit] confirmation email failed: ${e.message}`);
+      }
+    });
+  }
 
   return {
     ok: true,

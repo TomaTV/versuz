@@ -194,7 +194,10 @@ export function VzFooter() {
                 maxWidth: 360,
               }}
             >
-              {/* Honeypot — hidden from real users, bots fill it */}
+              {/* Honeypot — hidden from real users, bots fill it.
+                  Clip-path keeps the input in the layout but invisible/unfocusable,
+                  avoiding the left:-9999px trick that causes iOS Safari to
+                  scroll to footer on page load. */}
               <input
                 type="text"
                 name="website"
@@ -203,10 +206,14 @@ export function VzFooter() {
                 aria-hidden="true"
                 style={{
                   position: "absolute",
-                  left: "-9999px",
                   width: 1,
                   height: 1,
-                  opacity: 0,
+                  padding: 0,
+                  margin: -1,
+                  overflow: "hidden",
+                  clipPath: "inset(50%)",
+                  whiteSpace: "nowrap",
+                  border: 0,
                   pointerEvents: "none",
                 }}
               />
@@ -268,18 +275,28 @@ export function VzFooter() {
           }}
         >
           <span>© {year} Versuz · built in public · MIT</span>
-          <a
-            href="https://flukxstudio.fr"
-            target="_blank"
-            rel="noreferrer"
-            className="vz-footer-flukx"
-            style={{
-              color: "inherit",
-              textDecoration: "none",
-            }}
-          >
-            FlukX Studio
-          </a>
+          <span style={{ display: "inline-flex", gap: 12, alignItems: "center" }}>
+            Built by{" "}
+            <a
+              href="https://github.com/TomaTV"
+              target="_blank"
+              rel="noreferrer"
+              className="vz-footer-flukx"
+              style={{ color: "inherit", textDecoration: "none" }}
+            >
+              @TomaTV
+            </a>
+            <span style={{ opacity: 0.5 }}>·</span>
+            <a
+              href="https://flukxstudio.fr"
+              target="_blank"
+              rel="noreferrer"
+              className="vz-footer-flukx"
+              style={{ color: "inherit", textDecoration: "none" }}
+            >
+              FlukX Studio
+            </a>
+          </span>
         </div>
       </div>
     </footer>

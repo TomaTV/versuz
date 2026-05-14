@@ -22,6 +22,7 @@ import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { signPremiumDownloadUrl } from "@/lib/premium/storage";
 import { PROMOTE_MAX_ACTIVE_DAYS } from "@/lib/stripe/promote-config";
 import { sendEmail, isResendConfigured } from "@/lib/resend";
+import { brandedEmail } from "@/lib/emails/template";
 import { siteUrl } from "@/lib/stripe/server";
 
 export const runtime = "nodejs";
@@ -228,39 +229,29 @@ async function sendPurchaseReceiptEmail({ to, subjectKind, subjectId, downloadUr
 
   const downloadBlock = downloadUrl
     ? `
-      <a href="${downloadUrl}" style="display:inline-block;padding:14px 22px;background:#3f7d4f;color:#f2eee6;font-family:Georgia,serif;font-size:14px;text-decoration:none;margin-top:16px">
-        Download your premium payload ↓
-      </a>
-      <p style="font-family:'SF Mono',monospace;font-size:11px;color:#6b6557;margin:12px 0 0">
-        Link valid 7 days. Refresh from your <a href="${detailUrl}" style="color:#c2410c">item page</a> if it expires.
+      <p style="margin:16px 0 8px"><strong>Your download is ready</strong> (link valid 7 days):</p>
+      <p style="margin:0 0 12px">
+        <a href="${downloadUrl}" style="word-break:break-all;color:#c2410c">${downloadUrl.slice(0, 80)}${downloadUrl.length > 80 ? "…" : ""}</a>
       </p>
+      <p style="margin:0;color:#6b6557;font-size:14px">Refresh the link from your <a href="${detailUrl}" style="color:#c2410c">item page</a> if it expires.</p>
       `
     : `
-      <p style="font-family:Georgia,serif;font-size:15px;color:#14120e;margin:16px 0 0;line-height:1.6">
-        This item is badge-only — no exclusive download. The author is
-        notified you bought it. Thanks for the support.
-      </p>
+      <p style="margin:0;color:#6b6557;font-size:14px">This item is badge-only — no exclusive download. The author has been notified of your support.</p>
       `;
 
-  const html = `
-    <div style="font-family:Georgia,serif;font-size:16px;line-height:1.6;color:#14120e;max-width:560px;margin:0 auto;padding:32px 24px">
-      <p style="font-family:'SF Mono',monospace;font-size:11px;letter-spacing:0.18em;color:#6b6557;text-transform:uppercase;margin:0 0 24px">VERSUZ · receipt</p>
-      <h1 style="font-family:Georgia,serif;font-size:36px;font-weight:400;letter-spacing:-0.02em;line-height:1.05;margin:0 0 16px">
-        Thanks for <em style="color:#c2410c">${itemName}</em>.
-      </h1>
-      <p style="margin:0 0 8px">
-        Payment of <strong>$${amountUsd.toFixed(2)}</strong> confirmed. Stripe sent 70% to the author and 30% to Versuz.
-      </p>
-      <p style="margin:0 0 24px;font-family:'SF Mono',monospace;font-size:11px;color:#6b6557">
-        Session · ${sessionId.slice(0, 32)}…
-      </p>
-      ${downloadBlock}
-      <p style="margin-top:32px;color:#6b6557;font-size:13px">
-        Need help? Reply to this email — we read every message.<br>
-        — the Versuz team
-      </p>
-    </div>
+  const body = `
+    <p style="margin:0 0 16px">Payment of <strong>$${amountUsd.toFixed(2)}</strong> confirmed.</p>
+    <p style="margin:0 0 16px;color:#6b6557;font-size:14px">Stripe sent 70% to the author and 30% to Versuz. A separate receipt has been emailed by Stripe.</p>
+    ${downloadBlock}
+    <p style="margin:24px 0 0;color:#6b6557;font-size:13px">Session · ${sessionId.slice(0, 32)}…</p>
   `;
+
+  const html = brandedEmail({
+    title: `Thanks for <em style="color:#c2410c;font-style:italic">${itemName}</em>.`,
+    preheader: `Receipt + ${downloadUrl ? "download link" : "confirmation"}`,
+    body,
+    cta: { label: "View the listing", href: detailUrl },
+  });
 
   await sendEmail({
     to,

@@ -9,6 +9,7 @@ import { HeroHeadline } from "@/components/motion/hero-headline";
 import { HeroShapes } from "@/components/hero-shapes";
 import { CliDemo } from "@/components/cli-demo";
 import { LiveStatsGrid } from "@/components/live-stats-grid";
+import { HeroSearch } from "@/components/hero-search";
 import { Section, SectionHeader } from "@/components/section";
 import { JUDGES, judgesLabel } from "@/lib/judges";
 import {
@@ -148,69 +149,44 @@ export default async function LandingPage() {
                 <div
                   style={{
                     display: "flex",
-                    alignItems: "stretch",
-                    gap: 12,
-                    flexWrap: "wrap",
+                    flexDirection: "column",
+                    gap: 16,
                   }}
                 >
-                  <Link
-                    href="/marketplace"
-                    className="vz-btn-primary"
+                  <HeroSearch totalItems={counts.skills + counts.claudeMds} />
+                  <div
                     style={{
-                      background: "var(--accent)",
-                      color: "var(--bone)",
-                      padding: "16px 26px",
-                      textDecoration: "none",
-                      fontFamily: "var(--font-sans)",
-                      fontSize: 14,
-                      fontWeight: 600,
-                      display: "inline-flex",
-                      alignItems: "center",
-                      gap: 10,
-                      letterSpacing: "-0.005em",
-                      boxShadow: "inset 0 -2px 0 color-mix(in oklab, black 18%, transparent)",
-                      transition: "transform .18s ease, box-shadow .18s ease",
-                    }}
-                  >
-                    Browse {counts.skills + counts.claudeMds > 0 ? `${(counts.skills + counts.claudeMds).toLocaleString("en-US")} ` : ""}items
-                    <span style={{ fontFamily: "var(--font-mono)" }}>→</span>
-                  </Link>
-                  <Link
-                    href="#how"
-                    className="vz-btn-ghost-outline"
-                    style={{
-                      padding: "16px 24px",
-                      textDecoration: "none",
-                      fontFamily: "var(--font-sans)",
-                      fontSize: 14,
-                      fontWeight: 500,
-                      color: "var(--fg)",
-                      border: "1px solid var(--rule-strong)",
-                      display: "inline-flex",
-                      alignItems: "center",
-                      gap: 10,
-                    }}
-                  >
-                    How it works
-                  </Link>
-                  <Link
-                    href="/about#tools"
-                    className="vz-btn-ghost-outline"
-                    style={{
-                      padding: "16px 24px",
-                      textDecoration: "none",
+                      display: "flex",
+                      gap: 18,
+                      flexWrap: "wrap",
                       fontFamily: "var(--font-mono)",
                       fontSize: 12,
-                      fontWeight: 500,
+                      letterSpacing: "0.04em",
                       color: "var(--fg-muted)",
-                      letterSpacing: "0.08em",
-                      display: "inline-flex",
                       alignItems: "center",
-                      gap: 10,
                     }}
                   >
-                    $ npx versuz
-                  </Link>
+                    <Link
+                      href="/marketplace"
+                      style={{ color: "var(--fg)", textDecoration: "underline", textUnderlineOffset: 4 }}
+                    >
+                      Browse all →
+                    </Link>
+                    <span style={{ opacity: 0.5 }}>·</span>
+                    <Link
+                      href="/methodology"
+                      style={{ color: "var(--fg)", textDecoration: "underline", textUnderlineOffset: 4 }}
+                    >
+                      How rankings work
+                    </Link>
+                    <span style={{ opacity: 0.5 }}>·</span>
+                    <Link
+                      href="#how"
+                      style={{ color: "var(--fg)", textDecoration: "underline", textUnderlineOffset: 4 }}
+                    >
+                      What is Versuz
+                    </Link>
+                  </div>
                 </div>
               </Reveal>
             </div>
@@ -604,25 +580,7 @@ export default async function LandingPage() {
             </RevealStagger>
           </Section>
         </ScrollReveal>
-      ) : (
-        <ScrollReveal direction="up" distance={32} threshold={0.2}>
-          <Section eyebrow="§ 05 — Live ranking" markerColor="var(--sage)">
-            <SectionHeader
-              title={
-                <>
-                  Rankings <em style={{ color: "var(--accent)" }}>coming soon</em>.
-                </>
-              }
-              subtitle={
-                <>
-                  The bench engine has not produced rankings yet. In the meantime, browse the full
-                  registry on <Link href="/marketplace" className="vz-link">/marketplace</Link>.
-                </>
-              }
-            />
-          </Section>
-        </ScrollReveal>
-      );
+      ) : null;
       })()}
 
       {/* ============================================================== */}
@@ -637,7 +595,7 @@ export default async function LandingPage() {
                   Browse by <em style={{ color: "var(--accent)" }}>topic</em>.
                 </>
               }
-              subtitle="GitHub repo topics aggregés sur tout le registry. Click pour pré-filtrer le marketplace."
+              subtitle="GitHub repo topics aggregated across the registry. Click any topic to pre-filter the marketplace."
             />
             {skillTopics.length > 0 && (
               <div style={{ marginTop: 40 }}>

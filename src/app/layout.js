@@ -5,6 +5,7 @@ import { VzNav } from "@/components/site/vz-nav";
 import { VzTicker } from "@/components/site/vz-ticker";
 import { VzFooter } from "@/components/site/vz-footer";
 import { CmdKSearch } from "@/components/site/cmd-k-search";
+import { SubscribeToast } from "@/components/site/subscribe-toast";
 
 const geist = Geist({
   subsets: ["latin"],
@@ -138,20 +139,28 @@ export default function RootLayout({ children }) {
     <html
       lang="en"
       className={`${geist.variable} ${instrumentSerif.variable} ${jetbrains.variable}`}
+      style={{ background: "#f2eee6", colorScheme: "light" }}
       suppressHydrationWarning
     >
       <head>
+        <meta name="theme-color" content="#f2eee6" />
+        <meta name="color-scheme" content="light" />
         <script
           type="application/ld+json"
           dangerouslySetInnerHTML={{ __html: JSON.stringify(JSON_LD) }}
         />
       </head>
-      <body className="min-h-screen flex flex-col" suppressHydrationWarning>
+      <body
+        className="min-h-screen flex flex-col"
+        style={{ background: "#f2eee6", color: "#14120e" }}
+        suppressHydrationWarning
+      >
         <VzNav />
         <VzTicker />
         <main className="flex-1 vz-fadein">{children}</main>
         <VzFooter />
         <CmdKSearch />
+        <SubscribeToast />
         <Analytics />
       </body>
     </html>

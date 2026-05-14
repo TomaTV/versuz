@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { sendEmail } from "@/lib/resend";
+import { welcomeSubscribeEmail } from "@/lib/emails/transactional";
 
 export const dynamic = "force-dynamic";
 
@@ -51,21 +52,8 @@ export async function POST(request) {
   // Best-effort welcome email. Failure is logged but doesn't break signup —
   // the row is in DB and we can resend later.
   try {
-    const r = await sendEmail({
-      to: email,
-      subject: "Welcome to Versuz",
-      html: `
-        <div style="font-family:Georgia,serif;font-size:16px;line-height:1.6;color:#14120e;max-width:560px;margin:0 auto;padding:32px 24px">
-          <p style="font-family:'SF Mono',monospace;font-size:11px;letter-spacing:0.18em;color:#6b6557;text-transform:uppercase;margin:0 0 24px">VERSUZ</p>
-          <h1 style="font-family:Georgia,serif;font-size:36px;font-weight:400;letter-spacing:-0.02em;line-height:1.05;margin:0 0 16px">
-            You're <em style="color:#c2410c">in</em>.
-          </h1>
-          <p>Thanks for subscribing. We send a short digest each Friday — top-ranked SKILL.md and CLAUDE.md of the week, plus what shipped on Versuz.</p>
-          <p>If this was a mistake, just hit reply and we'll remove you.</p>
-          <p style="margin-top:32px;color:#6b6557;font-size:13px">— the Versuz team</p>
-        </div>
-      `,
-    });
+    const { subject, html } = welcomeSubscribeEmail();
+    const r = await sendEmail({ to: email, subject, html });
     if (!r.ok && !r.skipped) {
       console.warn(`[subscribe] welcome email failed: ${r.error}`);
     }

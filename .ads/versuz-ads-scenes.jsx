@@ -91,206 +91,229 @@ function FrameCorners({ inset = 24, color = INK, size = 22, thick = 2, opacity =
 function SceneBrandAnthem() {
   const time = useTime();
 
-  // Mark assembly: 0 → 1.8s
-  const markProg = clamp(time / 1.8, 0, 1);
+  // Top stripe draws 0 → 1s
+  const stripeP = Easing.easeOutCubic(clamp(time / 1.0, 0, 1));
 
-  // Mark moves from center to corner: 2.6 → 3.6s
-  const moveT = clamp((time - 2.6) / 1.0, 0, 1);
-  const moveEase = Easing.easeInOutCubic(moveT);
-  const markCenterX = 1920 / 2;
-  const markCenterY = 1080 / 2 - 60;
-  const markCornerX = 100;
-  const markCornerY = 80;
-  const markCenterSize = 280;
-  const markCornerSize = 100;
-  const markX = markCenterX + (markCornerX - markCenterX) * moveEase;
-  const markY = markCenterY + (markCornerY - markCenterY) * moveEase;
-  const markSize = markCenterSize + (markCornerSize - markCenterSize) * moveEase;
+  // Mark + wordmark eyebrow 0.4 → 1.8s
+  const eyebrowP = Easing.easeOutCubic(clamp((time - 0.4) / 1.4, 0, 1));
 
-  // Wordmark under mark: appears 1.4 → 2.4s, leaves at 2.6
-  const wmProg = clamp((time - 1.4) / 0.9, 0, 1);
-  const wmFade = clamp(1 - (time - 2.6) / 0.5, 0, 1);
+  // Headline 1 "Skills go in." 1.8 → 3.4s
+  const head1 = useWordReveal(['Skills', 'go', 'in.'], 1.8, 0.16, Easing.easeOutCubic);
 
-  // Headline 1: "Skills go in." 3.6 → 4.8s
-  const head1 = useWordReveal(['Skills', 'go', 'in.'], 3.6, 0.14, Easing.easeOutCubic);
+  // Headline 2 italic "Only one wins." 3.6 → 5.2s
+  const head2 = useWordReveal(['Only', 'one', 'wins.'], 3.6, 0.18, Easing.easeOutCubic);
 
-  // Headline 2 italic: "Only one wins." 5.0 → 6.4s
-  const head2 = useWordReveal(['Only', 'one', 'wins.'], 5.0, 0.16, Easing.easeOutCubic);
+  // Description fade-in 5.4 → 6.4s
+  const descP = Easing.easeOutCubic(clamp((time - 5.4) / 1.0, 0, 1));
 
-  // Underline draw: 6.4 → 7.0s
-  const underline = clamp((time - 6.4) / 0.6, 0, 1);
+  // Footer fade-in 6.6 → 7.6s
+  const footP = Easing.easeOutCubic(clamp((time - 6.6) / 1.0, 0, 1));
 
-  // Bottom strip with URL + sub: 7.2 → 8.2s
-  const bottomP = clamp((time - 7.2) / 0.8, 0, 1);
+  // Subtle ember pulse on "one" 7.8 → 9.0s
+  const pulseT = clamp((time - 7.8) / 1.2, 0, 1);
+  const pulse = pulseT > 0 ? 1 + 0.04 * Math.sin(pulseT * Math.PI) : 1;
+
+  // Content fade-out before outro : 8.4 → 9.0s
+  const contentFade = 1 - Easing.easeInOutCubic(clamp((time - 8.4) / 0.6, 0, 1));
+
+  // Outro : bone overlay covers 8.4 → 9.0, mark assembles 9.0 → 10.2, wordmark 10.0 → 10.8
+  const outroP = clamp((time - 8.4) / 0.6, 0, 1);
+  const outroMark = Easing.easeOutCubic(clamp((time - 9.0) / 1.2, 0, 1));
+  const outroWord = Easing.easeOutCubic(clamp((time - 10.0) / 0.8, 0, 1));
 
   return (
     <div style={{ position: 'absolute', inset: 0, background: BONE, overflow: 'hidden' }}>
-      <GridBG />
+      {/* Top 4-color stripe (brand) — matches OG image */}
+      <div style={{
+        position: 'absolute', top: 0, left: 0, right: 0, height: 10,
+        display: 'flex',
+        transform: `scaleX(${stripeP})`, transformOrigin: 'left',
+      }}>
+        <div style={{ flex: 1.4, background: EMBER }}/>
+        <div style={{ flex: 1, background: '#e5a644' }}/>
+        <div style={{ flex: 1, background: '#2a5fa8' }}/>
+        <div style={{ flex: 1, background: '#3f7d4f' }}/>
+      </div>
 
-      {/* Decorative ember discs — drift in slowly */}
-      <Sprite start={4} end={10}>
-        {({ progress }) => (
-          <div aria-hidden style={{
-            position: 'absolute',
-            right: -120, top: -120,
-            width: 320, height: 320,
-            borderRadius: '50%',
-            background: EMBER,
-            opacity: 0.95 * Easing.easeOutCubic(clamp(progress * 3, 0, 1)),
-            transform: `scale(${0.8 + 0.2 * Easing.easeOutCubic(clamp(progress * 3, 0, 1))})`,
-          }}/>
-        )}
-      </Sprite>
+      {/* Eyebrow row : VERSUZ + THE OPEN PUBLIC BENCHMARK */}
+      <div style={{
+        position: 'absolute', top: 64, left: 100, right: 100,
+        display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+        fontFamily: 'JetBrains Mono, monospace',
+        fontSize: 22, letterSpacing: '0.2em', textTransform: 'uppercase',
+        color: INK2,
+        opacity: eyebrowP,
+        transform: `translateY(${(1 - eyebrowP) * 8}px)`,
+      }}>
+        <span style={{ color: INK, fontWeight: 500, letterSpacing: '0.2em' }}>VERSUZ</span>
+        <span>THE OPEN PUBLIC BENCHMARK</span>
+      </div>
 
-      {/* Ink wedge bottom-left */}
-      <Sprite start={4.2} end={10}>
-        {({ progress }) => (
-          <svg aria-hidden width="220" height="220" viewBox="0 0 220 220" style={{
-            position: 'absolute', left: 0, bottom: 0,
-            opacity: 0.92 * Easing.easeOutCubic(clamp(progress * 3, 0, 1)),
-            transform: `translateY(${(1 - Easing.easeOutCubic(clamp(progress * 3, 0, 1))) * 40}px)`,
-          }}>
-            <path d="M 0 220 L 0 80 L 220 220 Z" fill={INK}/>
-          </svg>
-        )}
-      </Sprite>
-
-      {/* Top hairline + mono caption */}
-      <Sprite start={0.4} end={10}>
-        {({ progress }) => {
-          const p = Easing.easeOutCubic(clamp(progress * 5, 0, 1));
+      {/* Headline 1 : "Skills go in." */}
+      <div style={{
+        position: 'absolute',
+        left: 100, top: 240,
+        fontFamily: 'Instrument Serif, serif',
+        fontSize: 200, lineHeight: 1, letterSpacing: '-0.02em',
+        fontWeight: 400, color: INK,
+        height: 200, display: 'flex', alignItems: 'center',
+      }}>
+        {['Skills', ' ', 'go', ' ', 'in.'].map((w, i) => {
+          const idx = i === 0 ? 0 : i === 2 ? 1 : i === 4 ? 2 : -1;
+          if (idx < 0) return <span key={i}>{w}</span>;
+          const r = head1[idx];
           return (
-            <>
-              <div style={{
-                position: 'absolute', top: 60, left: 60, right: 60, height: 1,
-                background: 'rgba(20,18,14,0.18)',
-                transform: `scaleX(${p})`, transformOrigin: 'left',
-              }}/>
-              <MonoCaption text="Versuz · Cycle #184 · Open arena" x={60} y={30} />
-              <div style={{
-                position: 'absolute', top: 30, right: 60,
-                fontFamily: 'JetBrains Mono, monospace', fontSize: 12,
-                color: INK2, letterSpacing: '0.16em', textTransform: 'uppercase',
-                opacity: p,
-              }}>14:32 UTC · Live</div>
-            </>
+            <span key={i} style={{
+              display: 'inline-block',
+              opacity: r.opacity,
+              transform: `translateY(${r.y}px)`,
+              willChange: 'transform, opacity',
+            }}>{w}</span>
           );
-        }}
-      </Sprite>
-
-      {/* The Mark — center then corner */}
-      <div style={{
-        position: 'absolute',
-        left: markX, top: markY,
-        transform: `translate(-50%, -50%)`,
-        willChange: 'transform',
-      }}>
-        <VersuzMark size={markSize} progress={markProg}/>
+        })}
       </div>
 
-      {/* Wordmark beneath while centered */}
+      {/* Headline 2 : italic "Only [one] wins." — only "one" ember */}
       <div style={{
         position: 'absolute',
-        left: markCenterX, top: markCenterY + 140,
-        transform: `translate(-50%, 0)`,
-        opacity: wmProg * wmFade,
+        left: 100, top: 470,
+        fontFamily: 'Instrument Serif, serif',
+        fontStyle: 'italic',
+        fontSize: 200, lineHeight: 1, letterSpacing: '-0.02em',
+        fontWeight: 400,
+        height: 200, display: 'flex', alignItems: 'center',
       }}>
-        <div style={{ height: 80 }}>
-          <VersuzWordmarkSVG height={80} variant="dark" progress={wmProg}/>
-        </div>
+        {[
+          { w: 'Only', color: INK },
+          { w: ' ', color: INK },
+          { w: 'one', color: EMBER, pulse: true },
+          { w: ' ', color: INK },
+          { w: 'wins.', color: INK },
+        ].map((part, i) => {
+          const idx = i === 0 ? 0 : i === 2 ? 1 : i === 4 ? 2 : -1;
+          if (idx < 0) return <span key={i} style={{ color: part.color }}>{part.w}</span>;
+          const r = head2[idx];
+          return (
+            <span key={i} style={{
+              display: 'inline-block',
+              color: part.color,
+              opacity: r.opacity,
+              transform: `translateY(${r.y}px) ${part.pulse ? `scale(${pulse})` : ''}`,
+              transformOrigin: 'center',
+              willChange: 'transform, opacity',
+            }}>{part.w}</span>
+          );
+        })}
       </div>
 
-      {/* Headline 1: "Skills go in." */}
-      <Sprite start={3.4} end={10}>
-        <div style={{
-          position: 'absolute',
-          left: 100, top: 320,
-          fontFamily: 'Instrument Serif, serif',
-          fontSize: 168, lineHeight: 0.95, letterSpacing: '-0.04em',
-          fontWeight: 400, color: INK, maxWidth: 1500,
-        }}>
-          {['Skills', ' ', 'go', ' ', 'in.'].map((w, i) => {
-            const wi = ['Skills', null, 'go', null, 'in.'].filter(Boolean);
-            const idx = i === 0 ? 0 : i === 2 ? 1 : i === 4 ? 2 : -1;
-            if (idx < 0) return <span key={i}>{w}</span>;
-            const r = head1[idx];
-            return (
-              <span key={i} style={{
-                display: 'inline-block',
-                opacity: r.opacity,
-                transform: `translateY(${r.y}px)`,
-                willChange: 'transform, opacity',
-              }}>{w}</span>
-            );
-          })}
-        </div>
-      </Sprite>
-
-      {/* Headline 2: italic ember "Only one wins." */}
-      <Sprite start={5.0} end={10}>
-        <div style={{
-          position: 'absolute',
-          left: 100, top: 520,
-          fontFamily: 'Instrument Serif, serif',
-          fontStyle: 'italic',
-          fontSize: 168, lineHeight: 0.95, letterSpacing: '-0.04em',
-          fontWeight: 400, color: EMBER,
-        }}>
-          {['Only', ' ', 'one', ' ', 'wins.'].map((w, i) => {
-            const idx = i === 0 ? 0 : i === 2 ? 1 : i === 4 ? 2 : -1;
-            if (idx < 0) return <span key={i}>{w}</span>;
-            const r = head2[idx];
-            return (
-              <span key={i} style={{
-                display: 'inline-block',
-                opacity: r.opacity,
-                transform: `translateY(${r.y}px)`,
-              }}>{w}</span>
-            );
-          })}
-        </div>
-      </Sprite>
-
-      {/* Underline — ember bar drawn beneath "wins." */}
+      {/* Description */}
       <div style={{
         position: 'absolute',
-        left: 100, top: 700,
-        width: 920 * underline,
-        height: 12,
-        background: EMBER,
-        transformOrigin: 'left',
+        left: 100, right: 100, top: 730,
+        fontFamily: 'Instrument Serif, serif',
+        fontSize: 38, lineHeight: 1.45,
+        color: INK,
+        opacity: 0.78 * descP,
+        transform: `translateY(${(1 - descP) * 10}px)`,
+        maxWidth: 1400,
+      }}>
+        ~100,000 SKILL.md and CLAUDE.md files, judged by 3 frontier models. Open data. Free CLI.
+      </div>
+
+      {/* Footer hairline */}
+      <div style={{
+        position: 'absolute', left: 100, right: 100, bottom: 110,
+        height: 1, background: 'rgba(20,18,14,0.18)',
+        transform: `scaleX(${footP})`, transformOrigin: 'left',
       }}/>
 
-      {/* Bottom strip: URL + sub */}
-      <Sprite start={7.2} end={10}>
-        {({ progress }) => {
-          const p = Easing.easeOutCubic(clamp(progress * 4, 0, 1));
-          return (
-            <>
-              <div style={{
-                position: 'absolute', left: 60, right: 60, bottom: 100, height: 1,
-                background: 'rgba(20,18,14,0.18)',
-                transform: `scaleX(${p})`, transformOrigin: 'left',
-              }}/>
-              <div style={{
-                position: 'absolute', left: 100, bottom: 50,
-                fontFamily: 'Instrument Serif, serif', fontSize: 56,
-                letterSpacing: '-0.02em', fontStyle: 'italic',
-                color: INK, opacity: p,
-                transform: `translateY(${(1 - p) * 12}px)`,
-              }}>versuz.dev</div>
-              <div style={{
-                position: 'absolute', right: 100, bottom: 60,
-                fontFamily: 'JetBrains Mono, monospace', fontSize: 14,
-                color: INK2, letterSpacing: '0.18em', textTransform: 'uppercase',
-                opacity: p,
-                transform: `translateY(${(1 - p) * 12}px)`,
-                textAlign: 'right', lineHeight: 1.6,
-              }}>The open arena for<br/>Claude skills.</div>
-            </>
-          );
-        }}
-      </Sprite>
+      {/* Footer row : agent names + versuz.dev */}
+      <div style={{
+        position: 'absolute', left: 100, right: 100, bottom: 50,
+        display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+        opacity: footP,
+        transform: `translateY(${(1 - footP) * 8}px)`,
+      }}>
+        <div style={{
+          display: 'flex', gap: 28,
+          fontFamily: 'JetBrains Mono, monospace',
+          fontSize: 20, letterSpacing: '0.2em', textTransform: 'uppercase',
+          color: INK2,
+        }}>
+          <span>CLAUDE CODE</span>
+          <span style={{ opacity: 0.4 }}>·</span>
+          <span>CURSOR</span>
+          <span style={{ opacity: 0.4 }}>·</span>
+          <span>CODEX</span>
+          <span style={{ opacity: 0.4 }}>·</span>
+          <span>MCP</span>
+        </div>
+        <span style={{
+          fontFamily: 'Instrument Serif, serif',
+          fontStyle: 'italic',
+          fontSize: 56,
+          color: EMBER,
+          lineHeight: 1,
+        }}>versuz.dev</span>
+      </div>
+
+      {/* OUTRO — bone overlay fades in to clear the stage */}
+      <div style={{
+        position: 'absolute', inset: 0,
+        background: BONE,
+        opacity: Easing.easeInOutCubic(clamp((time - 8.4) / 0.6, 0, 1)),
+        pointerEvents: 'none',
+      }} />
+
+      {/* Top stripe (kept visible during outro) */}
+      {outroP > 0 && (
+        <div style={{
+          position: 'absolute', top: 0, left: 0, right: 0, height: 10,
+          display: 'flex',
+          opacity: outroP,
+        }}>
+          <div style={{ flex: 1.4, background: EMBER }}/>
+          <div style={{ flex: 1, background: '#e5a644' }}/>
+          <div style={{ flex: 1, background: '#2a5fa8' }}/>
+          <div style={{ flex: 1, background: '#3f7d4f' }}/>
+        </div>
+      )}
+
+      {/* Outro logo center */}
+      {outroP > 0 && (
+        <div style={{
+          position: 'absolute',
+          left: '50%', top: '46%',
+          transform: 'translate(-50%, -50%)',
+        }}>
+          <VersuzMark size={280} progress={outroMark}/>
+        </div>
+      )}
+
+      {/* Outro wordmark + tagline */}
+      {outroWord > 0 && (
+        <div style={{
+          position: 'absolute',
+          left: '50%', top: '64%',
+          transform: `translate(-50%, ${(1 - outroWord) * 12}px)`,
+          opacity: outroWord,
+          display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 14,
+        }}>
+          <span style={{
+            fontFamily: 'Instrument Serif, serif',
+            fontStyle: 'italic',
+            fontSize: 88,
+            color: EMBER,
+            lineHeight: 1,
+            letterSpacing: '-0.02em',
+          }}>versuz.dev</span>
+          <span style={{
+            fontFamily: 'JetBrains Mono, monospace',
+            fontSize: 18, letterSpacing: '0.24em',
+            textTransform: 'uppercase', color: INK2,
+          }}>Skills go in. Only one wins.</span>
+        </div>
+      )}
     </div>
   );
 }
@@ -324,8 +347,13 @@ function SceneVerticalReel() {
   // Winner crowned: 5.5 → 6.5s
   const crownP = clamp((time - 5.5) / 0.8, 0, 1);
 
-  // CTA: 6.5 → 8s
+  // CTA: 6.5 → 7.5s
   const ctaP = clamp((time - 6.5) / 0.6, 0, 1);
+
+  // Outro : bone overlay 7.8 → 8.4, mark 8.4 → 9.6, wordmark 9.2 → 10
+  const outroP = clamp((time - 7.8) / 0.6, 0, 1);
+  const outroMark = Easing.easeOutCubic(clamp((time - 8.4) / 1.2, 0, 1));
+  const outroWord = Easing.easeOutCubic(clamp((time - 9.2) / 0.8, 0, 1));
 
   return (
     <div style={{ position: 'absolute', inset: 0, background: BONE, overflow: 'hidden' }}>
@@ -345,20 +373,20 @@ function SceneVerticalReel() {
       {/* Top ember star */}
       <div style={{
         position: 'absolute',
-        left: '50%', top: 200,
+        left: '50%', top: 140,
         transform: `translate(-50%, 0) scale(${starScale}) rotate(${(1 - starProg) * -45}deg)`,
         opacity: starProg,
         transformOrigin: 'center',
       }}>
-        <EmberStar size={260} progress={1}/>
+        <EmberStar size={220} progress={1}/>
       </div>
 
       {/* "Which Claude skill" stack */}
       <div style={{
         position: 'absolute',
-        left: 80, right: 80, top: 480,
+        left: 80, right: 80, top: 400,
         fontFamily: 'Instrument Serif, serif',
-        fontSize: 136, lineHeight: 0.95, letterSpacing: '-0.04em',
+        fontSize: 130, lineHeight: 0.95, letterSpacing: '-0.04em',
         color: INK,
       }}>
         {['Which', 'Claude', 'skill'].map((w, i) => {
@@ -376,24 +404,40 @@ function SceneVerticalReel() {
       {/* WINS? — italic ember, oversized */}
       <div style={{
         position: 'absolute',
-        left: 80, top: 880,
+        left: 80, top: 780,
         fontFamily: 'Instrument Serif, serif',
         fontStyle: 'italic',
-        fontSize: 220, lineHeight: 0.95, letterSpacing: '-0.05em',
+        fontSize: 200, lineHeight: 0.95, letterSpacing: '-0.05em',
         color: EMBER,
         opacity: winsP,
         transform: `translate(${(1 - winsEase) * -40}px, 0)`,
       }}>wins?</div>
 
-      {/* Three race bars */}
+      {/* Leader badge — positioned ABOVE the race bars, clearly separated */}
+      <div style={{
+        position: 'absolute',
+        left: 80, top: 1020,
+        opacity: crownP,
+        transform: `translateY(${(1 - crownP) * 8}px)`,
+      }}>
+        <div style={{
+          display: 'inline-flex', alignItems: 'center', gap: 10,
+          padding: '8px 14px',
+          background: EMBER, color: BONE,
+          fontFamily: 'JetBrains Mono, monospace',
+          fontSize: 16, letterSpacing: '0.16em', textTransform: 'uppercase',
+          fontWeight: 600,
+        }}>★ Winner · Cycle 184</div>
+      </div>
+
+      {/* Three race bars — moved up to start at top: 1080 */}
       <Sprite start={raceStart} end={8}>
         {({ localTime }) => {
-          const localP = clamp(localTime / 1.6, 0, 1);
           return (
             <div style={{
               position: 'absolute',
-              left: 80, right: 80, top: 1180,
-              display: 'flex', flexDirection: 'column', gap: 48,
+              left: 80, right: 80, top: 1080,
+              display: 'flex', flexDirection: 'column', gap: 42,
             }}>
               {skills.map((s, i) => {
                 const rowP = clamp((localTime - i * 0.15) / 1.8, 0, 1);
@@ -405,10 +449,10 @@ function SceneVerticalReel() {
                     opacity: rowP,
                   }}>
                     <div style={{
-                      display: 'flex', justifyContent: 'space-between',
+                      display: 'flex', justifyContent: 'space-between', alignItems: 'baseline',
                       fontFamily: 'JetBrains Mono, monospace',
                       fontSize: 22, color: INK2,
-                      letterSpacing: '0.06em', marginBottom: 16,
+                      letterSpacing: '0.06em', marginBottom: 14,
                     }}>
                       <span style={{ color: INK, fontFamily: 'Instrument Serif, serif',
                         fontStyle: 'italic', fontSize: 44, letterSpacing: '-0.02em' }}>
@@ -435,22 +479,6 @@ function SceneVerticalReel() {
         }}
       </Sprite>
 
-      {/* Winner crowned — overlay marker pointing at first row */}
-      <div style={{
-        position: 'absolute',
-        left: 80, top: 1180 - 12,
-        opacity: crownP,
-        transform: `translateY(${(1 - crownP) * 8}px)`,
-      }}>
-        <div style={{
-          display: 'inline-flex', alignItems: 'center', gap: 12,
-          padding: '8px 14px',
-          background: INK, color: BONE,
-          fontFamily: 'JetBrains Mono, monospace',
-          fontSize: 16, letterSpacing: '0.16em', textTransform: 'uppercase',
-        }}>★ Leader · Cycle 184</div>
-      </div>
-
       {/* CTA bar at bottom */}
       <div style={{
         position: 'absolute',
@@ -473,6 +501,51 @@ function SceneVerticalReel() {
           textAlign: 'right',
         }}>Submit your<br/>skill →</div>
       </div>
+
+      {/* OUTRO — bone overlay covers the stage */}
+      <div style={{
+        position: 'absolute', inset: 0,
+        background: BONE,
+        opacity: outroP,
+        pointerEvents: 'none',
+      }} />
+
+      {/* Outro logo center */}
+      {outroP > 0 && (
+        <div style={{
+          position: 'absolute',
+          left: '50%', top: '42%',
+          transform: 'translate(-50%, -50%)',
+        }}>
+          <VersuzMark size={320} progress={outroMark}/>
+        </div>
+      )}
+
+      {/* Outro wordmark + tagline */}
+      {outroWord > 0 && (
+        <div style={{
+          position: 'absolute',
+          left: '50%', top: '60%',
+          transform: `translate(-50%, ${(1 - outroWord) * 16}px)`,
+          opacity: outroWord,
+          display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 20,
+        }}>
+          <span style={{
+            fontFamily: 'Instrument Serif, serif',
+            fontStyle: 'italic',
+            fontSize: 120,
+            color: EMBER,
+            lineHeight: 1,
+            letterSpacing: '-0.02em',
+          }}>versuz.dev</span>
+          <span style={{
+            fontFamily: 'JetBrains Mono, monospace',
+            fontSize: 22, letterSpacing: '0.24em',
+            textTransform: 'uppercase', color: INK2,
+            textAlign: 'center',
+          }}>Skills go in.<br/>Only one wins.</span>
+        </div>
+      )}
     </div>
   );
 }
@@ -506,19 +579,19 @@ function SceneSquareElim() {
   const gridLeft = 90, gridTop = 280, gridSize = 900;
   const cell = gridSize / 4;
 
-  // Winner zoom: 4.4 → 5.4s
-  const winP = clamp((time - 4.4) / 1.0, 0, 1);
+  // Winner zoom: 4.4 → 5.8s (slowed for breathing room)
+  const winP = clamp((time - 4.4) / 1.4, 0, 1);
   const winEase = Easing.easeInOutCubic(winP);
 
-  // Final card: 5.6 → 7s
-  const finalP = clamp((time - 5.6) / 0.6, 0, 1);
+  // Final card: 6.2 → 7.4s (then holds 1.6s)
+  const finalP = clamp((time - 6.2) / 1.2, 0, 1);
 
   return (
     <div style={{ position: 'absolute', inset: 0, background: BONE, overflow: 'hidden' }}>
       <GridBG size={36}/>
 
       {/* Top label */}
-      <Sprite start={0.0} end={7}>
+      <Sprite start={0.0} end={9}>
         <MonoCaption text="Versuz · cycle #184 · pdf utilities" x={48} y={48} size={16}/>
         <div style={{
           position: 'absolute', top: 48, right: 48,
@@ -547,7 +620,7 @@ function SceneSquareElim() {
       {/* The 4×4 grid */}
       {!winP && skills.map((name, i) => null)}
 
-      <Sprite start={0.4} end={7}>
+      <Sprite start={0.4} end={9}>
         <div style={{
           position: 'absolute',
           left: gridLeft, top: gridTop,
@@ -572,8 +645,8 @@ function SceneSquareElim() {
                 ? (1 - elimP) * 0.3 + 0.0
                 : Easing.easeOutCubic(appearP);
 
-            // After winP starts, all other cells fade out
-            const finalDimming = clamp((time - 4.4) / 0.6, 0, 1);
+            // After winP starts, all other cells fade out (slower for breathing)
+            const finalDimming = clamp((time - 4.4) / 1.0, 0, 1);
             const otherFade = isWinner ? 1 : 1 - finalDimming;
 
             // Winner expands to fill grid: translate + scale
@@ -1098,9 +1171,9 @@ function Leaderboard({ time, startAt }) {
 // ─── Export scenes registry ───────────────────────────────────────────────
 window.VERSUZ_SCENES = window.VERSUZ_SCENES || {};
 Object.assign(window.VERSUZ_SCENES, {
-  anthem:   { title: 'Brand Anthem',  subtitle: 'Logo → headline → CTA',     width: 1920, height: 1080, duration: 10, Component: SceneBrandAnthem,  format: '16:9 · 10s',  group: 'Web / hero' },
-  reel:     { title: 'Race reel',     subtitle: 'TikTok/IG · Elo race',      width: 1080, height: 1920, duration: 8,  Component: SceneVerticalReel, format: '9:16 · 8s',   group: 'TikTok / Insta' },
-  square:   { title: '16 → 1',        subtitle: 'Elimination grid',          width: 1080, height: 1080, duration: 7,  Component: SceneSquareElim,   format: '1:1 · 7s',    group: 'Square (Insta)' },
+  anthem:   { title: 'Brand Anthem',  subtitle: 'Headline → logo reveal',    width: 1920, height: 1080, duration: 12, Component: SceneBrandAnthem,  format: '16:9 · 12s',  group: 'Web / hero' },
+  reel:     { title: 'Race reel',     subtitle: 'TikTok/IG · Elo race',      width: 1080, height: 1920, duration: 10, Component: SceneVerticalReel, format: '9:16 · 10s',  group: 'TikTok / Insta' },
+  square:   { title: '16 → 1',        subtitle: 'Elimination grid',          width: 1080, height: 1080, duration: 9,  Component: SceneSquareElim,   format: '1:1 · 9s',    group: 'Square (Insta)' },
   banner:   { title: 'Banner strip',  subtitle: 'Display strip · loops',     width: 1920, height: 320,  duration: 6,  Component: SceneBanner,       format: '6:1 · 6s',    group: 'Web / hero' },
   terminal: { title: 'Terminal demo', subtitle: 'npx submit → rank-up',      width: 1920, height: 1080, duration: 11, Component: SceneTerminal,     format: '16:9 · 11s',  group: 'Web / hero' },
 });

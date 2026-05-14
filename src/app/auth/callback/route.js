@@ -1,5 +1,8 @@
 import { NextResponse } from "next/server";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { createSupabaseAdminClient } from "@/lib/supabase/admin";
+import { sendEmail } from "@/lib/resend";
+import { welcomeSignupEmail } from "@/lib/emails/transactional";
 
 /**
  * OAuth redirect callback. Supabase redirects here with `?code=...` after
@@ -43,11 +46,64 @@ export async function GET(request) {
     return NextResponse.redirect(`${origin}/login?error=${encodeURIComponent("Auth client unavailable. Try again.")}`);
   }
 
-  const { error } = await sb.auth.exchangeCodeForSession(code);
+  const { data: sessionData, error } = await sb.auth.exchangeCodeForSession(code);
   if (error) {
     const res = NextResponse.redirect(`${origin}/login?error=${encodeURIComponent(`Sign-in failed: ${error.message}`)}`);
     res.cookies.delete("auth_next");
     return res;
+  }
+
+  // First-login welcome email (best-effort, idempotent via `email_welcomed_at`
+  // column on profiles — if you don't have it, the dedupe is purely time-based).
+  // We mark the user as welcomed AFTER sending so a failed send retries on
+  // the next login.
+  const user = sessionData?.user;
+  if (user?.email) {
+    try {
+      const admin = createSupabaseAdminClient();
+      // Skip if profile already has email_welcomed_at set
+      let alreadyWelcomed = false;
+      if (admin) {
+        const { data: profile } = await admin
+          .from("profiles")
+          .select("email_welcomed_at")
+          .eq("id", user.id)
+          .maybeSingle();
+        alreadyWelcomed = !!profile?.email_welcomed_at;
+      }
+      const githubLogin =
+        user.user_metadata?.user_name ||
+        user.user_metadata?.preferred_username ||
+        user.email?.split("@")[0] ||
+        "friend";
+
+      // Always update last_active_at on every sign-in (cheap, drives re-engage cron).
+      if (admin) {
+        await admin
+          .from("profiles")
+          .upsert(
+            {
+              id: user.id,
+              github_login: githubLogin,
+              last_active_at: new Date().toISOString(),
+            },
+            { onConflict: "id" }
+          );
+      }
+
+      if (!alreadyWelcomed) {
+        const { subject, html } = welcomeSignupEmail({ githubLogin });
+        const r = await sendEmail({ to: user.email, subject, html });
+        if (r.ok && admin) {
+          await admin
+            .from("profiles")
+            .update({ email_welcomed_at: new Date().toISOString() })
+            .eq("id", user.id);
+        }
+      }
+    } catch (err) {
+      console.warn(`[auth-callback] welcome email failed: ${err.message}`);
+    }
   }
 
   const res = NextResponse.redirect(`${origin}${nextSafe}`);

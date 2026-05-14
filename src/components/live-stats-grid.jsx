@@ -27,21 +27,29 @@ function formatKpi(raw) {
 function AnimatedKpi({ value, duration = 1.4 }) {
   const ref = useRef(null);
   const inView = useInView(ref, { once: true, amount: 0.4 });
-  const motionValue = useMotionValue(0);
-  const [current, setCurrent] = useState(0);
+  // SSR + pre-animation : show real value (no "0" flash for crawlers / first paint).
+  // Animation kicks in only after hydration + inView.
+  const motionValue = useMotionValue(value);
+  const [current, setCurrent] = useState(value);
+  const [hydrated, setHydrated] = useState(false);
+
+  useEffect(() => {
+    setHydrated(true);
+  }, []);
 
   useEffect(() => {
     return motionValue.on("change", (v) => setCurrent(v));
   }, [motionValue]);
 
   useEffect(() => {
-    if (!inView) return;
+    if (!hydrated || !inView) return;
+    motionValue.set(0);
     const controls = animate(motionValue, value, {
       duration,
       ease: [0.16, 1, 0.3, 1],
     });
     return () => controls.stop();
-  }, [inView, motionValue, value, duration]);
+  }, [hydrated, inView, motionValue, value, duration]);
 
   return <motion.span ref={ref}>{formatKpi(current)}</motion.span>;
 }
