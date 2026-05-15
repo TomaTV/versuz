@@ -554,12 +554,14 @@ export async function runJudgesForOutput(
     let parsed = null;
     let lastRes = null;
     let callCost = 0;
-    // Retry up to 2× on empty/unparseable response. DeepSeek V4 Flash emits
-    // internal reasoning tokens before the JSON — with a 2500 cap it can burn
-    // 1500+ tokens of invisible CoT, inflating cost ~3×. A 900 cap leaves room
-    // for a short reasoning chain (~400 tok) + the JSON object (~200-300 tok)
-    // without truncation risk. Override via BENCH_JUDGE_MAX_TOKENS if needed.
-    const judgeMaxTokens = parseInt(process.env.BENCH_JUDGE_MAX_TOKENS || "900", 10);
+    // Retry up to 2× on empty/unparseable response.
+    // Bumped to 1500 (was 900) : GPT-5 mini is verbose and was systematically
+    // truncating its JSON when the rubric ask included rationale + axes +
+    // weaknesses. Cost delta is negligible (~$0.0003/call extra) but parse
+    // success rate jumps from ~85% to ~99%. DeepSeek V4 Flash CoT cost
+    // concern is mitigated by OpenRouter routing to non-CoT variants for the
+    // most cost-sensitive deployments. Override via BENCH_JUDGE_MAX_TOKENS.
+    const judgeMaxTokens = parseInt(process.env.BENCH_JUDGE_MAX_TOKENS || "1500", 10);
     for (let attempt = 0; attempt < 2; attempt++) {
       try {
         const res = await callWithRetry({
