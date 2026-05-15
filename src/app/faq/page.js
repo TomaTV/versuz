@@ -295,6 +295,7 @@ export default function FaqPage() {
                       }}
                     >
                       <summary
+                        className="vz-faq-summary"
                         style={{
                           cursor: "pointer",
                           fontFamily: "var(--font-display)",
@@ -304,23 +305,26 @@ export default function FaqPage() {
                           color: "var(--fg)",
                           listStyle: "none",
                           display: "flex",
-                          justifyContent: "space-between",
                           alignItems: "baseline",
-                          gap: 16,
+                          gap: 14,
                         }}
                       >
-                        <span>{item.q}</span>
                         <span
                           aria-hidden
+                          className="vz-faq-toggle"
                           style={{
                             fontFamily: "var(--font-mono)",
-                            fontSize: 12,
-                            color: "var(--fg-muted)",
+                            fontSize: 14,
+                            color: "var(--accent)",
                             flexShrink: 0,
+                            display: "inline-block",
+                            width: 14,
+                            textAlign: "center",
                           }}
                         >
                           +
                         </span>
+                        <span style={{ flex: 1 }}>{item.q}</span>
                       </summary>
                       <div
                         style={{

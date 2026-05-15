@@ -31,8 +31,10 @@ import { fetchContentByPath } from "@/lib/content/storage";
 // Cache TTLs for unstable_cache wrappers below.
 // 60s = filter-dependent queries (marketplace pagination with searchParams)
 // 300s = stable aggregates (category counts, sources, ranks-by-slug)
+// 1800s = quasi-static (topics, recent upsets, sibling lists — bench cycle is daily)
 const CACHE_TTL_HOT = 60;
 const CACHE_TTL_STABLE = 300;
+const CACHE_TTL_LONG = 1800;
 
 const HAS_SUPABASE = Boolean(process.env.NEXT_PUBLIC_SUPABASE_URL);
 
@@ -1411,32 +1413,42 @@ export async function getTopTopics(limit = 18) {
  * landing pour afficher 2 sections parallèles → fini le pb "MCP=218 mais
  * marketplace=130" car chaque chip = vraie stat du kind cliqué.
  */
-export async function getTopTopicsByKind(kind, limit = 12) {
-  if (!HAS_SUPABASE) {
-    const source = kind === "claude_md" ? CLAUDE_MD_FILES : SKILLS.map(withTierDefaults);
-    const counts = new Map();
-    for (const it of source) {
-      const ts = Array.isArray(it.topics) ? it.topics : [];
-      for (const t of ts) {
-        if (!t || typeof t !== "string") continue;
-        counts.set(t, (counts.get(t) || 0) + 1);
+// getTopTopicsByKind : RPC lourd (jsonb_array_elements aggregation). Cache
+// 1800s (30 min) — les topics GitHub n'évoluent quasiment jamais et la home
+// l'appelle 2× (skill + claude_md). Sans cache, Supabase free timeoutait
+// fréquemment ("canceling statement due to statement timeout") en mai 2026.
+const _getTopTopicsByKindCached = unstable_cache(
+  async (kind, limit) => {
+    if (!HAS_SUPABASE) {
+      const source = kind === "claude_md" ? CLAUDE_MD_FILES : SKILLS.map(withTierDefaults);
+      const counts = new Map();
+      for (const it of source) {
+        const ts = Array.isArray(it.topics) ? it.topics : [];
+        for (const t of ts) {
+          if (!t || typeof t !== "string") continue;
+          counts.set(t, (counts.get(t) || 0) + 1);
+        }
       }
+      return [...counts.entries()]
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, limit)
+        .map(([id, count]) => ({ id, count }));
     }
-    return [...counts.entries()]
-      .sort((a, b) => b[1] - a[1])
-      .slice(0, limit)
-      .map(([id, count]) => ({ id, count }));
-  }
-  const sb = createSupabasePublicClient();
-  if (!sb) return [];
-  // RPC top_topics_by_kind : aggrège jsonb_array_elements_text(metadata->'topics')
-  // côté DB en une query, vs ancien fetch full + JS aggregation. Migration 0037.
-  const { data, error } = await sb.rpc("top_topics_by_kind", { p_kind: kind, p_limit: limit });
-  if (error) {
-    console.warn(`[rankings] top_topics_by_kind RPC failed: ${error.message}`);
-    return [];
-  }
-  return (data || []).map((r) => ({ id: r.topic, count: Number(r.count) || 0 }));
+    const sb = createSupabasePublicClient();
+    if (!sb) return [];
+    const { data, error } = await sb.rpc("top_topics_by_kind", { p_kind: kind, p_limit: limit });
+    if (error) {
+      console.warn(`[rankings] top_topics_by_kind RPC failed: ${error.message}`);
+      return [];
+    }
+    return (data || []).map((r) => ({ id: r.topic, count: Number(r.count) || 0 }));
+  },
+  ["top-topics-by-kind"],
+  { revalidate: CACHE_TTL_LONG, tags: ["rankings"] }
+);
+
+export async function getTopTopicsByKind(kind, limit = 12) {
+  return _getTopTopicsByKindCached(kind, limit);
 }
 
 /**
@@ -1444,47 +1456,58 @@ export async function getTopTopicsByKind(kind, limit = 12) {
  * Empty list until the bench engine runs a real cycle. Used by the
  * leaderboard which should NOT mix in unranked scraped items.
  */
+// Polled toutes les 30s par /api/stats (LiveStatsGrid + HeroLiveBar) — sans
+// cache, c'est 2×2 RPC Supabase / 30s / utilisateur, multiplié par les bots.
+// 300s TTL : le ranking change daily, donc cohérent.
+const _getLeaderboardCategoriesCached = unstable_cache(
+  async (kind) => {
+    if (!HAS_SUPABASE) return [];
+    const sb = createSupabasePublicClient();
+    if (!sb) return [];
+    const counts = new Map();
+
+    const idCol = kind === "skill" ? "skill_id" : "claude_md_id";
+    const qualityTable = kind === "skill" ? "skills" : "claude_md_files";
+    const catCol = kind === "skill" ? "category" : "project_category";
+
+    const [{ data: benched }, { data: qualityRows }] = await Promise.all([
+      sb
+        .from("rankings")
+        .select(`category, ${idCol}`)
+        .eq("subject_kind", kind)
+        .not("avg_score", "is", null),
+      sb
+        .from(qualityTable)
+        .select(`id, ${catCol}`)
+        .not("quality_score", "is", null)
+        .limit(5000),
+    ]);
+
+    const benchedIds = new Set();
+    for (const row of benched || []) {
+      counts.set(row.category, (counts.get(row.category) || 0) + 1);
+      if (row[idCol]) benchedIds.add(row[idCol]);
+    }
+    for (const row of qualityRows || []) {
+      if (benchedIds.has(row.id)) continue;
+      const c = row[catCol];
+      if (!c) continue;
+      counts.set(c, (counts.get(c) || 0) + 1);
+    }
+
+    const labels = kind === "skill" ? CATEGORY_LABELS : PROJECT_CATEGORY_LABELS;
+    return [...counts.entries()].map(([id, count]) => ({
+      id,
+      label: labels[id] || id,
+      count,
+    }));
+  },
+  ["leaderboard-categories"],
+  { revalidate: CACHE_TTL_STABLE, tags: ["rankings"] }
+);
+
 export async function getLeaderboardCategories(kind = "skill") {
-  if (!HAS_SUPABASE) return [];
-  const sb = createSupabasePublicClient();
-  if (!sb) return [];
-  const counts = new Map();
-
-  const idCol = kind === "skill" ? "skill_id" : "claude_md_id";
-  const qualityTable = kind === "skill" ? "skills" : "claude_md_files";
-  const catCol = kind === "skill" ? "category" : "project_category";
-
-  const [{ data: benched }, { data: qualityRows }] = await Promise.all([
-    sb
-      .from("rankings")
-      .select(`category, ${idCol}`)
-      .eq("subject_kind", kind)
-      .not("avg_score", "is", null),
-    sb
-      .from(qualityTable)
-      .select(`id, ${catCol}`)
-      .not("quality_score", "is", null)
-      .limit(5000),
-  ]);
-
-  const benchedIds = new Set();
-  for (const row of benched || []) {
-    counts.set(row.category, (counts.get(row.category) || 0) + 1);
-    if (row[idCol]) benchedIds.add(row[idCol]);
-  }
-  for (const row of qualityRows || []) {
-    if (benchedIds.has(row.id)) continue; // already counted as benched
-    const c = row[catCol];
-    if (!c) continue;
-    counts.set(c, (counts.get(c) || 0) + 1);
-  }
-
-  const labels = kind === "skill" ? CATEGORY_LABELS : PROJECT_CATEGORY_LABELS;
-  return [...counts.entries()].map(([id, count]) => ({
-    id,
-    label: labels[id] || id,
-    count,
-  }));
+  return _getLeaderboardCategoriesCached(kind);
 }
 
 export function getCategoryIds() {
@@ -1496,69 +1519,74 @@ export async function getTopSkills(limit = 10) {
   return list.slice(0, limit);
 }
 
-export async function getSkillBySlug(slug) {
-  if (HAS_SUPABASE) {
-    const sb = createSupabasePublicClient();
-    if (sb) {
-      const { data, error } = await sb
-        .from("skills")
-        .select(
-          "id, slug, name, description, category, github_url, github_stars, byte_count, tier, price_usd, verification_level, is_official, license_spdx, metadata, skill_md_content, content_path, scraped_at, private_storage_path, promoted_until, quality_score, quality_rationale, top_rank_streak_days, top_rank_streak_category, top_rank_streak_started_at"
-        )
-        .eq("slug", slug)
-        .maybeSingle();
-      if (error) console.warn(`[rankings] getSkillBySlug live failed: ${error.message}`);
-      if (!data) return null;
-      const mapped = mapSkillRow(data);
-      const parsed = parseGithubOwnerRepo(data.github_url);
-      const mo = mapped.metadata?.owner || parsed.owner;
-      const mr = mapped.metadata?.repo || parsed.repo;
-      if (mo && mr) {
-        mapped.metadata = { ...mapped.metadata, owner: mo, repo: mr };
-      }
-      // Enrich avec les bench data si dispo (avg_score + task_count) pour
-      // l'afficher dans le §01 Stats sur la skill detail page.
-      const { data: ranking } = await sb
-        .from("rankings")
-        .select("avg_score, task_count, successful_tasks")
-        .eq("subject_kind", "skill")
-        .eq("skill_id", data.id)
-        .maybeSingle();
-      if (ranking?.avg_score != null) {
-        // Pull the same composite (weighted from 5 axes) used by getAllRankings
-        // so leaderboard and detail page always show the SAME number.
-        const axesMap = await getAxesAvgBySubject(sb, "skill");
-        const axes = axesMap.get(data.id) || null;
-        const w = { instruction_following: 0.35, correctness: 0.30, completeness: 0.20, usefulness: 0.10, safety: 0.05 };
-        let composite = Number(ranking.avg_score) || 0;
-        if (axes) {
-          let s = 0, wsum = 0;
-          for (const k of Object.keys(w)) {
-            if (axes[k] != null && Number.isFinite(axes[k])) {
-              s += axes[k] * w[k];
-              wsum += w[k];
-            }
-          }
-          if (wsum > 0) composite = s / wsum;
+// getSkillBySlug : appelé par /skills/[slug] (58K invocations / 12h en mai
+// 2026). Cache 5 min : un slug donné ne change qu'au scrape + au bench
+// cycle (daily), donc 300s couvre la majorité des hits bot.
+const _getSkillBySlugCached = unstable_cache(
+  async (slug) => {
+    if (HAS_SUPABASE) {
+      const sb = createSupabasePublicClient();
+      if (sb) {
+        const { data, error } = await sb
+          .from("skills")
+          .select(
+            "id, slug, name, description, category, github_url, github_stars, byte_count, tier, price_usd, verification_level, is_official, license_spdx, metadata, skill_md_content, content_path, scraped_at, private_storage_path, promoted_until, quality_score, quality_rationale, top_rank_streak_days, top_rank_streak_category, top_rank_streak_started_at"
+          )
+          .eq("slug", slug)
+          .maybeSingle();
+        if (error) console.warn(`[rankings] getSkillBySlug live failed: ${error.message}`);
+        if (!data) return null;
+        const mapped = mapSkillRow(data);
+        const parsed = parseGithubOwnerRepo(data.github_url);
+        const mo = mapped.metadata?.owner || parsed.owner;
+        const mr = mapped.metadata?.repo || parsed.repo;
+        if (mo && mr) {
+          mapped.metadata = { ...mapped.metadata, owner: mo, repo: mr };
         }
-        mapped.benchScore = Math.round(composite * 100) / 100;
-        mapped.taskCount = ranking.task_count || 0;
-        mapped.successfulTasks = ranking.successful_tasks || 0;
-        mapped.elo = mapped.benchScore;
+        const { data: ranking } = await sb
+          .from("rankings")
+          .select("avg_score, task_count, successful_tasks")
+          .eq("subject_kind", "skill")
+          .eq("skill_id", data.id)
+          .maybeSingle();
+        if (ranking?.avg_score != null) {
+          const axesMap = await getAxesAvgBySubject(sb, "skill");
+          const axes = axesMap.get(data.id) || null;
+          const w = { instruction_following: 0.35, correctness: 0.30, completeness: 0.20, usefulness: 0.10, safety: 0.05 };
+          let composite = Number(ranking.avg_score) || 0;
+          if (axes) {
+            let s = 0, wsum = 0;
+            for (const k of Object.keys(w)) {
+              if (axes[k] != null && Number.isFinite(axes[k])) {
+                s += axes[k] * w[k];
+                wsum += w[k];
+              }
+            }
+            if (wsum > 0) composite = s / wsum;
+          }
+          mapped.benchScore = Math.round(composite * 100) / 100;
+          mapped.taskCount = ranking.task_count || 0;
+          mapped.successfulTasks = ranking.successful_tasks || 0;
+          mapped.elo = mapped.benchScore;
+        }
+        if (!mapped.skill_md_content && mapped.contentPath) {
+          mapped.skill_md_content = await fetchContentByPath(mapped.contentPath);
+        }
+        return mapped;
       }
-      // Storage fallback : si pas de skill_md_content inline mais une content_path
-      // (migration 0042 storage), fetch depuis le bucket public "content".
-      if (!mapped.skill_md_content && mapped.contentPath) {
-        mapped.skill_md_content = await fetchContentByPath(mapped.contentPath);
-      }
-      return mapped;
+      return null;
     }
-    return null;
-  }
-  const skill = SKILLS.find((s) => s.slug === slug);
-  if (!skill) return null;
-  const detail = SKILL_DETAILS[slug];
-  return withTierDefaults({ ...skill, ...(detail || {}) });
+    const skill = SKILLS.find((s) => s.slug === slug);
+    if (!skill) return null;
+    const detail = SKILL_DETAILS[slug];
+    return withTierDefaults({ ...skill, ...(detail || {}) });
+  },
+  ["skill-by-slug"],
+  { revalidate: CACHE_TTL_STABLE, tags: ["rankings"] }
+);
+
+export async function getSkillBySlug(slug) {
+  return _getSkillBySlugCached(slug);
 }
 
 export async function getFeaturedBattle() {
@@ -1572,25 +1600,34 @@ export async function getFeaturedBattle() {
  * inventory : Versuz keeps 100% of Featured tier revenue (vs 30/70 split
  * on Premium author-listed items).
  */
+// Featured items : changement éditorial manuel (Versuz pick). 30 min TTL.
+const _getFeaturedItemsCached = unstable_cache(
+  async (kind, limit) => {
+    if (!HAS_SUPABASE) return [];
+    const sb = createSupabasePublicClient();
+    if (!sb) return [];
+    const table = kind === "claude_md" ? "claude_md_files" : "skills";
+    const sel = kind === "claude_md"
+      ? "id, slug, description, project_category, github_url, github_stars, byte_count, tier, price_usd, verification_level, is_official, source, license_spdx, metadata, promoted_until, quality_score, quality_rationale, bench_tier, top_rank_streak_days, top_rank_streak_category, top_rank_streak_started_at"
+      : "id, slug, name, description, category, github_url, github_stars, byte_count, tier, price_usd, verification_level, is_official, source, license_spdx, metadata, promoted_until, quality_score, quality_rationale, bench_tier, top_rank_streak_days, top_rank_streak_category, top_rank_streak_started_at";
+    const { data, error } = await sb
+      .from(table)
+      .select(sel)
+      .eq("tier", "featured")
+      .eq("is_archived", false)
+      .order("verification_level", { ascending: false })
+      .order("github_stars", { ascending: false, nullsFirst: false })
+      .limit(limit);
+    if (error || !data) return [];
+    const mapper = kind === "claude_md" ? mapClaudeMdRow : mapSkillRow;
+    return data.map(mapper);
+  },
+  ["featured-items"],
+  { revalidate: CACHE_TTL_LONG, tags: ["rankings"] }
+);
+
 export async function getFeaturedItems(kind = "skill", limit = 3) {
-  if (!HAS_SUPABASE) return [];
-  const sb = createSupabasePublicClient();
-  if (!sb) return [];
-  const table = kind === "claude_md" ? "claude_md_files" : "skills";
-  const sel = kind === "claude_md"
-    ? "id, slug, description, project_category, github_url, github_stars, byte_count, tier, price_usd, verification_level, is_official, source, license_spdx, metadata, promoted_until, quality_score, quality_rationale, bench_tier, top_rank_streak_days, top_rank_streak_category, top_rank_streak_started_at"
-    : "id, slug, name, description, category, github_url, github_stars, byte_count, tier, price_usd, verification_level, is_official, source, license_spdx, metadata, promoted_until, quality_score, quality_rationale, bench_tier, top_rank_streak_days, top_rank_streak_category, top_rank_streak_started_at";
-  const { data, error } = await sb
-    .from(table)
-    .select(sel)
-    .eq("tier", "featured")
-    .eq("is_archived", false)
-    .order("verification_level", { ascending: false })
-    .order("github_stars", { ascending: false, nullsFirst: false })
-    .limit(limit);
-  if (error || !data) return [];
-  const mapper = kind === "claude_md" ? mapClaudeMdRow : mapSkillRow;
-  return data.map(mapper);
+  return _getFeaturedItemsCached(kind, limit);
 }
 
 /**
@@ -1712,22 +1749,31 @@ export async function getRecentUpsets({ cycleId, kind = "skill", minDelta = 3, l
  *
  * Populated by scripts/bench/post-cycle-hooks.mjs after each bench cycle.
  */
+// Achievements unlock only after a bench cycle (daily). 30 min TTL.
+const _getItemAchievementsCached = unstable_cache(
+  async (kind, subjectId) => {
+    if (!HAS_SUPABASE || !subjectId) return [];
+    const sb = createSupabasePublicClient();
+    if (!sb) return [];
+    const col = kind === "claude_md" ? "claude_md_id" : "skill_id";
+    const { data, error } = await sb
+      .from("item_achievements")
+      .select("id, type, category, cycle_id, metadata, unlocked_at")
+      .eq(col, subjectId)
+      .order("unlocked_at", { ascending: false })
+      .limit(50);
+    if (error) {
+      console.warn(`[rankings] getItemAchievements failed: ${error.message}`);
+      return [];
+    }
+    return data || [];
+  },
+  ["item-achievements"],
+  { revalidate: CACHE_TTL_LONG, tags: ["rankings"] }
+);
+
 export async function getItemAchievements(kind, subjectId) {
-  if (!HAS_SUPABASE || !subjectId) return [];
-  const sb = createSupabasePublicClient();
-  if (!sb) return [];
-  const col = kind === "claude_md" ? "claude_md_id" : "skill_id";
-  const { data, error } = await sb
-    .from("item_achievements")
-    .select("id, type, category, cycle_id, metadata, unlocked_at")
-    .eq(col, subjectId)
-    .order("unlocked_at", { ascending: false })
-    .limit(50);
-  if (error) {
-    console.warn(`[rankings] getItemAchievements failed: ${error.message}`);
-    return [];
-  }
-  return data || [];
+  return _getItemAchievementsCached(kind, subjectId);
 }
 
 export async function getBenchmarkMatrix() {
@@ -1767,64 +1813,68 @@ export async function getClaudeMds(category) {
   return list.filter((c) => c.project_category === category);
 }
 
-export async function getClaudeMdBySlug(slug) {
-  if (HAS_SUPABASE) {
-    const sb = createSupabasePublicClient();
-    if (sb) {
-      const { data, error } = await sb
-        .from("claude_md_files")
-        .select(
-          "id, slug, description, project_category, github_url, github_stars, word_count, byte_count, tier, price_usd, verification_level, is_official, license_spdx, metadata, content, content_path, scraped_at, quality_score, quality_rationale, promoted_until, private_storage_path, top_rank_streak_days, top_rank_streak_category, top_rank_streak_started_at"
-        )
-        .eq("slug", slug)
-        .maybeSingle();
-      if (error) console.warn(`[rankings] getClaudeMdBySlug live failed: ${error.message}`);
-      if (!data) return null;
-      const mapped = mapClaudeMdRow(data);
-      const parsed = parseGithubOwnerRepo(data.github_url);
-      const mo = mapped.metadata?.owner || parsed.owner;
-      const mr = mapped.metadata?.repo || parsed.repo;
-      if (mo && mr) {
-        mapped.metadata = { ...mapped.metadata, owner: mo, repo: mr };
-      }
-      // Enrich with bench data (avg_score + task_count) so the detail page §01
-      // can show the real bench score with full precision.
-      const { data: ranking } = await sb
-        .from("rankings")
-        .select("avg_score, task_count, successful_tasks")
-        .eq("subject_kind", "claude_md")
-        .eq("claude_md_id", data.id)
-        .maybeSingle();
-      if (ranking?.avg_score != null) {
-        const axesMap = await getAxesAvgBySubject(sb, "claude_md");
-        const axes = axesMap.get(data.id) || null;
-        const w = { instruction_following: 0.35, correctness: 0.30, completeness: 0.20, usefulness: 0.10, safety: 0.05 };
-        let composite = Number(ranking.avg_score) || 0;
-        if (axes) {
-          let s = 0, wsum = 0;
-          for (const k of Object.keys(w)) {
-            if (axes[k] != null && Number.isFinite(axes[k])) {
-              s += axes[k] * w[k];
-              wsum += w[k];
-            }
-          }
-          if (wsum > 0) composite = s / wsum;
+const _getClaudeMdBySlugCached = unstable_cache(
+  async (slug) => {
+    if (HAS_SUPABASE) {
+      const sb = createSupabasePublicClient();
+      if (sb) {
+        const { data, error } = await sb
+          .from("claude_md_files")
+          .select(
+            "id, slug, description, project_category, github_url, github_stars, word_count, byte_count, tier, price_usd, verification_level, is_official, license_spdx, metadata, content, content_path, scraped_at, quality_score, quality_rationale, promoted_until, private_storage_path, top_rank_streak_days, top_rank_streak_category, top_rank_streak_started_at"
+          )
+          .eq("slug", slug)
+          .maybeSingle();
+        if (error) console.warn(`[rankings] getClaudeMdBySlug live failed: ${error.message}`);
+        if (!data) return null;
+        const mapped = mapClaudeMdRow(data);
+        const parsed = parseGithubOwnerRepo(data.github_url);
+        const mo = mapped.metadata?.owner || parsed.owner;
+        const mr = mapped.metadata?.repo || parsed.repo;
+        if (mo && mr) {
+          mapped.metadata = { ...mapped.metadata, owner: mo, repo: mr };
         }
-        mapped.benchScore = Math.round(composite * 100) / 100;
-        mapped.taskCount = ranking.task_count || 0;
-        mapped.successfulTasks = ranking.successful_tasks || 0;
-        mapped.elo = mapped.benchScore;
+        const { data: ranking } = await sb
+          .from("rankings")
+          .select("avg_score, task_count, successful_tasks")
+          .eq("subject_kind", "claude_md")
+          .eq("claude_md_id", data.id)
+          .maybeSingle();
+        if (ranking?.avg_score != null) {
+          const axesMap = await getAxesAvgBySubject(sb, "claude_md");
+          const axes = axesMap.get(data.id) || null;
+          const w = { instruction_following: 0.35, correctness: 0.30, completeness: 0.20, usefulness: 0.10, safety: 0.05 };
+          let composite = Number(ranking.avg_score) || 0;
+          if (axes) {
+            let s = 0, wsum = 0;
+            for (const k of Object.keys(w)) {
+              if (axes[k] != null && Number.isFinite(axes[k])) {
+                s += axes[k] * w[k];
+                wsum += w[k];
+              }
+            }
+            if (wsum > 0) composite = s / wsum;
+          }
+          mapped.benchScore = Math.round(composite * 100) / 100;
+          mapped.taskCount = ranking.task_count || 0;
+          mapped.successfulTasks = ranking.successful_tasks || 0;
+          mapped.elo = mapped.benchScore;
+        }
+        if (!mapped.content && mapped.contentPath) {
+          mapped.content = await fetchContentByPath(mapped.contentPath);
+        }
+        return mapped;
       }
-      // Storage fallback : si pas de content inline mais une content_path
-      // (migration 0042 storage), fetch depuis le bucket public "content".
-      if (!mapped.content && mapped.contentPath) {
-        mapped.content = await fetchContentByPath(mapped.contentPath);
-      }
-      return mapped;
+      return null;
     }
-    return null;
-  }
-  return CLAUDE_MD_FILES.find((c) => c.slug === slug) || null;
+    return CLAUDE_MD_FILES.find((c) => c.slug === slug) || null;
+  },
+  ["claude-md-by-slug"],
+  { revalidate: CACHE_TTL_STABLE, tags: ["rankings"] }
+);
+
+export async function getClaudeMdBySlug(slug) {
+  return _getClaudeMdBySlugCached(slug);
 }
 
 /* ---------- helpers ---------- */

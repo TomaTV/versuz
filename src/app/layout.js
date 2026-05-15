@@ -20,6 +20,11 @@ const instrumentSerif = Instrument_Serif({
   subsets: ["latin"],
   weight: "400",
   style: ["normal", "italic"],
+  display: "swap",
+  // adjustFontFallback aligne les métriques du fallback (Times) sur Instrument
+  // Serif → réduit le CLS au swap, particulièrement visible sur Android (51%
+  // du trafic) où la police n'est jamais déjà en cache.
+  adjustFontFallback: "Times New Roman",
   variable: "--font-instrument-serif",
 });
 
@@ -32,29 +37,33 @@ const jetbrains = JetBrains_Mono({
 export const metadata = {
   metadataBase: new URL("https://versuz.dev"),
   title: {
-    default: "Versuz — AI agent skills leaderboard, judged by 3 frontier models",
+    default: "Versuz — Skills go in. Only one wins.",
     template: "%s · Versuz",
   },
   description:
-    "Public adversarial leaderboard for AI agent skills (Claude Code, Codex CLI, Cursor). Each cycle every skill runs the same 30-task suite and is judged by three independent models. Bayesian Elo rankings updated every 24 hours.",
+    "The public leaderboard for AI agent skills. Find the best SKILL.md and CLAUDE.md for Claude Code, Cursor, and Codex CLI. Every skill tested daily on the same tasks, judged by three AI models, ranked openly. Free.",
   keywords: [
+    "AI agent skills",
+    "Claude skills",
+    "Claude Code skills",
+    "SKILL.md",
+    "CLAUDE.md",
+    "Cursor rules",
+    "Codex CLI",
     "AI skills leaderboard",
     "AI agent benchmark",
-    "Claude skills ranking",
-    "Codex CLI skills",
-    "Cursor skills",
-    "MCP benchmark",
-    "SKILL.md",
-    "PDF extraction skill",
-    "LLM benchmark",
+    "best Claude skills",
+    "MCP server",
+    "AI coding agent skills",
     "skill marketplace",
+    "LLM benchmark",
   ],
   authors: [{ name: "FlukX Studio" }],
   creator: "FlukX Studio",
   openGraph: {
-    title: "Versuz — AI agent skills leaderboard",
+    title: "Versuz — Skills go in. Only one wins.",
     description:
-      "Public adversarial leaderboard for AI agent skills. Three frontier judges, thirty held-out tasks, one ranking per category. Updated every 24 hours.",
+      "The public leaderboard for AI agent skills (SKILL.md, CLAUDE.md). Three AI judges, 30 tasks, one ranking per category. Updated every 24 hours. Free and open.",
     url: "https://versuz.dev",
     siteName: "Versuz",
     type: "website",

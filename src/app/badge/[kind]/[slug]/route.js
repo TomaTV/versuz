@@ -4,8 +4,6 @@ import {
   getTopRankedItems,
 } from "@/lib/queries/rankings";
 
-export const dynamic = "force-dynamic";
-
 // Wider canvas + breathing room. Right score column kept narrow (88px) so
 // the name owns the visible bulk. Total 420×62.
 const W = 420;
@@ -209,7 +207,12 @@ export async function GET(request, { params }) {
   return new Response(svg, {
     headers: {
       "content-type": "image/svg+xml; charset=utf-8",
-      "cache-control": "public, max-age=300, s-maxage=600",
+      // Cache CDN 24h + SWR 7j. Le badge est embed dans des READMEs GitHub
+      // / Notion / Linear où il est requeryé sur chaque page view. Le
+      // contenu (score, rank, name) ne change qu'une fois par 24h max
+      // (cycle bench 06:00 UTC). 24K invocations/12h avant cette config →
+      // l'edge cache résout maintenant 99%+ des hits sans toucher Vercel.
+      "cache-control": "public, max-age=3600, s-maxage=86400, stale-while-revalidate=604800",
     },
   });
 }

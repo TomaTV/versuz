@@ -1,7 +1,5 @@
 import { getSkillBySlug } from "@/lib/queries/rankings";
 
-export const dynamic = "force-dynamic";
-
 export async function GET(_request, { params }) {
   const { slug } = await params;
   const item = await getSkillBySlug(slug);

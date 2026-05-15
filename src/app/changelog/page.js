@@ -176,10 +176,11 @@ export default function ChangelogPage() {
                     {entry.date}
                   </span>
                   <h2
+                    className="vz-changelog-title"
                     style={{
                       margin: 0,
                       fontFamily: "var(--font-display)",
-                      fontSize: "clamp(24px, 3vw, 32px)",
+                      fontSize: "clamp(20px, 2.6vw, 30px)",
                       fontWeight: 400,
                       letterSpacing: "-0.02em",
                       lineHeight: 1.15,
@@ -229,6 +230,7 @@ export default function ChangelogPage() {
                           {style.label}
                         </span>
                         <span
+                          className="vz-changelog-body"
                           style={{
                             fontSize: 14,
                             lineHeight: 1.6,

@@ -2,16 +2,12 @@ import Link from "next/link";
 import { Eyebrow } from "@/components/brand/eyebrow";
 import { BattleSpread } from "@/components/battle-spread";
 import { SkillRow } from "@/components/skill-row";
-import { UtcClock } from "@/components/utc-clock";
 import { Reveal, RevealStagger, RevealItem } from "@/components/motion/reveal";
 import { ScrollReveal, ScrollRevealStagger } from "@/components/motion/scroll-reveal";
-import { HeroHeadline } from "@/components/motion/hero-headline";
-import { HeroShapes } from "@/components/hero-shapes";
-import { CliDemo } from "@/components/cli-demo";
 import { LiveStatsGrid } from "@/components/live-stats-grid";
-import { HeroSearch } from "@/components/hero-search";
+import { LandingHero } from "@/components/landing/landing-hero";
 import { Section, SectionHeader } from "@/components/section";
-import { JUDGES, judgesLabel } from "@/lib/judges";
+import { judgesLabel } from "@/lib/judges";
 import {
   getFeaturedBattle,
   getBenchedTopByCategory,
@@ -23,14 +19,11 @@ import {
   getFeaturedItems,
 } from "@/lib/queries/rankings";
 
-// ISR 60s : la landing affiche du top 10 + counts. Les counts live continuent
-// d'être rafraîchis client-side toutes les 8s via <LiveStatsGrid> → /api/stats.
-// ISR : page cached 10 min server-side. The /api/stats poll (every 4s) keeps
-// counters live without forcing the whole page to regenerate. Below 600s,
-// cold starts add ~1s TTFB to occasional visitors — push high enough that
-// most visits hit warm cache.
-// à chaque request.
-export const revalidate = 600;
+// Avant : `export const revalidate = 600;` — incompatible avec
+// cacheComponents:true (Next 16.2). Le caching est maintenant déclaré
+// localement via `'use cache'` dans les helpers de `src/lib/queries/rankings.js`
+// avec `cacheLife()`. Le top-level page reste auto-cacheable tant qu'aucun
+// descendant ne lit cookies/headers directement.
 
 export default async function LandingPage() {
   // Fetch first wave — incl. the list of categories with ranked content
@@ -82,7 +75,7 @@ export default async function LandingPage() {
     : null;
   const liveRankingBlock = top10Ranked.length > 0 ? (
     <ScrollReveal direction="up" distance={32} threshold={0.1}>
-      <Section eyebrow="§ 01 — Live ranking" markerColor="var(--sage)">
+      <Section eyebrow="§ 02 — Live ranking" markerColor="var(--sage)">
         <SectionHeader
           title={
             <>
@@ -190,209 +183,118 @@ export default async function LandingPage() {
 
   return (
     <div style={{ position: "relative" }}>
+      <LandingHero counts={counts} />
+
       {/* ============================================================== */}
-      {/* HERO                                                            */}
+      {/* §01 WHAT — c'est quoi Versuz. Promu en premier (mai 2026) :       */}
+      {/* l'audit mobile a montré qu'un visiteur non-tech ne comprend pas   */}
+      {/* "Top 10 in sql · score 87.3" avant qu'on lui explique ce qu'est   */}
+      {/* un benchmark de skills. Explication AVANT preuve.                 */}
       {/* ============================================================== */}
-      <section
-        style={{
-          position: "relative",
-          padding: "clamp(40px, 5.5vw, 80px) clamp(16px, 4.5vw, 64px) clamp(72px, 10vw, 128px)",
-          overflow: "hidden",
-        }}
-      >
-        <HeroShapes />
+      <ScrollReveal direction="up" distance={32} threshold={0.2}>
+        <Section id="what" eyebrow="§ 01 — What" markerColor="var(--azure)">
+          <SectionHeader
+            title={
+              <>
+                An <em style={{ color: "var(--accent)" }}>open public benchmark</em> for AI
+                agent skills.
+              </>
+            }
+            subtitle="Versuz benchmarks publicly-available SKILL.md files (Claude Code, Codex CLI, Cursor) against each other. We run every skill in a category through the same task suite, judge the outputs with three frontier models, and publish the ranking — every 24 hours."
+          />
 
-        <div
-          style={{
-            position: "relative",
-            zIndex: 1,
-            maxWidth: 1440,
-            margin: "0 auto",
-          }}
-        >
-          <Reveal delay={0.1} duration={0.6}>
-            <div
-              style={{
-                display: "flex",
-                justifyContent: "space-between",
-                alignItems: "center",
-                fontFamily: "var(--font-mono)",
-                fontSize: 11,
-                color: "var(--fg-muted)",
-                letterSpacing: "0.18em",
-                textTransform: "uppercase",
-                marginBottom: 48,
-              }}
-            >
-              <Eyebrow>An open arena for AI agent skills</Eyebrow>
-              <UtcClock />
-            </div>
-          </Reveal>
-
-          <div style={{ maxWidth: 1280 }}>
-            <HeroHeadline />
-          </div>
-
-          <div
+          <RevealStagger
+            stagger={0.1}
             style={{
-              marginTop: 64,
               display: "grid",
-              gridTemplateColumns: "minmax(0, 1fr) auto",
-              gap: 64,
-              alignItems: "flex-end",
+              gridTemplateColumns: "repeat(3, 1fr)",
+              gap: 0,
+              marginTop: 64,
+              borderTop: "1px solid var(--rule-strong)",
             }}
-            className="vz-hero-foot"
+            className="vz-pillars"
           >
-            <div style={{ display: "flex", flexDirection: "column", gap: 32, maxWidth: 640 }}>
-              <Reveal delay={0.2} duration={0.5}>
-                <div
-                  style={{
-                    display: "inline-flex",
-                    alignItems: "center",
-                    gap: 24,
-                    fontFamily: "var(--font-mono)",
-                    fontSize: 11,
-                    color: "var(--fg-muted)",
-                    letterSpacing: "0.16em",
-                    textTransform: "uppercase",
-                    flexWrap: "wrap",
-                  }}
-                >
-                  {JUDGES.map((j) => (
-                    <span
-                      key={j.id}
-                      style={{ display: "inline-flex", alignItems: "center", gap: 8 }}
-                    >
-                      <span aria-hidden style={{ width: 8, height: 8, background: j.color }} />
-                      {j.shortLabel}
-                    </span>
-                  ))}
+            {[
+              {
+                tag: "open",
+                color: "var(--azure)",
+                title: "No private list.",
+                body: "Every skill in the registry has its source, prompt, and tools published. We rank what we can read.",
+              },
+              {
+                tag: "adversarial",
+                color: "var(--accent)",
+                title: "Skill vs skill.",
+                body: "Each cycle, every skill runs the same 30-task suite. Outcomes become head-to-head battles.",
+              },
+              {
+                tag: "judged",
+                color: "var(--sage)",
+                title: "Three judges.",
+                body: `${judgesLabel({ short: true })} grade independently. Disagreement is published, not hidden.`,
+              },
+            ].map((p, i) => (
+              <RevealItem
+                key={p.tag}
+                style={{
+                  padding: "32px 24px 40px",
+                  borderRight: i < 2 ? "1px solid var(--rule)" : "none",
+                  display: "flex",
+                  flexDirection: "column",
+                  gap: 20,
+                }}
+              >
+                <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                  <span aria-hidden style={{ width: 10, height: 10, background: p.color }} />
+                  <span
+                    style={{
+                      fontFamily: "var(--font-mono)",
+                      fontSize: 10,
+                      color: "var(--fg-muted)",
+                      letterSpacing: "0.18em",
+                      textTransform: "uppercase",
+                    }}
+                  >
+                    {p.tag}
+                  </span>
                 </div>
-              </Reveal>
-
-              <Reveal delay={0.3} duration={0.5}>
-                <p
+                <h3
                   style={{
                     margin: 0,
                     fontFamily: "var(--font-display)",
-                    fontSize: 22,
+                    fontSize: 28,
                     fontWeight: 400,
-                    lineHeight: 1.45,
-                    letterSpacing: "-0.01em",
+                    letterSpacing: "-0.02em",
+                    lineHeight: 1.05,
                     color: "var(--fg)",
                   }}
                 >
-                  <strong style={{ fontWeight: 500 }}>Stars don&apos;t prove quality.</strong>{" "}
-                  Versuz runs every public Claude skill through the same 30 tests,
-                  graded by Haiku, DeepSeek and GPT-5. The ranking is public.{" "}
-                  <em style={{ color: "var(--accent)" }}>Free, open, updated daily.</em>
-                </p>
-              </Reveal>
-
-              <Reveal delay={0.4} duration={0.5}>
-                <div
+                  {p.title}
+                </h3>
+                <p
                   style={{
-                    display: "flex",
-                    flexDirection: "column",
-                    gap: 16,
+                    margin: 0,
+                    fontSize: 14,
+                    lineHeight: 1.6,
+                    color: "var(--fg-muted)",
+                    maxWidth: 320,
                   }}
                 >
-                  <HeroSearch totalItems={counts.skills + counts.claudeMds} />
-                  <div
-                    style={{
-                      display: "flex",
-                      gap: 18,
-                      flexWrap: "wrap",
-                      fontFamily: "var(--font-mono)",
-                      fontSize: 12,
-                      letterSpacing: "0.04em",
-                      color: "var(--fg-muted)",
-                      alignItems: "center",
-                    }}
-                  >
-                    <Link
-                      href="/marketplace"
-                      style={{ color: "var(--fg)", textDecoration: "underline", textUnderlineOffset: 4 }}
-                    >
-                      Browse all →
-                    </Link>
-                    <span style={{ opacity: 0.5 }}>·</span>
-                    <Link
-                      href="/methodology"
-                      style={{ color: "var(--fg)", textDecoration: "underline", textUnderlineOffset: 4 }}
-                    >
-                      How rankings work
-                    </Link>
-                    <span style={{ opacity: 0.5 }}>·</span>
-                    <Link
-                      href="#how"
-                      style={{ color: "var(--fg)", textDecoration: "underline", textUnderlineOffset: 4 }}
-                    >
-                      What is Versuz
-                    </Link>
-                  </div>
-                </div>
-              </Reveal>
-            </div>
-
-            {/* CliDemo manages its own staggered animation — pas de Reveal
-                wrapper sinon les animation-delay CSS sont consommées avant
-                que l'opacity ne révèle le bloc. Le delay est intégré dans
-                les animation-delay du component (cf cli-demo.jsx + globals.css). */}
-            <div
-              className="vz-hero-cli-demo"
-              style={{
-                display: "flex",
-                flexDirection: "column",
-                gap: 14,
-                alignItems: "flex-end",
-              }}
-            >
-              <CliDemo />
-              <div
-                style={{
-                  display: "flex",
-                  flexDirection: "column",
-                  gap: 4,
-                  alignItems: "flex-end",
-                  fontFamily: "var(--font-mono)",
-                  fontSize: 10,
-                  color: "var(--fg-muted)",
-                  letterSpacing: "0.16em",
-                  textTransform: "uppercase",
-                }}
-              >
-                <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
-                  <span
-                    aria-hidden
-                    style={{
-                      width: 6,
-                      height: 6,
-                      background: "var(--accent)",
-                      boxShadow: "0 0 0 3px color-mix(in oklab, var(--accent) 22%, transparent)",
-                    }}
-                  />
-                  scrape running · v0.1 beta
-                </span>
-                <span style={{ color: "var(--fg)", letterSpacing: "0.04em" }}>
-                  free · open · no signup
-                </span>
-              </div>
-            </div>
-
-          </div>
-        </div>
-      </section>
+                  {p.body}
+                </p>
+              </RevealItem>
+            ))}
+          </RevealStagger>
+        </Section>
+      </ScrollReveal>
 
       {/* ============================================================== */}
-      {/* §01 LIVE RANKING — promu en haut, juste après le hero. Matérialise */}
-      {/* la promesse "Skills go in. Only one wins." en preuve immédiate    */}
-      {/* avant le manifeste éditorial.                                     */}
+      {/* §02 LIVE RANKING — la preuve après l'explication.                 */}
       {/* ============================================================== */}
       {liveRankingBlock}
 
       {/* ============================================================== */}
-      {/* §01.5 FEATURED — Versuz first-party curated picks. Tier=100%      */}
+      {/* §02.5 FEATURED — Versuz first-party curated picks. Tier=100%      */}
       {/* (Versuz keeps full revenue, no author split).                     */}
       {/* ============================================================== */}
       {featured.length > 0 && (
@@ -539,107 +441,6 @@ export default async function LandingPage() {
           </Section>
         </ScrollReveal>
       )}
-
-      {/* ============================================================== */}
-      {/* §02 WHAT — c'est quoi Versuz                                    */}
-      {/* ============================================================== */}
-      <ScrollReveal direction="up" distance={32} threshold={0.2}>
-        <Section id="what" eyebrow="§ 02 — What" markerColor="var(--azure)">
-          <SectionHeader
-            title={
-              <>
-                An <em style={{ color: "var(--accent)" }}>open public benchmark</em> for AI
-                agent skills.
-              </>
-            }
-            subtitle="Versuz benchmarks publicly-available SKILL.md files (Claude Code, Codex CLI, Cursor) against each other. We run every skill in a category through the same task suite, judge the outputs with three frontier models, and publish the ranking — every 24 hours."
-          />
-
-          <RevealStagger
-            stagger={0.1}
-            style={{
-              display: "grid",
-              gridTemplateColumns: "repeat(3, 1fr)",
-              gap: 0,
-              marginTop: 64,
-              borderTop: "1px solid var(--rule-strong)",
-              borderBottom: "1px solid var(--rule)",
-            }}
-            className="vz-pillars"
-          >
-            {[
-              {
-                tag: "open",
-                color: "var(--azure)",
-                title: "No private list.",
-                body: "Every skill in the registry has its source, prompt, and tools published. We rank what we can read.",
-              },
-              {
-                tag: "adversarial",
-                color: "var(--accent)",
-                title: "Skill vs skill.",
-                body: "Each cycle, every skill runs the same 30-task suite. Outcomes become head-to-head battles.",
-              },
-              {
-                tag: "judged",
-                color: "var(--sage)",
-                title: "Three judges.",
-                body: `${judgesLabel({ short: true })} grade independently. Disagreement is published, not hidden.`,
-              },
-            ].map((p, i) => (
-              <RevealItem
-                key={p.tag}
-                style={{
-                  padding: "32px 24px 40px",
-                  borderRight: i < 2 ? "1px solid var(--rule)" : "none",
-                  display: "flex",
-                  flexDirection: "column",
-                  gap: 20,
-                }}
-              >
-                <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                  <span aria-hidden style={{ width: 10, height: 10, background: p.color }} />
-                  <span
-                    style={{
-                      fontFamily: "var(--font-mono)",
-                      fontSize: 10,
-                      color: "var(--fg-muted)",
-                      letterSpacing: "0.18em",
-                      textTransform: "uppercase",
-                    }}
-                  >
-                    {p.tag}
-                  </span>
-                </div>
-                <h3
-                  style={{
-                    margin: 0,
-                    fontFamily: "var(--font-display)",
-                    fontSize: 28,
-                    fontWeight: 400,
-                    letterSpacing: "-0.02em",
-                    lineHeight: 1.05,
-                    color: "var(--fg)",
-                  }}
-                >
-                  {p.title}
-                </h3>
-                <p
-                  style={{
-                    margin: 0,
-                    fontSize: 14,
-                    lineHeight: 1.6,
-                    color: "var(--fg-muted)",
-                    maxWidth: 320,
-                  }}
-                >
-                  {p.body}
-                </p>
-              </RevealItem>
-            ))}
-          </RevealStagger>
-        </Section>
-      </ScrollReveal>
 
       {/* ============================================================== */}
       {/* §03 WHY                                                          */}

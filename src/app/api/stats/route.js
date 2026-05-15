@@ -1,11 +1,12 @@
 import { NextResponse } from "next/server";
+import { connection } from "next/server";
 import { getIndexCounts, getLeaderboardCategories } from "@/lib/queries/rankings";
 
-// No cache : chaque poll re-fetch la DB.
-export const dynamic = "force-dynamic";
-export const revalidate = 0;
-
 export async function GET() {
+  // No cache : chaque poll re-fetch la DB. `connection()` est l'API
+  // Next 16 qui remplace `export const dynamic = "force-dynamic"` sous
+  // cacheComponents — marque explicitement la route comme dynamic.
+  await connection();
   const [counts, rankedSkills, rankedClaudeMd] = await Promise.all([
     getIndexCounts(),
     getLeaderboardCategories("skill"),

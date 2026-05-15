@@ -712,27 +712,16 @@ export function MarketplaceGrid({
         })}
       </div>
 
-      {/* Categories pills — own row, just narrowing scope */}
-      <div
-        style={{
-          display: "flex",
-          alignItems: "center",
-          gap: 8,
-          flexWrap: "wrap",
-        }}
-      >
-        {categories.map((c) => (
-          <PillBtn
-            key={c.id}
-            label={c.label}
-            count={c.count}
-            active={cat === c.id}
-            onClick={() => {
-              setCat(c.id);
-            }}
-          />
-        ))}
-      </div>
+      {/* Categories pills — own row, just narrowing scope.
+          Trop de catégories = bruit sur mobile (le user a remonté qu'il y en
+          a trop). On trie par count desc et on n'affiche que les top 8 par
+          défaut + un bouton "Show all" pour révéler le reste. La catégorie
+          active reste toujours visible. */}
+      <CategoryPills
+        categories={categories}
+        activeId={cat}
+        onSelect={(id) => setCat(id)}
+      />
 
       {/* Search + Refine row — primary discovery controls, given visual weight */}
       <div
@@ -1555,5 +1544,75 @@ function PillBtn({ label, count, active, onClick }) {
       {label}
       {count != null && <span style={{ opacity: 0.6 }}>{count}</span>}
     </button>
+  );
+}
+
+/**
+ * CategoryPills — affiche les pills triées par count desc, collapse les
+ * petites (< 5% du leader) derrière un bouton "Show all". La cat active
+ * et "all" sont toujours visibles. Sans état JS sur SSR : le client
+ * exposera le toggle après hydration.
+ *
+ * Le user a remonté qu'il y a trop de catégories sur mobile/desktop. Le
+ * seuil de 5% du leader est une approximation pratique : sur Versuz avec
+ * ~13k skills, ça filtre les catégories <100 items qui ajoutent du bruit
+ * sans aider la découverte.
+ */
+function CategoryPills({ categories, activeId, onSelect }) {
+  const [expanded, setExpanded] = useState(false);
+  const sorted = useMemo(() => {
+    const all = categories.find((c) => c.id === "all");
+    const rest = categories
+      .filter((c) => c.id !== "all")
+      .sort((a, b) => (b.count || 0) - (a.count || 0));
+    return all ? [all, ...rest] : rest;
+  }, [categories]);
+
+  const topCount = sorted.find((c) => c.id !== "all")?.count || 0;
+  const threshold = Math.max(50, Math.round(topCount * 0.05));
+
+  const { visible, hidden } = useMemo(() => {
+    const v = [];
+    const h = [];
+    for (const c of sorted) {
+      const keepAlways =
+        c.id === "all" || c.id === activeId || (c.count || 0) >= threshold;
+      if (keepAlways) v.push(c);
+      else h.push(c);
+    }
+    return { visible: v, hidden: h };
+  }, [sorted, activeId, threshold]);
+
+  const items = expanded ? sorted : visible;
+
+  return (
+    <div
+      style={{
+        display: "flex",
+        alignItems: "center",
+        gap: 8,
+        flexWrap: "wrap",
+      }}
+    >
+      {items.map((c) => (
+        <PillBtn
+          key={c.id}
+          label={c.label}
+          count={c.count}
+          active={activeId === c.id}
+          onClick={() => onSelect(c.id)}
+        />
+      ))}
+      {hidden.length > 0 && (
+        <button
+          type="button"
+          onClick={() => setExpanded((v) => !v)}
+          className="vz-pill-btn"
+          style={{ color: "var(--accent)" }}
+        >
+          {expanded ? "Show fewer" : `+ ${hidden.length} more`}
+        </button>
+      )}
+    </div>
   );
 }

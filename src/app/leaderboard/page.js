@@ -9,10 +9,9 @@ import {
   getJudgeLifetimeStats,
 } from "@/lib/queries/rankings";
 
-// ISR 5 min : le bench tourne en cycles, le ranking change rarement.
-// `force-dynamic + revalidate=0` à 100k items mettait > 30s par request.
-export const revalidate = 300;
-
+// Avant : `revalidate = 300`. Caching maintenant déclaré via `'use cache'`
+// + `cacheLife()` à l'intérieur des helpers de `src/lib/queries/rankings.js`
+// (cacheComponents:true Next 16.2).
 export const metadata = {
   title: "Leaderboard — Versuz",
   description:
@@ -129,64 +128,121 @@ export default async function LeaderboardPage({ searchParams }) {
           </div>
         </Reveal>
 
-        {/* Category pills */}
-        {categories.length > 0 && (
-          <Reveal delay={0.05}>
-            <div
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: 8,
-                flexWrap: "wrap",
-                marginBottom: 32,
-              }}
-            >
+        {/* Category pills — trop de pills sur mobile (le user a remonté qu'il y
+            en a trop). Top 8 par count toujours visibles + reste dans un
+            <details> natif "+N more" (pas besoin de client state). La cat
+            active reste visible quoi qu'il arrive. */}
+        {categories.length > 0 && (() => {
+          const buildHref = (id) =>
+            `/leaderboard?${requestedType === "claude-md" ? "type=claude-md&" : ""}category=${id}`;
+          const baseHref = `/leaderboard${requestedType === "claude-md" ? "?type=claude-md" : ""}`;
+          const enriched = categories
+            .map((c) => ({
+              ...c,
+              count: allRanked.filter((r) => r.category === c.id).length,
+            }))
+            .filter((c) => c.count > 0)
+            .sort((a, b) => b.count - a.count);
+          const TOP_N = 8;
+          const top = enriched.slice(0, TOP_N);
+          const rest = enriched.slice(TOP_N);
+          const activeInRest = rest.find((c) => c.id === selectedCategory);
+          if (activeInRest) {
+            top.push(activeInRest);
+          }
+          const restToShow = rest.filter((c) => c.id !== selectedCategory);
+          const renderPill = (c) => {
+            const active = c.id === selectedCategory;
+            return (
               <Link
-                href={`/leaderboard${requestedType === "claude-md" ? "?type=claude-md" : ""}`}
+                key={c.id}
+                href={buildHref(c.id)}
                 style={{
                   padding: "8px 14px",
                   fontFamily: "var(--font-mono)",
                   fontSize: 11,
                   letterSpacing: "0.06em",
                   textTransform: "uppercase",
-                  color: !selectedCategory ? "var(--bg)" : "var(--fg-muted)",
-                  background: !selectedCategory ? "var(--fg)" : "var(--surface)",
+                  color: active ? "var(--bg)" : "var(--fg-muted)",
+                  background: active ? "var(--fg)" : "var(--surface)",
                   border: "1px solid var(--rule)",
                   textDecoration: "none",
                   transition: "all 0.18s ease",
                 }}
               >
-                All <span style={{ opacity: 0.7 }}>{allRanked.length}</span>
+                {c.label || c.id} <span style={{ opacity: 0.7 }}>{c.count}</span>
               </Link>
-              {categories.map((c) => {
-                const active = c.id === selectedCategory;
-                const catCount = allRanked.filter((r) => r.category === c.id).length;
-                if (catCount === 0) return null;
-                const href = `/leaderboard?${requestedType === "claude-md" ? "type=claude-md&" : ""}category=${c.id}`;
-                return (
-                  <Link
-                    key={c.id}
-                    href={href}
+            );
+          };
+          return (
+            <Reveal delay={0.05}>
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 8,
+                  flexWrap: "wrap",
+                  marginBottom: 32,
+                }}
+              >
+                <Link
+                  href={baseHref}
+                  style={{
+                    padding: "8px 14px",
+                    fontFamily: "var(--font-mono)",
+                    fontSize: 11,
+                    letterSpacing: "0.06em",
+                    textTransform: "uppercase",
+                    color: !selectedCategory ? "var(--bg)" : "var(--fg-muted)",
+                    background: !selectedCategory ? "var(--fg)" : "var(--surface)",
+                    border: "1px solid var(--rule)",
+                    textDecoration: "none",
+                    transition: "all 0.18s ease",
+                  }}
+                >
+                  All <span style={{ opacity: 0.7 }}>{allRanked.length}</span>
+                </Link>
+                {top.map(renderPill)}
+                {restToShow.length > 0 && (
+                  <details
                     style={{
-                      padding: "8px 14px",
-                      fontFamily: "var(--font-mono)",
-                      fontSize: 11,
-                      letterSpacing: "0.06em",
-                      textTransform: "uppercase",
-                      color: active ? "var(--bg)" : "var(--fg-muted)",
-                      background: active ? "var(--fg)" : "var(--surface)",
-                      border: "1px solid var(--rule)",
-                      textDecoration: "none",
-                      transition: "all 0.18s ease",
+                      display: "inline-block",
+                      position: "relative",
                     }}
                   >
-                    {c.label || c.id} <span style={{ opacity: 0.7 }}>{catCount}</span>
-                  </Link>
-                );
-              })}
-            </div>
-          </Reveal>
-        )}
+                    <summary
+                      style={{
+                        cursor: "pointer",
+                        listStyle: "none",
+                        padding: "8px 14px",
+                        fontFamily: "var(--font-mono)",
+                        fontSize: 11,
+                        letterSpacing: "0.06em",
+                        textTransform: "uppercase",
+                        color: "var(--accent)",
+                        background: "var(--surface)",
+                        border: "1px solid var(--rule)",
+                        userSelect: "none",
+                      }}
+                    >
+                      + {restToShow.length} more
+                    </summary>
+                    <div
+                      style={{
+                        display: "flex",
+                        flexWrap: "wrap",
+                        gap: 8,
+                        marginTop: 8,
+                      }}
+                    >
+                      {restToShow.map(renderPill)}
+                    </div>
+                  </details>
+                )}
+              </div>
+            </Reveal>
+          );
+        })()}
 
         {/* Empty state */}
         {ranked.length === 0 ? (

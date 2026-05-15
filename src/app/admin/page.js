@@ -3,8 +3,6 @@ import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { Sparkline, BarChart, StackedBar, CHART_COLORS } from "@/components/admin/charts";
 import { fetchBenchBudget } from "@/lib/admin/automation";
 
-export const revalidate = 60;
-
 export default async function AdminIndex() {
   const sb = createSupabaseAdminClient();
   const [{ stats, missingTables }, charts] = await Promise.all([

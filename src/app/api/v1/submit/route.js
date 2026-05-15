@@ -22,8 +22,6 @@ import { isOfficialOwner } from "@/lib/official-orgs";
 import { judgeQualityInline } from "@/lib/quality/judge-inline";
 import { uploadContent } from "@/lib/content/storage";
 
-export const dynamic = "force-dynamic";
-
 const MAX_BODY_BYTES = 200 * 1024;
 const RATE_LIMIT_PER_HOUR = 5;
 const GITHUB_URL_RE = /^https?:\/\/(?:www\.)?github\.com\/([^/]+)\/([^/]+?)(?:\/(?:blob|tree)\/([^/]+)\/(.+?))?(?:\.git)?\/?$/i;

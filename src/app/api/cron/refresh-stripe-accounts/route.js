@@ -19,7 +19,6 @@
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { getStripe, isStripeConfigured } from "@/lib/stripe/server";
 
-export const dynamic = "force-dynamic";
 export const maxDuration = 60;
 
 function authorized(request) {

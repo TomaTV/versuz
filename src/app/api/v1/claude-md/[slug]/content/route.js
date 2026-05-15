@@ -1,8 +1,6 @@
 import { getClaudeMdBySlug } from "@/lib/queries/rankings";
 
 // Content endpoint pour le npx versuz CLI : retourne le CLAUDE.md raw.
-export const dynamic = "force-dynamic";
-
 export async function GET(_request, { params }) {
   const { slug } = await params;
   const item = await getClaudeMdBySlug(slug);

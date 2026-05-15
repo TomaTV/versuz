@@ -1,6 +1,5 @@
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 
-export const dynamic = "force-dynamic";
 export const maxDuration = 300; // Vercel Pro: up to 5 min per invocation
 
 // Note : 'other' is deliberately NOT in this set — no task suite to score

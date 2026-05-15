@@ -542,6 +542,12 @@ html[data-auth="anon"] .vz-auth-slot__anon {
   }
   .vz-pillars > * {
     border-right: none !important;
+    border-bottom: 1px solid var(--rule);
+  }
+  /* Dernier pilier : pas de borderBottom — la <Section> suivante ajoute
+     déjà son propre borderTop, on évite la double barre. */
+  .vz-pillars > *:last-child {
+    border-bottom: none !important;
   }
   .vz-stat-grid {
     grid-template-columns: 1fr !important;
@@ -549,6 +555,9 @@ html[data-auth="anon"] .vz-auth-slot__anon {
   .vz-stat-grid > * {
     border-right: none !important;
     border-bottom: 1px solid var(--rule);
+  }
+  .vz-stat-grid > *:last-child {
+    border-bottom: none !important;
   }
   .vz-hero-grid {
     grid-template-columns: 1fr !important;
@@ -558,12 +567,36 @@ html[data-auth="anon"] .vz-auth-slot__anon {
     grid-template-columns: 1fr !important;
     gap: 32px !important;
   }
+  /* CLI demo dans le hero : un terminal noir avec `npx versuz install` signe
+     instantanément "outil dev" pour un visiteur non-tech. Sur mobile (59% du
+     trafic), masquer pour laisser place au sous-titre clair + CTA search. */
+  .vz-hero-cli-demo {
+    display: none !important;
+  }
   .vz-method-flow {
     grid-template-columns: 1fr 1fr !important;
   }
   .vz-method-flow > * {
     border-right: none !important;
     border-bottom: 1px solid var(--rule);
+    /* Reset paddingLeft : le JSX met paddingLeft:0 sur le 1er step et
+       paddingLeft:24 sur les autres pour aligner avec la grille desktop.
+       Sur mobile en stack, ça créé un décalage visuel (01 collé à gauche,
+       02-05 inset). On force paddingLeft cohérent. */
+    padding-left: 0 !important;
+  }
+  /* Dernier step : pas de borderBottom — la <Section> suivante en a un. */
+  .vz-method-flow > *:last-child {
+    border-bottom: none !important;
+  }
+}
+
+/* Sticky "Enter the Arena" floating CTA — masqué sur mobile : eat 46% de la
+   barre du bas iPhone 12, recouvre du contenu pendant scroll, et le CTA
+   /submit principal vit déjà en §08 Enter. */
+@media (max-width: 768px) {
+  .vz-arena-sticky {
+    display: none !important;
   }
 }
 
@@ -994,9 +1027,26 @@ html[data-auth="anon"] .vz-auth-slot__anon {
     grid-template-columns: 1fr;
     gap: 32px;
   }
+  /* Footer : 2 colonnes sur tout l'éventail mobile (jusqu'à 340px). Le
+     6-col grid devient 2-col compact, chaque section garde son header +
+     ses liens. La logo cell prend toute la largeur en haut, le reste se
+     répartit sur 2 cols. */
+  .vz-footer-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    gap: 36px 24px !important;
+  }
+  /* La 1ère cell (logo + tagline + socials) span les 2 cols pour respirer. */
+  .vz-footer-grid > :first-child {
+    grid-column: 1 / -1;
+  }
+}
+@media (max-width: 340px) {
   .vz-footer-grid {
     grid-template-columns: 1fr !important;
-    gap: 40px !important;
+    gap: 32px !important;
+  }
+  .vz-footer-grid > :first-child {
+    grid-column: auto;
   }
 }
 
@@ -1392,5 +1442,70 @@ html[data-auth="anon"] .vz-auth-slot__anon {
   .vz-hide-mobile {
     display: none !important;
   }
+}
+
+/* Changelog : sur mobile, raccourcir titres + body pour qu'un entry tienne
+   sur un écran sans avoir besoin de scroll continu. */
+@media (max-width: 640px) {
+  .vz-changelog-title {
+    font-size: 18px !important;
+  }
+  .vz-changelog-body {
+    font-size: 13px !important;
+    line-height: 1.55 !important;
+  }
+}
+
+/* Profile "My skills" / "My CLAUDE.md" rows : desktop = titre à gauche +
+   badges + menu à droite sur une ligne. Mobile = stack vertical avec
+   badges sous le titre (pas tassés). */
+.vz-profile-item-top {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 16px;
+  align-items: center;
+}
+.vz-profile-item-badges {
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+@media (max-width: 640px) {
+  .vz-profile-item-top {
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
+  .vz-profile-item-badges {
+    justify-content: flex-start;
+    row-gap: 8px;
+  }
+  .vz-profile-item-title {
+    font-size: 18px !important;
+  }
+}
+
+/* FAQ accordion : le toggle `+` est ancré à gauche de la question (chevron
+   style) plutôt que poussé à droite par space-between — le user lisait le
+   "+" comme déconnecté de la question sur mobile. Bascule en `−` quand
+   ouvert via `details[open]`. */
+details[open] .vz-faq-toggle::before {
+  content: "−";
+}
+details[open] .vz-faq-toggle {
+  color: var(--fg-muted);
+}
+details[open] .vz-faq-toggle {
+  visibility: hidden;
+  position: relative;
+}
+details[open] .vz-faq-toggle::before {
+  visibility: visible;
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 100%;
+  text-align: center;
 }
 

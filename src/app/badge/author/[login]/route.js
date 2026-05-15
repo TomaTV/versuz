@@ -1,7 +1,5 @@
 import { createSupabasePublicClient } from "@/lib/supabase/public";
 
-export const dynamic = "force-dynamic";
-
 const W = 420;
 const H = 62;
 const RIGHT_W = 88;
@@ -212,7 +210,9 @@ export async function GET(request, { params }) {
   return new Response(svg, {
     headers: {
       "content-type": "image/svg+xml; charset=utf-8",
-      "cache-control": "public, max-age=600, s-maxage=1800",
+      // Voir commentaire dans /badge/[kind]/[slug] : embed README, change
+      // au plus 1× / 24h après cycle bench.
+      "cache-control": "public, max-age=3600, s-maxage=86400, stale-while-revalidate=604800",
     },
   });
 }

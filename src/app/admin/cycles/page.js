@@ -11,8 +11,6 @@ import {
   reopenPartialCycle,
 } from "@/lib/admin/actions";
 
-export const revalidate = 30;
-
 async function loadCycles() {
   const sb = createSupabaseAdminClient();
   if (!sb) return { error: "supabase_admin_unavailable", cycles: [] };

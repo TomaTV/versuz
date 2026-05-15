@@ -17,8 +17,6 @@ import {
   progressBetween,
 } from "@/lib/admin/cron-utils";
 
-export const revalidate = 60;
-
 export const metadata = {
   title: "Automation — Admin — Versuz",
   robots: { index: false, follow: false },

@@ -843,11 +843,10 @@ function Field({ label, value }) {
   );
 }
 
-// ISR 60s — detail pages serve from cache, regenerated max once a minute.
-// `getSkillBySlug` is also wrapped at query layer (rankings.js) so even on
-// regeneration the inner DB hit is cached. Content body fetched from R2
-// CDN edge anyway = fast either way.
-export const revalidate = 60;
+// cacheComponents:true (Next 16.2) — la page reste dynamic à cause des
+// lectures cookies via getCurrentUser. Le caching est désormais piloté à
+// l'intérieur des fetches via `'use cache'` (cf `src/lib/queries/rankings.js`).
+// L'export `revalidate` n'est plus compatible et a été retiré.
 
 export async function generateMetadata({ params }) {
   const { slug } = await params;
@@ -861,16 +860,16 @@ export async function generateMetadata({ params }) {
 
 export default async function SkillDetailPage({ params }) {
   const { slug } = await params;
-  
+
   // Parallel data fetching - get everything we can at once
   const [detail, user] = await Promise.all([
     getSkillBySlug(slug),
     getCurrentUser(),
   ]);
-  
+
   if (!detail) notFound();
   const meta = detail.metadata || {};
-  
+
   // Fetch remaining data in parallel
   const [siblings, disagreement, repoRegistry, owned, authored, achievements, featuredPicks] = await Promise.all([
     getSiblingSkills(slug, 3),
@@ -887,7 +886,7 @@ export default async function SkillDetailPage({ params }) {
   const tripleCrownCategories = new Set(
     achievements.filter((a) => a.type === "triple_crown").map((a) => a.category).filter(Boolean)
   );
-  
+
   const repoBundleHref =
     repoRegistry &&
     repoRegistry.skills.length + repoRegistry.claudeMds.length > 1 &&
@@ -895,7 +894,7 @@ export default async function SkillDetailPage({ params }) {
     meta.repo
       ? `/repo/${encodeURIComponent(meta.owner)}/${encodeURIComponent(meta.repo)}`
       : null;
-  
+
   const isOwned = owned.skills.has(slug);
   const isAuthored = authored.skills.has(slug);
 
@@ -2077,3 +2076,4 @@ function PromoteSkillSlot({ slug, isAuthored, skillName }) {
     </section>
   );
 }
+

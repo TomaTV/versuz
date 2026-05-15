@@ -1,8 +1,6 @@
 import { createSupabasePublicClient } from "@/lib/supabase/public";
 import { getTopRankedItems } from "@/lib/queries/rankings";
 
-export const dynamic = "force-dynamic";
-
 const W = 420;
 const H = 62;
 const RIGHT_W = 88;
@@ -223,7 +221,8 @@ export async function GET(request, { params }) {
   return new Response(svg, {
     headers: {
       "content-type": "image/svg+xml; charset=utf-8",
-      "cache-control": "public, max-age=600, s-maxage=1800",
+      // Cache CDN 24h + SWR 7j — voir /badge/[kind]/[slug] pour le rationale.
+      "cache-control": "public, max-age=3600, s-maxage=86400, stale-while-revalidate=604800",
     },
   });
 }

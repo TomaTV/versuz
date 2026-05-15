@@ -2,8 +2,6 @@
 // Given a GitHub PAT in `Authorization: Bearer <token>`, calls GitHub /user
 // to verify the token + returns the GH user info. Used by the CLI to
 // confirm `versuz login` succeeded.
-export const dynamic = "force-dynamic";
-
 export async function POST(request) {
   const auth = request.headers.get("authorization") || "";
   const m = auth.match(/^Bearer\s+(.+)$/i);

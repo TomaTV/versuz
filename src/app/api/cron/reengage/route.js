@@ -14,8 +14,6 @@ import { unsubLink } from "@/lib/emails/unsubscribe-token";
 
 const SITE = process.env.NEXT_PUBLIC_SITE_URL || "https://versuz.dev";
 
-export const dynamic = "force-dynamic";
-
 export async function GET(request) {
   const url = new URL(request.url);
   const qSecret = url.searchParams.get("secret") || "";

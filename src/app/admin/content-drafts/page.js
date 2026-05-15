@@ -3,7 +3,6 @@ import { getRecentUpsets, getLeaderboardCategories } from "@/lib/queries/ranking
 import { CopyUrlButton } from "./copy-url-button";
 
 export const metadata = { title: "Content drafts — Admin Versuz" };
-export const dynamic = "force-dynamic";
 
 /**
  * Editorial dashboard for the "Today's Upset" pipeline. Lists the biggest

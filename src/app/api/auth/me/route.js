@@ -1,8 +1,6 @@
 import { getCurrentUser } from "@/lib/auth/server";
 import { isAdmin, ghLogin } from "@/lib/auth/admin";
 
-export const dynamic = "force-dynamic";
-
 export async function GET() {
   const user = await getCurrentUser();
   if (!user) {

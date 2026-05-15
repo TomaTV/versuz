@@ -16,8 +16,8 @@ export const metadata = {
     "Browse the full Versuz registry: free SKILL.md and CLAUDE.md verified, plus premium expert items. Filter by tier, category, verification level. Instant client-side filtering.",
 };
 
-export const revalidate = 60;
-
+// `revalidate=60` retiré (cacheComponents:true). Le cache est local dans
+// les helpers `getPaginatedItems`/`getCategoryCounts` via `'use cache'`.
 export default async function MarketplacePage({ searchParams }) {
   const params = (await searchParams) || {};
   const type = params.type === "claude-md" ? "claude-md" : "skills";
@@ -53,6 +53,7 @@ export default async function MarketplacePage({ searchParams }) {
         }
         subtitle="The full Versuz registry — free verified SKILL.md and CLAUDE.md, plus premium expert items. Filter and sort instantly. Top-ranked items get the leaderboard badge once judging runs."
         decoration={<MarketHeroShapes />}
+        compact
       />
 
       <section style={{ maxWidth: 1440, margin: "0 auto", padding: "32px clamp(16px, 4.5vw, 64px) clamp(80px, 12vw, 160px)" }}>

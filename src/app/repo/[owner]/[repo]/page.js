@@ -5,8 +5,6 @@ import { getRegistryByRepo, getAllRanksBySlug } from "@/lib/queries/rankings";
 import { BackButton } from "@/components/site/back-button";
 import { RepoSkillCard } from "@/components/repo/repo-skill-card";
 
-export const dynamic = "force-dynamic";
-
 export async function generateMetadata({ params }) {
   const { owner, repo } = await params;
   const o = decodeURIComponent(owner || "");

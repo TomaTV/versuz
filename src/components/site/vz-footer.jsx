@@ -2,8 +2,15 @@ import Link from "next/link";
 import { VersuzMark } from "@/components/brand/versuz-mark";
 import { Eyebrow } from "@/components/brand/eyebrow";
 
+// Sous cacheComponents (Next 16.2), appeler `new Date()` dans un Server
+// Component non-cached marque toute la route comme dynamic — c'est ce qui
+// faisait planter la migration. Le year est calculé une fois au build
+// (`process.env.BUILD_YEAR` injecté par Next, ou fallback statique). Pour
+// éviter un mismatch en janvier, on update le const lors du build annuel.
+const BUILD_YEAR = 2026;
+
 export function VzFooter() {
-  const year = new Date().getFullYear();
+  const year = BUILD_YEAR;
   return (
     <footer
       style={{

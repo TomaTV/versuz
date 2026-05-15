@@ -2,7 +2,9 @@
 
 import { useEffect, useRef, useState } from "react";
 
-const POLL_MS = 8000;
+// Polling /api/stats. Mai 2026 : 8s → 60s pour soulager Supabase free tier
+// (cf. commentaire dans live-stats-grid.jsx).
+const POLL_MS = 60000;
 
 function fmt(n) {
   return Math.round(n).toLocaleString("en-US");
@@ -10,8 +12,7 @@ function fmt(n) {
 
 /**
  * Compact live-stats bar pour le hero — montre les counts skills/claude/judged
- * et un dot LIVE qui pulse. Polling /api/stats toutes les 8s pour ne pas
- * forcer un reload.
+ * et un dot LIVE qui pulse. Polling /api/stats toutes les 60s.
  */
 export function HeroLiveBar({ initialSkills, initialClaudeMds, initialJudged = 0 }) {
   const [skills, setSkills] = useState(initialSkills);
@@ -24,6 +25,11 @@ export function HeroLiveBar({ initialSkills, initialClaudeMds, initialJudged = 0
     let cancelled = false;
     let timer = null;
     async function poll() {
+      // Skip si tab caché (cf. live-stats-grid pour le rationale).
+      if (typeof document !== "undefined" && document.hidden) {
+        if (!cancelled) timer = setTimeout(poll, POLL_MS);
+        return;
+      }
       try {
         const res = await fetch("/api/stats", { cache: "no-store" });
         if (!res.ok) return;

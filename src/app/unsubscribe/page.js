@@ -9,8 +9,6 @@ export const metadata = {
   robots: { index: false, follow: false },
 };
 
-export const dynamic = "force-dynamic";
-
 export default async function UnsubscribePage({ searchParams }) {
   const params = (await searchParams) || {};
   const email = typeof params.email === "string" ? params.email.toLowerCase().trim() : "";

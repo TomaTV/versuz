@@ -1,6 +1,5 @@
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 
-export const dynamic = "force-dynamic";
 export const maxDuration = 30;
 
 function authorized(request) {

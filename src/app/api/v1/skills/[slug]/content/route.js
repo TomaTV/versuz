@@ -3,8 +3,6 @@ import { getSkillBySlug } from "@/lib/queries/rankings";
 // Content endpoint for the npx versuz CLI : returns raw SKILL.md content.
 // Free items : open access. Premium without auth → 402 Payment Required.
 // (Premium auth via API key sera ajouté en v0.2 — pour l'instant tier=free only.)
-export const dynamic = "force-dynamic";
-
 export async function GET(_request, { params }) {
   const { slug } = await params;
   const item = await getSkillBySlug(slug);

@@ -6,8 +6,6 @@ import { unsubLink } from "@/lib/emails/unsubscribe-token";
 
 const SITE = process.env.NEXT_PUBLIC_SITE_URL || "https://versuz.dev";
 
-export const dynamic = "force-dynamic";
-
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 function backTo(url, status, message) {

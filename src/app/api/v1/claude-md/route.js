@@ -1,8 +1,6 @@
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { computePrior } from "@/lib/utils";
 
-export const dynamic = "force-dynamic";
-
 const MAX_LIMIT = 100;
 const ALLOWED_TIERS = new Set(["free", "premium", "featured"]);
 const ALLOWED_CATS = new Set([

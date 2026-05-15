@@ -8,8 +8,6 @@ export const metadata = {
   description: "Live system status — bench cycle health, judge availability, scraping pipeline, registry size.",
 };
 
-export const dynamic = "force-dynamic"; // always re-render with fresh data
-
 const PROVIDER_KEY_VARS = {
   google: "GOOGLE_AI_STUDIO_KEY",
   groq: "GROQ_API_KEY",
@@ -230,7 +228,11 @@ export default async function StatusPage() {
   );
 }
 
-function StatusCell({ label, ok, detail, accent }) {
+function StatusCell({ label, ok, detail }) {
+  // Le carré de statut est strictement sémantique : sage (vert) = OK, danger
+  // (rouge) = down. Pas d'accent ember passé d'en haut — un carré orange à
+  // côté du texte "Operational" donnait un mismatch visuel (carré "alerte"
+  // alors que le label dit "tout va bien").
   return (
     <div
       style={{
@@ -250,7 +252,7 @@ function StatusCell({ label, ok, detail, accent }) {
           right: 24,
           width: 10,
           height: 10,
-          background: ok ? accent || "var(--sage)" : "var(--danger)",
+          background: ok ? "var(--sage)" : "var(--danger)",
         }}
       />
       <span

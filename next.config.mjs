@@ -2,6 +2,17 @@
 const nextConfig = {
   reactCompiler: true,
   experimental: {
+    // cacheComponents NON activé pour l'instant — la migration sans Suspense
+    // wrapping de tous les fetches top-level provoque des timeouts en dev
+    // (home 20s+, Supabase free statement timeout). Un commit dédié devra :
+    //   1. Wrap chaque fetch top-level de page.js, marketplace, leaderboard,
+    //      skills/[slug] dans un <Suspense> serveur
+    //   2. OU migrer tous les helpers de rankings.js en `'use cache'`
+    //      directive (~30 fonctions) avec cacheLife() pour TTL
+    // En attendant, les 38 routes ont été migrées (directives retirées) mais
+    // cacheComponents:false → comportement Next 16 par défaut. Les wins
+    // shippés mai 2026 (badge s-maxage=86400, robots.txt disallow) suffisent
+    // pour stabiliser le CPU.
     serverActions: {
       // Premium-content uploads at submit time go through server actions.
       // Default 1MB is too tight for a SKILL.md with assets / .zip bundle —

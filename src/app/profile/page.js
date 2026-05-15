@@ -183,10 +183,10 @@ export default async function ProfilePage() {
         eyebrow="Profile"
         title={
           <>
-            Hi <em style={{ color: "var(--accent)" }}>{handle}</em>.
+            Your <em style={{ color: "var(--accent)" }}>profile</em>.
           </>
         }
-        subtitle={`Signed in via ${provider}. Submissions and claimed skills appear below.`}
+        subtitle={`Signed in as ${handle} via ${provider}. Submissions and claimed skills appear below.`}
       />
 
       <Section eyebrow="§ 01 — Account" markerColor="var(--azure)">
@@ -422,22 +422,16 @@ function ContributionList({ kind, items }) {
             style={{
               display: "flex",
               flexDirection: "column",
-              gap: 12,
+              gap: 14,
               padding: "20px 0",
               borderTop: "1px solid var(--rule)",
             }}
-            className="vz-admin-row"
+            className="vz-admin-row vz-profile-item"
           >
-          <div
-            style={{
-              display: "grid",
-              gridTemplateColumns: "1fr auto auto auto",
-              gap: 16,
-              alignItems: "center",
-            }}
-          >
+          <div className="vz-profile-item-top">
             <Link
               href={href}
+              className="vz-profile-item-title"
               style={{
                 fontFamily: "var(--font-display)",
                 fontSize: 22,
@@ -445,12 +439,15 @@ function ContributionList({ kind, items }) {
                 textDecoration: "none",
                 letterSpacing: "-0.01em",
                 wordBreak: "break-word",
+                display: "flex",
+                flexDirection: "column",
+                gap: 4,
+                minWidth: 0,
               }}
             >
-              {display}
+              <span>{display}</span>
               <span
                 style={{
-                  marginLeft: 12,
                   fontFamily: "var(--font-mono)",
                   fontSize: 11,
                   color: "var(--fg-muted)",
@@ -460,29 +457,31 @@ function ContributionList({ kind, items }) {
                 {sub} · ★ {it.github_stars || 0}
               </span>
             </Link>
-            <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
-              <TierBadge tier={it.tier} priceUsd={it.price_usd} size="sm" />
-              {isBoosted && <BoostedMini />}
-            </span>
-            <VerificationBadge level={it.verification_level} showLabel />
-            {isClaimed ? (
-              <ItemMenu
-                editHref={editHref}
-                promoteHref={promoteHref}
-                kind={kind}
-                slug={it.slug}
-                isFeatured={it.tier === "featured"}
-                deleteAction={deleteOwnSubject}
-              />
-            ) : (
-              <Link
-                href={claimHref}
-                className="vz-link"
-                style={{ fontFamily: "var(--font-mono)", fontSize: 11, letterSpacing: "0.06em" }}
-              >
-                Claim ↗
-              </Link>
-            )}
+            <div className="vz-profile-item-badges">
+              <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+                <TierBadge tier={it.tier} priceUsd={it.price_usd} size="sm" />
+                {isBoosted && <BoostedMini />}
+              </span>
+              <VerificationBadge level={it.verification_level} showLabel />
+              {isClaimed ? (
+                <ItemMenu
+                  editHref={editHref}
+                  promoteHref={promoteHref}
+                  kind={kind}
+                  slug={it.slug}
+                  isFeatured={it.tier === "featured"}
+                  deleteAction={deleteOwnSubject}
+                />
+              ) : (
+                <Link
+                  href={claimHref}
+                  className="vz-link"
+                  style={{ fontFamily: "var(--font-mono)", fontSize: 11, letterSpacing: "0.06em" }}
+                >
+                  Claim ↗
+                </Link>
+              )}
+            </div>
           </div>
           {/* Pipeline stepper — Submitted → Quality → Queued → Benched */}
           <div style={{ paddingTop: 4, paddingLeft: 2 }}>

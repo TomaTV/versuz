@@ -18,10 +18,10 @@ export function HeroHeadline() {
     <h1
       style={{
         fontFamily: "var(--font-display)",
-        fontSize: "clamp(48px, 11vw, 168px)",
+        fontSize: "clamp(72px, 16vw, 200px)",
         fontWeight: 400,
         letterSpacing: "-0.045em",
-        lineHeight: 0.92,
+        lineHeight: 0.9,
         margin: 0,
         color: "var(--fg)",
         wordBreak: "break-word",

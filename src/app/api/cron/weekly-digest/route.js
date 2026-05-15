@@ -20,7 +20,6 @@
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { sendEmail, isResendConfigured } from "@/lib/resend";
 
-export const dynamic = "force-dynamic";
 export const maxDuration = 300;
 
 function authorized(request) {

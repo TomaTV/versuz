@@ -1,7 +1,5 @@
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
-export const dynamic = "force-dynamic";
-
 const BASE = process.env.NEXT_PUBLIC_SITE_URL || "https://versuz.dev";
 const MAX_ITEMS = 50;
 

@@ -4,7 +4,12 @@ import { useEffect, useRef, useState } from "react";
 import { motion, useInView, useMotionValue, animate } from "framer-motion";
 import { RevealStagger, RevealItem } from "@/components/motion/reveal";
 
-const POLL_MS = 4000; // 4s — visibilité immédiate quand le scrape pousse 1-5 items/sec
+// Polling /api/stats. Mai 2026 : monté de 4s → 30s parce que Supabase free
+// tier saturait (4s × 21600 polls/jour/user × bots = milliers de hits DB).
+// Le scrape pousse 1-5 items/sec mais l'user ne va pas regarder le compteur
+// défiler en temps réel — 30s suffit pour voir bouger. Le tab caché coupe
+// le polling (cf isHidden ci-dessous).
+const POLL_MS = 30000;
 
 /**
  * Format plain : nombre complet avec narrow-no-break-space (U+202F) comme
@@ -79,6 +84,14 @@ export function LiveStatsGrid({ initialSkills, initialClaudeMds, initialRanked, 
     let timer = null;
 
     async function poll() {
+      // Pause le poll quand l'onglet est en background. Plus de 80% du
+      // trafic bot (et un % non-trivial des users) ouvre l'onglet, scroll
+      // 5s, et passe à autre chose. Pas de raison de continuer à hammer
+      // Supabase pendant qu'ils sont sur YouTube.
+      if (typeof document !== "undefined" && document.hidden) {
+        if (!cancelled) timer = setTimeout(poll, POLL_MS);
+        return;
+      }
       try {
         const res = await fetch("/api/stats", { cache: "no-store" });
         if (!res.ok) return;
