@@ -23,17 +23,24 @@ export async function GET(_request, { params }) {
     return Response.json({ error: "Content not available" }, { status: 404 });
   }
   const meta = item.metadata || {};
-  return Response.json({
-    api_version: "v1",
-    kind: "claude_md",
-    slug: item.slug,
-    description: item.description,
-    project_category: item.project_category,
-    content: item.content,
-    github_url: item.github
-      ? `https://${item.github}`
-      : meta.owner && meta.repo
-        ? `https://github.com/${meta.owner}/${meta.repo}`
-        : null,
-  });
+  return Response.json(
+    {
+      api_version: "v1",
+      kind: "claude_md",
+      slug: item.slug,
+      description: item.description,
+      project_category: item.project_category,
+      content: item.content,
+      github_url: item.github
+        ? `https://${item.github}`
+        : meta.owner && meta.repo
+          ? `https://github.com/${meta.owner}/${meta.repo}`
+          : null,
+    },
+    {
+      headers: {
+        "Cache-Control": "public, s-maxage=3600, stale-while-revalidate=86400",
+      },
+    }
+  );
 }

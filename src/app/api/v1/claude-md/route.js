@@ -1,4 +1,4 @@
-import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { createSupabasePublicClient } from "@/lib/supabase/public";
 import { computePrior } from "@/lib/utils";
 
 const MAX_LIMIT = 100;
@@ -47,7 +47,7 @@ function shape(row) {
 
 export async function GET(request) {
   const url = new URL(request.url);
-  const sb = await createSupabaseServerClient();
+  const sb = createSupabasePublicClient();
   if (!sb) {
     return Response.json({ error: "Database unavailable" }, { status: 503 });
   }
@@ -90,12 +90,20 @@ export async function GET(request) {
   let items = (data || []).map(shape);
   if (sortRaw === "prior") items.sort((a, b) => (b.prior ?? 0) - (a.prior ?? 0));
 
-  return Response.json({
-    api_version: "v1",
-    kind: "claude_md",
-    page,
-    limit,
-    total: count ?? items.length,
-    items,
-  });
+  return Response.json(
+    {
+      api_version: "v1",
+      kind: "claude_md",
+      page,
+      limit,
+      total: count ?? items.length,
+      items,
+    },
+    {
+      headers: {
+        // Voir /api/v1/skills/route.js : edge-cache 10min par URL.
+        "Cache-Control": "public, s-maxage=600, stale-while-revalidate=3600",
+      },
+    }
+  );
 }

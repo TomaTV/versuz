@@ -25,18 +25,26 @@ export async function GET(_request, { params }) {
     return Response.json({ error: "Content not available" }, { status: 404 });
   }
   const meta = item.metadata || {};
-  return Response.json({
-    api_version: "v1",
-    kind: "skill",
-    slug: item.slug,
-    name: item.name,
-    description: item.description,
-    content: item.skill_md_content,
-    bundle_files: meta.bundle_files || [],
-    github_url: item.github
-      ? `https://${item.github}`
-      : meta.owner && meta.repo
-        ? `https://github.com/${meta.owner}/${meta.repo}`
-        : null,
-  });
+  return Response.json(
+    {
+      api_version: "v1",
+      kind: "skill",
+      slug: item.slug,
+      name: item.name,
+      description: item.description,
+      content: item.skill_md_content,
+      bundle_files: meta.bundle_files || [],
+      github_url: item.github
+        ? `https://${item.github}`
+        : meta.owner && meta.repo
+          ? `https://github.com/${meta.owner}/${meta.repo}`
+          : null,
+    },
+    {
+      headers: {
+        // Content body change uniquement au scrape (rare). Cache 1h + SWR 24h.
+        "Cache-Control": "public, s-maxage=3600, stale-while-revalidate=86400",
+      },
+    }
+  );
 }

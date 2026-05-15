@@ -1,4 +1,4 @@
-import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { createSupabasePublicClient } from "@/lib/supabase/public";
 import { computePrior } from "@/lib/utils";
 
 const MAX_LIMIT = 100;
@@ -36,7 +36,7 @@ function shape(row) {
 
 export async function GET(request) {
   const url = new URL(request.url);
-  const sb = await createSupabaseServerClient();
+  const sb = createSupabasePublicClient();
   if (!sb) {
     return Response.json(
       { error: "Database unavailable" },
@@ -86,12 +86,23 @@ export async function GET(request) {
   let items = (data || []).map(shape);
   if (sortRaw === "prior") items.sort((a, b) => (b.prior ?? 0) - (a.prior ?? 0));
 
-  return Response.json({
-    api_version: "v1",
-    kind: "skill",
-    page,
-    limit,
-    total: count ?? items.length,
-    items,
-  });
+  return Response.json(
+    {
+      api_version: "v1",
+      kind: "skill",
+      page,
+      limit,
+      total: count ?? items.length,
+      items,
+    },
+    {
+      headers: {
+        // CDN cache 10 min par URL unique (la query string fait partie de la
+        // clé de cache Vercel). 95%+ des bots crawlent la même page=1 limit=50
+        // → tap l'edge cache, jamais la fonction. SWR 1h en bonus pour
+        // amortir un Supabase down sans servir d'erreur fresh.
+        "Cache-Control": "public, s-maxage=600, stale-while-revalidate=3600",
+      },
+    }
+  );
 }
