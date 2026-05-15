@@ -24,6 +24,7 @@ import { classifyProject } from "./classify-project.mjs";
 import { createClient } from "@supabase/supabase-js";
 import { contentHash } from "../_hash.mjs";
 import { purgeContentDuplicates } from "../_dedup.mjs";
+import { offloadRowsToStorage } from "../_storage.mjs";
 import { isOfficialOwner } from "../../src/lib/official-orgs.js";
 
 function parseArgs(argv) {
@@ -177,6 +178,7 @@ async function main() {
             if (!ex || (r.github_stars || 0) > (ex.github_stars || 0)) bySlug.set(r.slug, r);
           }
           const deduped = [...bySlug.values()];
+          await offloadRowsToStorage(deduped, "claude_md", sb);
           const { error, count } = await sb
             .from("claude_md_files")
             .upsert(deduped, { onConflict: "slug", count: "exact" });
@@ -260,6 +262,7 @@ async function main() {
       console.log(`[scrape-claude-md] nothing to upsert after dedup`);
       return;
     }
+    await offloadRowsToStorage(filtered, "claude_md", sb);
     const { error, count } = await sb
       .from("claude_md_files")
       .upsert(filtered, { onConflict: "slug", count: "exact" });

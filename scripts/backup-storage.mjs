@@ -2,6 +2,10 @@
 import "./_env.mjs";
 
 /**
+ * ⚠ LEGACY (post-R2 migration mai 2026) — Supabase Storage bucket `content`
+ *   est vide. Pour backup les .md actuels, utiliser `npm run backup:r2`
+ *   (scripts/backup-r2.mjs) qui télécharge depuis Cloudflare R2.
+ *
  * Download every file from the `content` Storage bucket to a local folder.
  * Pairs with backup-incremental.mjs : the JSONL captures DB rows including
  * `content_path` references, this script captures the files themselves.

@@ -13,6 +13,25 @@ export const metadata = {
 
 const ENTRIES = [
   {
+    date: "2026-05-15",
+    title: "V1.6.1 — Cloudflare R2 migration, query cache, no-flash auth, manifesto motion ad",
+    items: [
+      { type: "infra", body: "Content storage migrated from Supabase Storage to Cloudflare R2 — 103,572 .md files (~1.1 GB) served from edge CDN via cdn.versuz.dev. Zero egress fees, 10 GB free, scales to millions of items. DB stays on Supabase Free (metadata only, ~228 MB / 500 MB cap). Steady-state cost back to $0/mois." },
+      { type: "infra", body: "Dual-backend dispatch via env (R2_PUBLIC_URL set → R2, else Supabase Storage fallback). Helpers in src/lib/content/storage.js (Next runtime) + scripts/_storage.mjs (Node scripts). Path shape unchanged across both backends — `content_path` column needed zero rewriting." },
+      { type: "infra", body: "All write paths refactored to land on R2 : submit web form, submit CLI API, scrape (main + aggregators + codesearch + claude-md). Inline content stays as fallback only if R2 upload errors out — graceful degrade, never lose a submit." },
+      { type: "perf", body: "Marketplace cold render dropped from ~14s to ~300ms warm. Wrapped 8 hot queries in Next.js unstable_cache : getPaginatedItems (60s TTL), getCategoryCounts / getAvailableSources / getAllRanksBySlug / liveSkills / liveClaudeMds / getIndexCounts / getTopRankedItems (300s TTL). Each filter combo has its own cache entry." },
+      { type: "perf", body: "Skill detail page switched from force-dynamic to ISR 60s. Content body served from R2 CDN edge = fast regardless of DB hit." },
+      { type: "perf", body: "Marketplace cards : content-visibility: auto so off-screen cards skip paint + layout. ~5-10 RES point gain on long-list pages." },
+      { type: "feat", body: "Manifesto motion ad — 1920×1080 · 42s · 7 acts. Falling files → Versuz reveal → 3 numbered pillars (SUBMIT / JUDGE / RANK) → live bench → climb → 3 tier cards → CTA. Brand shapes only (circle, square, triangle, semi-circle). Export : `node scripts/export-ads.mjs --scene=manifesto`." },
+      { type: "feat", body: "Sound design generator (npm run ads:audio) — 109 event-driven SFX synthesized via ffmpeg lavfi (sub-kicks, whooshes, plucks, bells, mechanical tacs for counter/typewriter). No constant music bed. VO recorded separately on ElevenLabs." },
+      { type: "fix", body: "Auth slot \"Sign in\" flash killed for real — inline beforeInteractive script reads localStorage['vz-auth-cache'] before body parses, CSS dispatches user/anon via html[data-auth] attribute. Returning users see their pill on the very first paint, no React state-driven swap, no hydration mismatch." },
+      { type: "fix", body: "Quality-judge OpenRouter fallback default = none (was : auto-switch to paid OpenRouter on Groq TPD exhaust → surprise costs). Two new opt-in chains : `openrouter-free` (free Gemini Flash / DeepSeek V3 / Llama 3.3 / Qwen) and `openrouter` (paid)." },
+      { type: "fix", body: "Bench engine + quality-judge unified storage resolver — both use the shared fetchContentByPath() from _storage.mjs now. Before, quality-judge had a hardcoded Supabase URL → broken post-cleanup. Now transparent against either backend." },
+      { type: "fix", body: "Next.js 16 compat — auth bootstrap script migrated from <script dangerouslySetInnerHTML> (forbidden in Server Components on Next 16) to <Script strategy=\"beforeInteractive\"> from next/script." },
+      { type: "infra", body: "New ops scripts : migrate-storage-to-r2 (one-shot migration), cleanup-supabase-storage (wipe old bucket, --i-know-what-im-doing flag), backup-r2 (`npm run backup:r2`), archive-historical-data (archive bench_results / rank_history > 30j → R2 jsonl.gz when DB approaches cap)." },
+    ],
+  },
+  {
     date: "2026-05-14",
     title: "V1.6 — landing flip, badge V2, gamification, content drafts",
     items: [

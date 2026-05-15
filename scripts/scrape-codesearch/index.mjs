@@ -41,6 +41,7 @@ import { classifySkill } from "../scrape/classify.mjs";
 import { classifyProject } from "../scrape-claude-md/classify-project.mjs";
 import { contentHash } from "../_hash.mjs";
 import { purgeContentDuplicates } from "../_dedup.mjs";
+import { offloadRowsToStorage } from "../_storage.mjs";
 import { makeRotatingOctokit, tokenCount } from "../_github-tokens.mjs";
 import { isOfficialOwner } from "../../src/lib/official-orgs.js";
 
@@ -572,6 +573,11 @@ async function flush(rows, table, sb) {
     }
   }
   const batch = [...byUrl.values()];
+
+  // Offload inline content → R2 (or Supabase Storage fallback) so DB stays
+  // lean. Sets content_path + NULLs inline. Idempotent.
+  const inlineKind = table === "skills" ? "skill" : "claude_md";
+  await offloadRowsToStorage(batch, inlineKind, sb);
 
   // First try slug conflict (common case : fresh row or stable slug).
   let { error, count } = await sb

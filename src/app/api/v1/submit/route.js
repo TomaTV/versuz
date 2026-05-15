@@ -20,6 +20,7 @@ import { classifyProject } from "../../../../../scripts/scrape-claude-md/classif
 import { contentHash } from "../../../../../scripts/_hash.mjs";
 import { isOfficialOwner } from "@/lib/official-orgs";
 import { judgeQualityInline } from "@/lib/quality/judge-inline";
+import { uploadContent } from "@/lib/content/storage";
 
 export const dynamic = "force-dynamic";
 
@@ -228,6 +229,14 @@ export async function POST(request) {
     const cls = classifySkill(parsed);
     const { owner, repo } = parsedUrl;
     resultingSlug = slugify(parsed.name) || slugify(`${owner}-${repo}`);
+
+    // Upload to R2 — DB stays lean, content lives on the CDN.
+    const upload = await uploadContent("skill", resultingSlug, content);
+    const contentPath = upload.path || null;
+    if (upload.error) {
+      console.warn(`[submit] R2 upload failed for skill/${resultingSlug}: ${upload.error} — falling back to inline DB`);
+    }
+
     // Ownership ALREADY verified ci-dessus (isOwnAccount || isMember) — donc
     // level 1 d'office. Admin peut bump à 2+ après review manuelle.
     row = {
@@ -237,7 +246,8 @@ export async function POST(request) {
       github_url: `https://github.com/${owner}/${repo}`,
       github_stars: 0,
       category: cls.id,
-      skill_md_content: content,
+      skill_md_content: contentPath ? null : content,
+      content_path: contentPath,
       content_hash: contentHash(content),
       is_official: isOfficialOwner(owner),
       metadata: {
@@ -267,13 +277,22 @@ export async function POST(request) {
     resultingSlug = slugify(`${owner}-${repo}`);
     const descMatch = content.match(/^#\s+(.+)$/m);
     const description = (descMatch?.[1] || `${owner}/${repo} CLAUDE.md`).slice(0, 240);
+
+    // Upload to R2 — DB stays lean.
+    const upload = await uploadContent("claude_md", resultingSlug, content);
+    const contentPath = upload.path || null;
+    if (upload.error) {
+      console.warn(`[submit] R2 upload failed for claude_md/${resultingSlug}: ${upload.error} — falling back to inline DB`);
+    }
+
     row = {
       slug: resultingSlug,
       github_url: `https://github.com/${owner}/${repo}`,
       github_stars: 0,
       description,
       project_category: cls.id,
-      content,
+      content: contentPath ? null : content,
+      content_path: contentPath,
       content_hash: contentHash(content),
       is_official: isOfficialOwner(owner),
       // word_count GENERATED column (migration 0002), pas writable
@@ -326,12 +345,13 @@ export async function POST(request) {
   // Fire inline quality judge in background — runs AFTER the response is sent
   // so the user gets a fast reply, and the row picks up its quality_score
   // within ~2-5 sec instead of waiting 6h for the cron.
+  // Pass the in-scope `content` (not row.skill_md_content which is now NULL
+  // when R2 upload succeeded — content lives on R2 via content_path).
   const submittedSlug = upserted?.slug || resultingSlug;
-  const submittedContent = kind === "skill" ? row.skill_md_content : row.content;
   const submittedName = kind === "skill" ? row.name : submittedSlug;
   after(async () => {
     try {
-      await judgeQualityInline(sb, kind, submittedSlug, submittedContent, submittedName);
+      await judgeQualityInline(sb, kind, submittedSlug, content, submittedName);
     } catch (e) {
       console.warn(`[submit] background quality judge failed: ${e.message}`);
     }

@@ -2,6 +2,9 @@
 import "./_env.mjs";
 
 /**
+ * ⚠ LEGACY (post-R2 migration mai 2026) — résolu par R2 (pas de WAF block
+ *   chez Cloudflare pour les contenus security/pentest). Code mort.
+ *
  * Rescue the ~70 rows that the main migrate script couldn't push to Storage
  * because of slug-derived path issues (slug too long, illegal chars,
  * collision, etc.). We bypass the slug entirely and use the UUID `id` as

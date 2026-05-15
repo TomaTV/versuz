@@ -29,6 +29,7 @@ import { classifySkill } from "../scrape/classify.mjs";
 import { classifyProject } from "../scrape-claude-md/classify-project.mjs";
 import { contentHash } from "../_hash.mjs";
 import { purgeContentDuplicates } from "../_dedup.mjs";
+import { offloadRowsToStorage } from "../_storage.mjs";
 import { SOURCES, GITHUB_TOPICS } from "./sources.mjs";
 import { isOfficialOwner } from "../../src/lib/official-orgs.js";
 
@@ -470,6 +471,9 @@ async function main() {
         return true;
       });
       if (filtered.length) {
+        // Offload inline content → R2 (or Supabase Storage fallback) so DB
+        // stays lean. Sets content_path + NULLs inline column.
+        await offloadRowsToStorage(filtered, "skill", sb);
         const { error, count } = await sb.from("skills").upsert(filtered, { onConflict: "slug", count: "exact" });
         if (error) console.warn(`[scrape-aggregators] skill upsert err : ${error.message}`);
         else {
@@ -497,6 +501,7 @@ async function main() {
         return true;
       });
       if (filtered.length) {
+        await offloadRowsToStorage(filtered, "claude_md", sb);
         const { error, count } = await sb.from("claude_md_files").upsert(filtered, { onConflict: "slug", count: "exact" });
         if (error) console.warn(`[scrape-aggregators] claude_md upsert err : ${error.message}`);
         else {

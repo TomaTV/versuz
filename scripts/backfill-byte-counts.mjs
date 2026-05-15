@@ -2,6 +2,13 @@
 import "./_env.mjs";
 
 /**
+ * ⚠ LEGACY (post-R2 migration mai 2026) — lit Supabase Storage object sizes
+ *   désormais vides → script broken pour usage actuel. Si tu veux backfill
+ *   byte_count depuis R2, faut refactor avec le S3 client (HeadObject pour
+ *   chaque content_path) — voir scripts/_storage.mjs pour le client R2.
+ *   La majorité des rows ont déjà leur byte_count stamp depuis le scraper
+ *   et la migration R2 (path shape inchangé), pas urgent.
+ *
  * Backfill `metadata.byte_count` on skills + claude_md_files by reading
  * file size from the Supabase Storage `content` bucket. Used by the
  * marketplace Tokens filter when `word_count` is unavailable

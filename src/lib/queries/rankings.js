@@ -22,10 +22,17 @@ import {
   TASK_SUITES,
 } from "@/lib/fixtures/seed";
 import { cache } from "react";
+import { unstable_cache } from "next/cache";
 import { CLAUDE_MD_FILES, PROJECT_CATEGORIES } from "@/lib/fixtures/claude-md";
 import { createSupabasePublicClient } from "@/lib/supabase/public";
 import { computePrior } from "@/lib/utils";
 import { fetchContentByPath } from "@/lib/content/storage";
+
+// Cache TTLs for unstable_cache wrappers below.
+// 60s = filter-dependent queries (marketplace pagination with searchParams)
+// 300s = stable aggregates (category counts, sources, ranks-by-slug)
+const CACHE_TTL_HOT = 60;
+const CACHE_TTL_STABLE = 300;
 
 const HAS_SUPABASE = Boolean(process.env.NEXT_PUBLIC_SUPABASE_URL);
 
@@ -248,7 +255,7 @@ async function enrichWithBenchScores(items, kind) {
 /* ──────── Server-side paginated query for /marketplace ──────── */
 const MARKETPLACE_PAGE_SIZE = 50;
 
-export async function getPaginatedItems(kind = "skill", params = {}) {
+async function getPaginatedItemsInternal(kind = "skill", params = {}) {
   if (!HAS_SUPABASE) {
     const items = kind === "skill" ? SKILLS.map(withTierDefaults) : CLAUDE_MD_FILES;
     return { items, total: items.length, page: 1, totalPages: 1 };
@@ -450,6 +457,22 @@ export async function getPaginatedItems(kind = "skill", params = {}) {
   return { items: mapped, total, page, totalPages };
 }
 
+/**
+ * Public wrapper : cached 60s via Next.js unstable_cache. Cache key is
+ * derived from (kind, params) — each unique filter combination gets its own
+ * cache entry. Hot filters (default landing, "Free", "Featured") stay warm.
+ * Cold combinations pay the DB cost only every 60s.
+ *
+ * Why 60s : marketplace counts/items are eventually-consistent, a minute
+ * lag on rank/scores is fine. The cycle completes once a day at 06:00 UTC
+ * so realtime is overkill.
+ */
+export const getPaginatedItems = unstable_cache(
+  getPaginatedItemsInternal,
+  ["paginated-items"],
+  { revalidate: CACHE_TTL_HOT, tags: ["paginated-items", "marketplace"] }
+);
+
 /** Parse owner/repo from github.com HTTPS or git@github.com SSH URLs. */
 export function parseGithubOwnerRepo(githubUrl) {
   if (!githubUrl || typeof githubUrl !== "string") return { owner: null, repo: null };
@@ -544,9 +567,9 @@ export async function getRegistryByRepo(ownerRaw, repoRaw) {
 /**
  * Lightweight category counts for the marketplace pills.
  * Uses individual count queries per category to avoid 1000 row limit.
- * Cached for 60 seconds to avoid repeated queries.
+ * Cached 300s via Next.js unstable_cache (persists across requests).
  */
-const getCategoryCountsInternal = cache(async (kind = "skill") => {
+const getCategoryCountsInternal = unstable_cache(async (kind = "skill") => {
   if (!HAS_SUPABASE) {
     if (kind === "skill") return CATEGORIES;
     return PROJECT_CATEGORIES;
@@ -579,7 +602,7 @@ const getCategoryCountsInternal = cache(async (kind = "skill") => {
     { id: "all", label: "All", count: total },
     ...sorted.map((c) => ({ id: c.category, label: labels[c.category] || c.category, count: c.count })),
   ];
-});
+}, ["category-counts"], { revalidate: CACHE_TTL_STABLE, tags: ["category-counts"] });
 
 export async function getCategoryCounts(kind = "skill") {
   return getCategoryCountsInternal(kind);
@@ -594,7 +617,7 @@ export async function getCategoryCounts(kind = "skill") {
  *
  * Returns : [{ id: "github", count: 12345 }, { id: "sourcegraph", count: 423 }, ...]
  */
-export const getAvailableSources = cache(async (kind = "skill") => {
+export const getAvailableSources = unstable_cache(async (kind = "skill") => {
   if (!HAS_SUPABASE) return [];
   const sb = createSupabasePublicClient();
   if (!sb) return [];
@@ -628,7 +651,7 @@ export const getAvailableSources = cache(async (kind = "skill") => {
   return results
     .filter((b) => b.count > 0)
     .sort((a, b) => b.count - a.count);
-});
+}, ["available-sources"], { revalidate: CACHE_TTL_STABLE, tags: ["available-sources"] });
 
 /**
  * Top N rows for live<Kind> consumers. Cappé à LIVE_FETCH_CAP (2000) — assez
@@ -636,7 +659,10 @@ export const getAvailableSources = cache(async (kind = "skill") => {
  * Pour le marketplace plein, voir getPaginatedItems. Pour landing top 10,
  * voir getTopRankedItems.
  */
-const liveSkills = cache(async () => {
+// Top 2000 skills/claude_md — used by landing, sitemap, getTopTopics, sibling
+// strip. Cached 300s cross-request via unstable_cache so multiple consumers
+// share the same fetched batch instead of each hitting Supabase.
+const liveSkills = unstable_cache(async () => {
   const sb = createSupabasePublicClient();
   if (!sb) return null;
   const { data, error } = await sb
@@ -655,9 +681,9 @@ const liveSkills = cache(async () => {
   }
   const mapped = applyRepoSkillCount((data || []).map(mapSkillRow));
   return enrichWithBenchScores(mapped, "skill");
-});
+}, ["live-skills"], { revalidate: CACHE_TTL_STABLE, tags: ["live-skills", "marketplace"] });
 
-const liveClaudeMds = cache(async () => {
+const liveClaudeMds = unstable_cache(async () => {
   const sb = createSupabasePublicClient();
   if (!sb) return null;
   const { data, error } = await sb
@@ -677,7 +703,7 @@ const liveClaudeMds = cache(async () => {
   }
   const mapped = applyRepoSkillCount((data || []).map(mapClaudeMdRow));
   return enrichWithBenchScores(mapped, "claude_md");
-});
+}, ["live-claude-mds"], { revalidate: CACHE_TTL_STABLE, tags: ["live-claude-mds", "marketplace"] });
 
 /**
  * Landing top N skills in a category. Pas de chunked fetch — une seule query
@@ -767,7 +793,7 @@ export async function getBenchedTopByCategory(kind = "skill", category, limit = 
     .filter(Boolean);
 }
 
-export async function getTopRankedItems(kind = "skill", category = null, limit = 10) {
+export const getTopRankedItems = unstable_cache(async (kind = "skill", category = null, limit = 10) => {
   if (!HAS_SUPABASE) {
     const list = kind === "skill" ? SKILLS.map(withTierDefaults) : CLAUDE_MD_FILES;
     const filtered = category
@@ -804,9 +830,9 @@ export async function getTopRankedItems(kind = "skill", category = null, limit =
   const mapper = kind === "skill" ? mapSkillRow : mapClaudeMdRow;
   const mapped = applyRepoSkillCount((data || []).map(mapper));
   return enrichWithBenchScores(mapped, kind);
-}
+}, ["top-ranked-items"], { revalidate: CACHE_TTL_STABLE, tags: ["top-ranked", "marketplace"] });
 
-export async function getCurrentCycle() {
+export const getCurrentCycle = unstable_cache(async () => {
   if (!HAS_SUPABASE) return CYCLE;
   const sb = createSupabasePublicClient();
   if (!sb) return null;
@@ -867,7 +893,7 @@ export async function getCurrentCycle() {
   }
 
   return null; // Genuinely no cycle in the last 7 days → ticker falls back to "idle"
-}
+}, ["current-cycle"], { revalidate: CACHE_TTL_HOT, tags: ["current-cycle"] });
 
 /**
  * Skills list, optionally filtered by category. Quand category fournie,
@@ -898,7 +924,7 @@ export async function getStandings(category) {
  * row payload, juste le count. ~5ms total. Falls back aux fixtures
  * lengths quand Supabase n'est pas configuré.
  */
-export async function getIndexCounts() {
+export const getIndexCounts = unstable_cache(async () => {
   if (!HAS_SUPABASE) {
     return { skills: SKILLS.length, claudeMds: 0, asOf: new Date().toISOString() };
   }
@@ -944,7 +970,7 @@ export async function getIndexCounts() {
     claudeMds: claudeMdRes.count ?? 0,
     asOf: new Date().toISOString(),
   };
-}
+}, ["index-counts"], { revalidate: CACHE_TTL_STABLE, tags: ["index-counts"] });
 
 export async function getCategories() {
   if (!HAS_SUPABASE) return CATEGORIES;
@@ -1288,8 +1314,10 @@ export async function getJudgeDisagreement({ kind = "skill", subjectId }) {
  * Map of `<kind>:<slug>` → { rank, category, avg_score } across ALL
  * categories. Used by MarketplaceCard to show a "TOP N" badge when a skill
  * is in the top 3 / 5 / 10 of its category. One round-trip total.
+ *
+ * Cached 300s — rankings only change at cycle completion (daily 06:00 UTC).
  */
-export async function getAllRanksBySlug() {
+export const getAllRanksBySlug = unstable_cache(async () => {
   if (!HAS_SUPABASE) return {};
   const sb = createSupabasePublicClient();
   if (!sb) return {};
@@ -1299,8 +1327,6 @@ export async function getAllRanksBySlug() {
     .not("avg_score", "is", null)
     .order("avg_score", { ascending: false });
   if (error || !data) return {};
-  // Walk through, assigning rank-within-category. Data is already sorted
-  // globally by avg_score desc — partition by (kind, category) then number.
   const counters = new Map();
   const out = {};
   for (const r of data) {
@@ -1314,7 +1340,7 @@ export async function getAllRanksBySlug() {
     };
   }
   return out;
-}
+}, ["all-ranks-by-slug"], { revalidate: CACHE_TTL_STABLE, tags: ["all-ranks"] });
 
 /**
  * Top topics across the registry (skills + claude-md), aggregated from the

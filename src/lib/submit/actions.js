@@ -18,6 +18,7 @@
 
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
+import { uploadContent } from "@/lib/content/storage";
 import { getCurrentUser } from "@/lib/auth/server";
 import { revalidatePath } from "next/cache";
 import { parseSkillMd } from "../../../scripts/scrape/parse.mjs";
@@ -139,6 +140,16 @@ async function insertSkillRow(sb, user, { content, owner, repo, path, urlOwnerLo
   const ownsRepo = login && urlOwnerLogin && login.toLowerCase() === urlOwnerLogin.toLowerCase();
   const verificationLevel = ownsRepo ? 1 : 0;
 
+  // Upload content to R2 (or Supabase Storage fallback) — keep DB lean.
+  // If upload fails (R2 down, network blip), we fall back to inline so the
+  // submit isn't lost ; rankings.js's resolver chain inline → storage handles
+  // both cases transparently.
+  const upload = await uploadContent("skill", slug, content);
+  const contentPath = upload.path || null;
+  if (upload.error) {
+    console.warn(`[submit] R2 upload failed for skill/${slug}: ${upload.error} — falling back to inline DB`);
+  }
+
   const row = {
     slug,
     name: parsed.name,
@@ -146,7 +157,9 @@ async function insertSkillRow(sb, user, { content, owner, repo, path, urlOwnerLo
     github_url: owner && repo ? `https://github.com/${owner}/${repo}` : `https://versuz.dev/u/${user.id}/${slug}`,
     github_stars: 0,
     category: cls.id,
-    skill_md_content: content,
+    // Inline ONLY if R2 write failed — keeps the DB tight in the normal case.
+    skill_md_content: contentPath ? null : content,
+    content_path: contentPath,
     metadata: {
       owner: owner || null,
       repo: repo || null,
@@ -387,6 +400,14 @@ async function insertClaudeMdRow(sb, user, { content, owner, repo, urlOwnerLogin
   const ownsRepo = login && urlOwnerLogin && login.toLowerCase() === urlOwnerLogin.toLowerCase();
   const verificationLevel = ownsRepo ? 1 : 0;
 
+  // Upload content to R2 (or Supabase Storage fallback) — keep DB lean.
+  // Inline fallback only kicks in if R2 write fails (transient network etc.).
+  const upload = await uploadContent("claude_md", baseSlug, content);
+  const contentPath = upload.path || null;
+  if (upload.error) {
+    console.warn(`[submit] R2 upload failed for claude_md/${baseSlug}: ${upload.error} — falling back to inline DB`);
+  }
+
   const row = {
     slug: baseSlug,
     github_url:
@@ -396,7 +417,8 @@ async function insertClaudeMdRow(sb, user, { content, owner, repo, urlOwnerLogin
     github_stars: 0,
     description: extractDescription(content),
     project_category: projectCategory,
-    content,
+    content: contentPath ? null : content,
+    content_path: contentPath,
     metadata: {
       owner: owner || null,
       repo: repo || null,

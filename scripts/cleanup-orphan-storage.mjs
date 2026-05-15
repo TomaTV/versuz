@@ -2,6 +2,12 @@
 import "./_env.mjs";
 
 /**
+ * ⚠ LEGACY (post-R2 migration mai 2026) — pointe sur Supabase Storage
+ *   désormais vide. Pour cleaner les orphans sur R2 (rows DB supprimées
+ *   mais .md toujours dans le bucket), faut écrire un équivalent qui
+ *   utilise le S3 client R2. Pas urgent vu qu'on n'a pas encore hard-delete
+ *   de masses de rows.
+ *
  * Cleanup Storage orphans : list every file in the `content` bucket and
  * delete those that no row references via `content_path`. After a
  * hard-delete of archived rows, their Storage files become orphans.

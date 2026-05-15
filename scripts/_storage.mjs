@@ -155,3 +155,44 @@ export async function resolveItemContent(item) {
   if (path) return await fetchContentByPath(path);
   return { text: null, error: "no inline content and no content_path" };
 }
+
+/**
+ * Batch helper for scrapers : upload every row's inline content to the
+ * active storage backend (R2 or Supabase Storage), set `content_path`,
+ * and NULL the inline column to free DB row size. Idempotent — rows
+ * without inline content are skipped.
+ *
+ * `kind` = "skill" or "claude_md" (decides the inline column key).
+ * Mutates `rows` in place and returns the array.
+ *
+ * Failures fall back to keeping inline (so the scrape doesn't lose data
+ * on a transient R2 hiccup). Failures are logged as warnings.
+ */
+export async function offloadRowsToStorage(rows, kind, sb = null) {
+  if (!Array.isArray(rows) || rows.length === 0) return rows;
+  const inlineKey = kind === "skill" ? "skill_md_content" : "content";
+  const prefix = kind === "skill" ? "skills" : "claude-md";
+  let uploaded = 0;
+  let failed = 0;
+  for (const row of rows) {
+    if (!row || !row[inlineKey] || !row.slug) continue;
+    if (row.content_path) continue; // already offloaded
+    const path = await uploadContentMd({
+      sb,
+      prefix,
+      slug: row.slug,
+      body: row[inlineKey],
+    });
+    if (path) {
+      row.content_path = path;
+      row[inlineKey] = null;
+      uploaded++;
+    } else {
+      failed++;
+    }
+  }
+  if (uploaded || failed) {
+    console.log(`[storage] offload ${kind} : ${uploaded} → ${activeStorageBackend()}, ${failed} failed (kept inline)`);
+  }
+  return rows;
+}

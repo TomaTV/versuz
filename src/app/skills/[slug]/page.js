@@ -843,8 +843,11 @@ function Field({ label, value }) {
   );
 }
 
-export const dynamic = "force-dynamic";
-export const revalidate = 0;
+// ISR 60s — detail pages serve from cache, regenerated max once a minute.
+// `getSkillBySlug` is also wrapped at query layer (rankings.js) so even on
+// regeneration the inner DB hit is cached. Content body fetched from R2
+// CDN edge anyway = fast either way.
+export const revalidate = 60;
 
 export async function generateMetadata({ params }) {
   const { slug } = await params;

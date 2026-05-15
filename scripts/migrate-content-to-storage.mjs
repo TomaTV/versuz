@@ -2,6 +2,12 @@
 import "./_env.mjs";
 
 /**
+ * ⚠ LEGACY (post-R2 migration mai 2026) — code mort. La migration inline →
+ *   Storage (mig 0042) a été faite en 2026, puis Storage → R2 en mai 2026.
+ *   Le content vit désormais sur Cloudflare R2 (`https://cdn.versuz.dev`).
+ *   Si tu veux ré-uploader du contenu depuis un backup local vers R2, utilise
+ *   `scripts/migrate-storage-to-r2.mjs` à la place.
+ *
  * Migrate skill_md_content + claude_md_files.content depuis inline DB columns
  * vers Supabase Storage bucket "content" (public).
  *

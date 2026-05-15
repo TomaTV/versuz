@@ -136,18 +136,17 @@ export async function upsertSkills(sb, skills) {
   }
   if (!filtered.length) return { skipped: false, count: 0 };
 
-  // Storage offload : si SCRAPE_USE_STORAGE=1, upload content vers le bucket
-  // public "content" et stamp content_path. Met aussi skill_md_content=null
-  // pour libérer la place DB (sinon le content reste dupliqué inline + Storage).
-  // Le bucket doit pré-exister.
-  if (process.env.SCRAPE_USE_STORAGE === "1") {
-    for (const row of filtered) {
-      if (!row.skill_md_content) continue;
-      const path = await uploadContentToStorage(sb, "skills", row.slug, row.skill_md_content);
-      if (path) {
-        row.content_path = path;
-        row.skill_md_content = null; // free DB row size
-      }
+  // Storage offload : upload content vers R2 (ou Supabase Storage fallback)
+  // et stamp content_path. Met skill_md_content=null pour libérer la place DB.
+  // R2 est l'architecture par défaut depuis mai 2026 — plus de gate env var.
+  // Si R2 est down (transient), uploadContentToStorage retourne null et on
+  // garde l'inline en fallback (rankings.js resolver chain s'en occupe).
+  for (const row of filtered) {
+    if (!row.skill_md_content) continue;
+    const path = await uploadContentToStorage(sb, "skills", row.slug, row.skill_md_content);
+    if (path) {
+      row.content_path = path;
+      row.skill_md_content = null; // free DB row size
     }
   }
 
