@@ -328,9 +328,13 @@ async function handlePromoteCheckout(sb, session, pi, meta) {
   const maxMs = now + PROMOTE_MAX_ACTIVE_DAYS * 24 * 60 * 60 * 1000;
   const newUntil = new Date(Math.min(requestedMs, maxMs)).toISOString();
 
+  // Boost is paid, bump bench_pending=true so the next bench cycle judges
+  // this item in priority (boost gives visibility on the marketplace, but
+  // also fast-tracks the bench so the score is fresh by the time the
+  // increased traffic discovers it). Same rationale for premium / featured.
   const { error: updErr } = await sb
     .from(table)
-    .update({ promoted_until: newUntil })
+    .update({ promoted_until: newUntil, bench_pending: true })
     .eq("id", subjectId);
   if (updErr) throw new Error(`subject promoted_until update: ${updErr.message}`);
 

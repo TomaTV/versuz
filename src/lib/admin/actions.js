@@ -269,6 +269,45 @@ export async function bulkSubjectAction(formData) {
     revalidatePath(`/admin/${kind === "claude_md" ? "claude-md" : "skills"}`);
     revalidatePath("/marketplace");
     return { ok: true, affected: updated, action, landed };
+  } else if (action === "bench-priority") {
+    // Set bench_pending=true → next bench cycle picks these items first.
+    // Used to prioritize manually : right after a boost/featured upgrade,
+    // or when an item needs a re-judge (controversy, content updated, etc.).
+    result = await sb
+      .from(table)
+      .update({ bench_pending: true })
+      .in("slug", slugs);
+  } else if (action === "force-quality") {
+    // Run the inline quality judge on each item NOW (no wait for the 4h cron).
+    // Pull content via storage resolver then call judgeQualityInline.
+    const { judgeQualityInline } = await import("@/lib/quality/judge-inline");
+    const { fetchContentByPath } = await import("../content/storage");
+    const sel = kind === "skill"
+      ? "id, slug, name, skill_md_content, content_path"
+      : "id, slug, content, content_path, metadata";
+    const { data: items, error: fetchErr } = await sb.from(table).select(sel).in("slug", slugs);
+    if (fetchErr) return { error: fetchErr.message };
+    let judged = 0;
+    let failed = 0;
+    for (const item of items || []) {
+      try {
+        let body = kind === "skill" ? item.skill_md_content : item.content;
+        if (!body && item.content_path) body = await fetchContentByPath(item.content_path);
+        if (!body) { failed++; continue; }
+        const meta = item.metadata || {};
+        const name = kind === "skill"
+          ? item.name
+          : (meta.author && meta.repo ? `${meta.author}/${meta.repo}` : item.slug);
+        await judgeQualityInline(sb, kind, item.slug, body, name);
+        judged++;
+      } catch (e) {
+        failed++;
+        console.warn(`[admin force-quality] ${item.slug}: ${e.message}`);
+      }
+    }
+    revalidatePath(`/admin/${kind === "claude_md" ? "claude-md" : "skills"}`);
+    revalidatePath("/marketplace");
+    return { ok: true, affected: judged, failed, action };
   } else {
     return { error: `Unknown action: ${action}` };
   }

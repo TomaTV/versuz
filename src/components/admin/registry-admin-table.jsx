@@ -27,6 +27,8 @@ const BULK_ACTIONS = [
   { id: "tier-free", label: "Reset tier → free" },
   { id: "reclassify", label: "Reclassify (re-run keyword classifier)" },
   { id: "set-category", label: "Set category → (specify below)" },
+  { id: "force-quality", label: "▶ Run quality judge NOW (inline)" },
+  { id: "bench-priority", label: "▶ Bench priority (next cycle picks first)" },
   { id: "delete", label: "Delete (irreversible)" },
 ];
 
