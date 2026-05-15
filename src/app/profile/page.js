@@ -8,6 +8,7 @@ import { deleteOwnSubject } from "@/lib/submit/actions";
 import { Section, SectionHeader, PageHero } from "@/components/section";
 import { TierBadge } from "@/components/marketplace/tier-badge";
 import { VerificationBadge } from "@/components/marketplace/verification-badge";
+import { ItemMenu } from "@/components/profile/item-menu";
 import { PipelineStepper } from "@/components/profile/pipeline-stepper";
 import { StatGrid, BarChart, Sparkline } from "@/components/dashboard/stat-grid";
 import { OnboardingModal } from "@/components/onboarding/onboarding-modal";
@@ -465,54 +466,14 @@ function ContributionList({ kind, items }) {
             </span>
             <VerificationBadge level={it.verification_level} showLabel />
             {isClaimed ? (
-              <span
-                style={{
-                  display: "inline-flex",
-                  alignItems: "center",
-                  gap: 12,
-                  fontFamily: "var(--font-mono)",
-                  fontSize: 11,
-                  letterSpacing: "0.06em",
-                }}
-              >
-                <Link href={editHref} className="vz-link" style={{ color: "var(--fg)" }}>
-                  Edit ↗
-                </Link>
-                <Link
-                  href={promoteHref}
-                  style={{
-                    color: "var(--bg)",
-                    background: "var(--amber)",
-                    padding: "4px 8px",
-                    textDecoration: "none",
-                    letterSpacing: "0.18em",
-                    textTransform: "uppercase",
-                    fontSize: 10,
-                  }}
-                >
-                  ◆ Boost
-                </Link>
-                <form action={deleteOwnSubject} style={{ display: "inline" }}>
-                  <input type="hidden" name="kind" value={kind} />
-                  <input type="hidden" name="slug" value={it.slug} />
-                  <button
-                    type="submit"
-                    title="Delete this item permanently"
-                    style={{
-                      background: "transparent",
-                      border: "none",
-                      color: "var(--crimson)",
-                      cursor: "pointer",
-                      fontFamily: "var(--font-mono)",
-                      fontSize: 11,
-                      letterSpacing: "0.06em",
-                      padding: 0,
-                    }}
-                  >
-                    Delete
-                  </button>
-                </form>
-              </span>
+              <ItemMenu
+                editHref={editHref}
+                promoteHref={promoteHref}
+                kind={kind}
+                slug={it.slug}
+                isFeatured={it.tier === "featured"}
+                deleteAction={deleteOwnSubject}
+              />
             ) : (
               <Link
                 href={claimHref}

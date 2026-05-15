@@ -238,15 +238,18 @@ async function loadCharts(sb) {
 
   const [skillsCreated, claudeCreated, budget, qSkills, qClaude, bSkills, bClaude, tSkills, tClaude] =
     await Promise.all([
+      // `skills` and `claude_md_files` don't have created_at — they use
+      // `scraped_at` (timestamp when the row entered our registry). Same
+      // semantic for "items added per day" since scrape == ingestion event.
       sb
         .from("skills")
-        .select("created_at")
-        .gte("created_at", sinceIso)
+        .select("scraped_at")
+        .gte("scraped_at", sinceIso)
         .limit(5000),
       sb
         .from("claude_md_files")
-        .select("created_at")
-        .gte("created_at", sinceIso)
+        .select("scraped_at")
+        .gte("scraped_at", sinceIso)
         .limit(5000),
       fetchBenchBudget(sb),
       sb.from("skills").select("id", { count: "exact", head: true }).not("quality_score", "is", null),
@@ -265,11 +268,11 @@ async function loadCharts(sb) {
   }
   const itemsByDay = new Map(dayKeys.map((k) => [k, 0]));
   for (const r of skillsCreated.data || []) {
-    const k = r.created_at?.slice(0, 10);
+    const k = r.scraped_at?.slice(0, 10);
     if (itemsByDay.has(k)) itemsByDay.set(k, itemsByDay.get(k) + 1);
   }
   for (const r of claudeCreated.data || []) {
-    const k = r.created_at?.slice(0, 10);
+    const k = r.scraped_at?.slice(0, 10);
     if (itemsByDay.has(k)) itemsByDay.set(k, itemsByDay.get(k) + 1);
   }
   const itemsPerDay = dayKeys.map((k) => itemsByDay.get(k) || 0);

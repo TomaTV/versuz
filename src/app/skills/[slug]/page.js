@@ -1942,7 +1942,7 @@ function PromoteSkillSlot({ slug, isAuthored, skillName }) {
         style={{
           maxWidth: 1440,
           margin: "0 auto",
-          padding: "0 clamp(16px, 4.5vw, 64px)",
+          padding: "0 clamp(16px, 4.5vw, 64px) clamp(40px, 6vw, 80px)",
         }}
       >
         <div
@@ -2013,7 +2013,7 @@ function PromoteSkillSlot({ slug, isAuthored, skillName }) {
       style={{
         maxWidth: 1440,
         margin: "0 auto",
-        padding: "0 clamp(16px, 4.5vw, 64px)",
+        padding: "0 clamp(16px, 4.5vw, 64px) clamp(40px, 6vw, 80px)",
       }}
     >
       <div

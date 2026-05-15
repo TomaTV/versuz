@@ -13,10 +13,10 @@ name: Bench runner
 
 on:
   schedule:
-    # 1 run/jour à 03:00 UTC (1h après scrape-daily à 02:00, et 1h avant le
-    # Vercel cron à 04:00 → drain le cycle queué la veille pendant que le
-    # nouveau s'enqueue)
-    - cron: "0 3 * * *"
+    # Drain toutes les 4h (mai 2026) au lieu de 1×/jour. Cycles créés par
+    # /api/cron/bench à 04:00 UTC sont picked up dans <4h max (vs 23h avant).
+    # Reste largement sous le BENCH_BUDGET_USD cap mensuel grâce au $1/run.
+    - cron: "0 */4 * * *"
   workflow_dispatch:
     inputs:
       mode:

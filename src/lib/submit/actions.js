@@ -154,7 +154,10 @@ async function insertSkillRow(sb, user, { content, owner, repo, path, urlOwnerLo
     slug,
     name: parsed.name,
     description: parsed.description,
-    github_url: owner && repo ? `https://github.com/${owner}/${repo}` : `https://versuz.dev/u/${user.id}/${slug}`,
+    // No GitHub URL → point to the canonical Versuz detail page so the
+    // "Preview" button on cards lands on something real instead of /u/<id>/<slug>
+    // which doesn't exist as a route.
+    github_url: owner && repo ? `https://github.com/${owner}/${repo}` : `https://versuz.dev/skills/${slug}`,
     github_stars: 0,
     category: cls.id,
     // Inline ONLY if R2 write failed — keeps the DB tight in the normal case.
@@ -410,10 +413,11 @@ async function insertClaudeMdRow(sb, user, { content, owner, repo, urlOwnerLogin
 
   const row = {
     slug: baseSlug,
+    // No GitHub URL → canonical Versuz detail (see comment above on skills branch).
     github_url:
       owner && repo
         ? `https://github.com/${owner}/${repo}`
-        : `https://versuz.dev/u/${user.id}/${baseSlug}`,
+        : `https://versuz.dev/claude-md/generic/${baseSlug}`,
     github_stars: 0,
     description: extractDescription(content),
     project_category: projectCategory,

@@ -567,9 +567,14 @@ export async function getRegistryByRepo(ownerRaw, repoRaw) {
 /**
  * Lightweight category counts for the marketplace pills.
  * Uses individual count queries per category to avoid 1000 row limit.
- * Cached 300s via Next.js unstable_cache (persists across requests).
+ * Cached 300s via Next.js unstable_cache.
+ *
+ * Two separate cached wrappers (one per kind) to give each its own explicit
+ * cache key — relying on auto-derived arg keys was returning empty for the
+ * skill kind in prod (probable cache key collision). Splitting eliminates
+ * any ambiguity.
  */
-const getCategoryCountsInternal = unstable_cache(async (kind = "skill") => {
+async function getCategoryCountsImpl(kind) {
   if (!HAS_SUPABASE) {
     if (kind === "skill") return CATEGORIES;
     return PROJECT_CATEGORIES;
@@ -581,15 +586,13 @@ const getCategoryCountsInternal = unstable_cache(async (kind = "skill") => {
   const catCol = kind === "skill" ? "category" : "project_category";
   const labels = kind === "skill" ? CATEGORY_LABELS : PROJECT_CATEGORY_LABELS;
 
-  // 1 RPC call (server-side GROUP BY) au lieu de N count queries.
-  // Voir migration 0036_category_counts_rpc.sql.
   const { data, error } = await sb.rpc("get_category_counts", {
     p_table: table,
     p_cat_col: catCol,
     p_kind: kind,
   });
   if (error) {
-    console.warn(`[getCategoryCounts] RPC failed: ${error.message}`);
+    console.warn(`[getCategoryCounts] RPC failed for ${kind}: ${error.message}`);
     return [];
   }
   const counts = (data || []).map((r) => ({
@@ -602,10 +605,21 @@ const getCategoryCountsInternal = unstable_cache(async (kind = "skill") => {
     { id: "all", label: "All", count: total },
     ...sorted.map((c) => ({ id: c.category, label: labels[c.category] || c.category, count: c.count })),
   ];
-}, ["category-counts"], { revalidate: CACHE_TTL_STABLE, tags: ["category-counts"] });
+}
+
+const getCategoryCountsSkillCached = unstable_cache(
+  () => getCategoryCountsImpl("skill"),
+  ["category-counts:skill"],
+  { revalidate: CACHE_TTL_STABLE, tags: ["category-counts", "category-counts:skill"] }
+);
+const getCategoryCountsClaudeMdCached = unstable_cache(
+  () => getCategoryCountsImpl("claude_md"),
+  ["category-counts:claude_md"],
+  { revalidate: CACHE_TTL_STABLE, tags: ["category-counts", "category-counts:claude_md"] }
+);
 
 export async function getCategoryCounts(kind = "skill") {
-  return getCategoryCountsInternal(kind);
+  return kind === "claude_md" ? getCategoryCountsClaudeMdCached() : getCategoryCountsSkillCached();
 }
 
 /**
@@ -617,7 +631,7 @@ export async function getCategoryCounts(kind = "skill") {
  *
  * Returns : [{ id: "github", count: 12345 }, { id: "sourcegraph", count: 423 }, ...]
  */
-export const getAvailableSources = unstable_cache(async (kind = "skill") => {
+async function getAvailableSourcesImpl(kind) {
   if (!HAS_SUPABASE) return [];
   const sb = createSupabasePublicClient();
   if (!sb) return [];
@@ -651,7 +665,22 @@ export const getAvailableSources = unstable_cache(async (kind = "skill") => {
   return results
     .filter((b) => b.count > 0)
     .sort((a, b) => b.count - a.count);
-}, ["available-sources"], { revalidate: CACHE_TTL_STABLE, tags: ["available-sources"] });
+}
+
+const getAvailableSourcesSkillCached = unstable_cache(
+  () => getAvailableSourcesImpl("skill"),
+  ["available-sources:skill"],
+  { revalidate: CACHE_TTL_STABLE, tags: ["available-sources", "available-sources:skill"] }
+);
+const getAvailableSourcesClaudeMdCached = unstable_cache(
+  () => getAvailableSourcesImpl("claude_md"),
+  ["available-sources:claude_md"],
+  { revalidate: CACHE_TTL_STABLE, tags: ["available-sources", "available-sources:claude_md"] }
+);
+
+export async function getAvailableSources(kind = "skill") {
+  return kind === "claude_md" ? getAvailableSourcesClaudeMdCached() : getAvailableSourcesSkillCached();
+}
 
 /**
  * Top N rows for live<Kind> consumers. Cappé à LIVE_FETCH_CAP (2000) — assez

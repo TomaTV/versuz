@@ -16,6 +16,8 @@ const PROVIDER_KEY_VARS = {
   mistral: "MISTRAL_API_KEY",
   anthropic: "ANTHROPIC_API_KEY",
   openai: "OPENAI_API_KEY",
+  openrouter: "OPENROUTER_API_KEY",
+  deepseek: "DEEPSEEK_API_KEY",
 };
 
 function probe(name) {
