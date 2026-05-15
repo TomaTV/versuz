@@ -1,6 +1,7 @@
 import { Geist, Instrument_Serif, JetBrains_Mono } from "next/font/google";
 import { Analytics } from "@vercel/analytics/next";
 import { SpeedInsights } from "@vercel/speed-insights/next";
+import Script from "next/script";
 import "./globals.css";
 import { VzNav } from "@/components/site/vz-nav";
 import { VzTicker } from "@/components/site/vz-ticker";
@@ -158,10 +159,24 @@ export default function RootLayout({ children }) {
         )}
         <link rel="preconnect" href="https://va.vercel-scripts.com" crossOrigin="anonymous" />
         <link rel="dns-prefetch" href="https://api.resend.com" />
-        <script
+        {/* No-flash auth slot. The next/script with strategy=beforeInteractive
+            loads BEFORE any React hydration, reads localStorage and sets
+            <html data-auth="user|anon"> so the nav slot picks the right CTA
+            on the very first paint. /api/auth/me re-verification happens later
+            from NavAuthCluster's useEffect. */}
+        <Script
+          id="vz-auth-bootstrap"
+          strategy="beforeInteractive"
+        >
+          {`(function(){try{var r=localStorage.getItem('vz-auth-cache');if(!r)return;var p=JSON.parse(r);if(!p||!p.ts||Date.now()-p.ts>86400000)return;var d=document.documentElement;if(p.user){d.dataset.auth='user';if(p.user.login)d.dataset.authLabel='@'+p.user.login;else if(p.user.email)d.dataset.authLabel=p.user.email;if(p.user.isAdmin)d.dataset.authAdmin='1';}else{d.dataset.auth='anon';}}catch(e){}})();`}
+        </Script>
+        <Script
+          id="vz-json-ld"
           type="application/ld+json"
-          dangerouslySetInnerHTML={{ __html: JSON.stringify(JSON_LD) }}
-        />
+          strategy="beforeInteractive"
+        >
+          {JSON.stringify(JSON_LD)}
+        </Script>
       </head>
       <body
         className="min-h-screen flex flex-col"

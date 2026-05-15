@@ -102,9 +102,9 @@ export function MarketplaceCard({
       style={{
         position: "relative",
         height: "100%",
-        // Featured = 2-col span (Versuz first-party hero). Grid is
-        // auto-flow: dense so the wider card fills gaps without holes.
         gridColumn: isFeatured ? "span 2" : undefined,
+        contentVisibility: "auto",
+        containIntrinsicSize: "0 320px",
       }}
     >
     {/* Diagonal BOOSTED ribbon — top-right corner, only when boosted */}

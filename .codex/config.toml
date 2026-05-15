@@ -1,0 +1,3 @@
+[mcp_servers.versuz-local]
+args = ["C:/Users/devul/Desktop/versuz/mcp-server/bin/server.js"]
+command = "node"

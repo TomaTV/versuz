@@ -87,7 +87,14 @@ export function UserMenu({ label, isAdmin, signOutAction }) {
             </MenuLink>
           )}
           <div style={{ height: 1, background: "var(--rule)" }} />
-          <form action={signOutAction}>
+          <form
+            action={signOutAction}
+            onSubmit={() => {
+              try {
+                localStorage.removeItem("vz-auth-cache");
+              } catch {}
+            }}
+          >
             <button
               type="submit"
               style={{

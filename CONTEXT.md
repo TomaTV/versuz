@@ -65,8 +65,8 @@ On est l'équivalent **LMArena pour les skills** : transparent, indépendant, di
 
 - **Frontend** : Next.js 16 (App Router, Turbopack, React Compiler) + JavaScript (.js / .jsx) + Tailwind v4 (`@theme inline`) — sans shadcn en V0 (DA trop opinionated, primitives custom)
 - **Backend** : Next.js API routes pour les endpoints de lecture (incluant `/api/v1/skills` + `/api/v1/claude-md` pour le public read-only) ; le moteur de benchmark vit dans `scripts/bench/` en pur Node (plus de service Python séparé — la stack est unifiée pour le solo dev)
-- **DB** : Supabase (Postgres, Auth GitHub OAuth + RLS public read + author insert)
-- **Storage** : Supabase Storage pour les fichiers de skills et outputs (V1)
+- **DB** : Supabase Free (Postgres, Auth GitHub OAuth + RLS public read + author insert) — DB metadata ~228 MB / 500 MB cap
+- **Storage** : **Cloudflare R2** bucket `versuz-content` (public via `https://cdn.versuz.dev`) pour les SKILL.md / CLAUDE.md (10 GB free, zero egress). Supabase Storage gardé uniquement pour `premium-content` (signed URLs, tiny). Dispatch auto via env `R2_PUBLIC_URL` dans [src/lib/content/storage.js](./src/lib/content/storage.js).
 - **Hosting** : Vercel pour Next.js. Crons via `vercel.json` (`/api/cron/bench` + `/api/cron/refresh-rankings`)
 - **LLM Providers** (7 modes dans [src/lib/judges.js](./src/lib/judges.js)) :
   - `dev` : 3 Groq Llama (3.3 70B + 4 Scout + 4 Maverick) — gratuit, 3000 RPD plafond
@@ -334,8 +334,8 @@ Solo build par Toma (FlukX Studio). 21 ans, basé en France, expertise design + 
   - 0046 `repo_skill_count` denormalized + index
   - 0047 widen category check v2 (api-integration/macos/communication/media/testing/devops)
   - 0048 `byte_count` generated col (extracted from metadata.byte_count, indexed)
-- **DB size** : 776 MB → **~281 MB** (sous Free tier 500 MB). Pro tier upgrade temporaire pour la recovery (~$0.83/jour) → downgrade Free ready.
-- **Storage offload complet** : 93607 skills + 10235 claude_md content bodies vers bucket public `content/{kind}/{slug}.md`. ~66 skills security/pentesting Cloudflare WAF-blocked gardent leur inline fallback. Bucket usage ~300 MB / 1 GB free.
+- **DB size** : 776 MB → **~228 MB** (sous Free tier 500 MB) après offload R2 + cleanup. Pro tier upgrade temporaire pour la migration → downgrade Free ready.
+- **Storage migration vers Cloudflare R2 (mai 2026)** : 103,572 .md files (1.1 GB) déplacés depuis Supabase Storage bucket `content` → R2 bucket `versuz-content` (`https://cdn.versuz.dev`). Path shape inchangé (`skills/<slug>.md` / `claude-md/<slug>.md`) → DB `content_path` column zéro modif. Supabase Storage bucket `content` wipé clean. Premium-content reste sur Supabase (signed URLs, tiny). Dispatch dual-backend via env `R2_PUBLIC_URL` ([src/lib/content/storage.js](./src/lib/content/storage.js) pour Next.js + [scripts/_storage.mjs](./scripts/_storage.mjs) pour Node scripts). R2 usage ~856 MB / 10 GB free (zero egress fees). Coût steady-state $0/mois.
 - **Classifier v4** (`scripts/scrape/classify.mjs`) : 27 buckets total. Reclassify-all a bougé 11762 skills depuis "other" → buckets spécifiques (`other` passé de ~40k à ~30k).
 - **Filters server-side complets** : Bundle (mig 0044+0046), Tokens (mig 0048 byte_count), Source (ILIKE patterns + dynamic `getAvailableSources()`), Category (multi-cat via `categories @>`), tier/verified/official/quality/topics (déjà server). Plus de count drift entre header et grid.
 - **License badges** : crimson border pour copyleft GPL/AGPL/LGPL (1215 items), gris muted pour permissive MIT/Apache/BSD (54k+).

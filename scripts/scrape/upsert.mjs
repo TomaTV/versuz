@@ -6,31 +6,18 @@
 import { createClient } from "@supabase/supabase-js";
 import { contentHash } from "../_hash.mjs";
 import { purgeContentDuplicates } from "../_dedup.mjs";
-
-const BUCKET = "content";
+import { uploadContentMd } from "../_storage.mjs";
 
 /**
- * Upload skill_md_content to Storage bucket `content` (public).
- * Activé via env `SCRAPE_USE_STORAGE=1` — sinon comportement legacy
- * (content inline en DB). Le bucket doit exister (créé par
- * `scripts/migrate-content-to-storage.mjs` ou Supabase Dashboard).
+ * Upload skill_md_content to the active storage backend (R2 if R2_*
+ * env vars set, otherwise Supabase Storage). Path shape identical across
+ * both backends so DB `content_path` doesn't need changing.
  *
- * Quand activé, retourne le `content_path` à stocker en DB ; on garde
- * `skill_md_content` inline en fallback rollback (l'utilisateur peut
- * purger via `migrate-content-to-storage.mjs --purge`).
+ * Activated via env `SCRAPE_USE_STORAGE=1` — sinon comportement legacy
+ * (content inline en DB).
  */
 async function uploadContentToStorage(sb, prefix, slug, body) {
-  if (!body) return null;
-  const path = `${prefix}/${slug}.md`;
-  const { error } = await sb.storage.from(BUCKET).upload(path, body, {
-    contentType: "text/markdown; charset=utf-8",
-    upsert: true,
-  });
-  if (error) {
-    console.warn(`[upsert] storage upload ${path}: ${error.message}`);
-    return null;
-  }
-  return path;
+  return uploadContentMd({ sb, prefix, slug, body });
 }
 
 export function makeSupabase() {

@@ -33,6 +33,7 @@ import { createClient } from "@supabase/supabase-js";
 import { callGroq } from "./providers/groq.mjs";
 import { callGoogle } from "./providers/google.mjs";
 import { callOpenRouter } from "./providers/openrouter.mjs";
+import { fetchContentByPath } from "../_storage.mjs";
 import { writeFileSync, readFileSync, existsSync } from "fs";
 import { join } from "path";
 
@@ -47,7 +48,14 @@ const REJUDGE = args.has("--rejudge");
 const KINDS = kindArg ? [kindArg] : ["skill", "claude_md"];
 const LIMIT = limitArg ? parseInt(limitArg, 10) : 1000;
 const INITIAL_PROVIDER = (providerArg || process.env.QUALITY_JUDGE_PROVIDER || "groq").toLowerCase();
-const FALLBACK_PROVIDER = (fallbackProviderArg || process.env.QUALITY_JUDGE_FALLBACK_PROVIDER || "openrouter").toLowerCase();
+// Default fallback is `none` : when Groq's TPD is exhausted, the script
+// stops and retries the next day. Zero surprise cost.
+// To opt into a free fallback chain via OpenRouter (Gemini Flash / DeepSeek
+// V3 / Llama 3.3 free tiers), pass `--fallback-provider=openrouter-free` or
+// set QUALITY_JUDGE_FALLBACK_PROVIDER=openrouter-free.
+// To opt into PAID OpenRouter (DeepSeek V4 Flash / GPT-5 nano / Mistral),
+// use `--fallback-provider=openrouter` — chargeable.
+const FALLBACK_PROVIDER = (fallbackProviderArg || process.env.QUALITY_JUDGE_FALLBACK_PROVIDER || "none").toLowerCase();
 
 // Per-provider fallback chain. When the current model hits TPD (Tokens Per
 // Day — not recoverable in the run), rotate to the next. Each Groq model
@@ -66,11 +74,24 @@ const FALLBACK_CHAINS = {
     "meta-llama/llama-4-scout-17b-16e-instruct",
   ],
   google: ["gemini-2.5-flash", "gemini-2.5-flash-lite"],
-  // OpenRouter chain — fast & cheap. Quality scoring doesn't need reasoning.
+  // OpenRouter PAID chain — fast & cheap but NOT free. Quality scoring
+  // doesn't need reasoning, but each judgement still costs ~$0.0002-0.001.
+  // Only used when `--fallback-provider=openrouter` is explicit. Not the
+  // default to avoid surprise cost when Groq TPD hits.
   openrouter: [
     "deepseek/deepseek-v4-flash",
     "mistralai/mistral-small-3.1-24b-instruct",
     "openai/gpt-5-nano",
+  ],
+  // OpenRouter FREE chain — zero cost, separate per-model daily quotas.
+  // Combined with Groq → ~6-8k effective RPD at $0. Default
+  // `--fallback-provider=openrouter-free` is the recommended way to
+  // extend daily capacity for free.
+  "openrouter-free": [
+    "google/gemini-2.0-flash-exp:free",
+    "deepseek/deepseek-chat-v3-0324:free",
+    "meta-llama/llama-3.3-70b-instruct:free",
+    "qwen/qwen-2.5-72b-instruct:free",
   ],
 };
 
@@ -85,9 +106,12 @@ let THROTTLE_MS;
 function configureProvider(name) {
   const chain = FALLBACK_CHAINS[name];
   if (!chain) {
-    throw new Error(`[quality-judge] unknown provider="${name}" (expected: groq|google|openrouter)`);
+    throw new Error(`[quality-judge] unknown provider="${name}" (expected: groq|google|openrouter|openrouter-free|none)`);
   }
-  PROVIDER = name;
+  // openrouter-free is a model-list alias on top of the real openrouter
+  // provider (same API endpoint, just different model IDs).
+  const realProvider = name === "openrouter-free" ? "openrouter" : name;
+  PROVIDER = realProvider;
   PROVIDER_CHAIN = chain;
   MODELS = (() => {
     if (modelArg) return modelArg.split(",").map((s) => s.trim()).filter(Boolean);
@@ -447,44 +471,16 @@ async function loadCandidates(kind) {
 // the caller report the REAL reason instead of masking it as
 // "content too short" (which was the historical bug : Storage 429/503 or
 // transient network reset → null → false-positive skip).
-const STORAGE_BUCKET = "content";
-async function fetchFromStorage(path) {
-  if (!path) return { text: null, error: "no content_path" };
-  const base = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  if (!base) return { text: null, error: "no NEXT_PUBLIC_SUPABASE_URL" };
-  const url = `${base.replace(/\/$/, "")}/storage/v1/object/public/${STORAGE_BUCKET}/${path}`;
-  const MAX_TRIES = 3;
-  let lastErr = "unknown";
-  for (let attempt = 1; attempt <= MAX_TRIES; attempt++) {
-    const ctrl = new AbortController();
-    const timer = setTimeout(() => ctrl.abort(), 15_000);
-    try {
-      const res = await fetch(url, { signal: ctrl.signal });
-      clearTimeout(timer);
-      if (res.ok) {
-        const text = await res.text();
-        return { text, error: null };
-      }
-      lastErr = `storage HTTP ${res.status}`;
-      // 4xx (except 429) is permanent — don't retry
-      if (res.status >= 400 && res.status < 500 && res.status !== 429) break;
-    } catch (err) {
-      clearTimeout(timer);
-      lastErr = `storage fetch: ${err.code || err.name || err.message || "unknown"}`;
-    }
-    if (attempt < MAX_TRIES) {
-      await new Promise((r) => setTimeout(r, 800 * attempt));
-    }
-  }
-  return { text: null, error: lastErr };
-}
+//
+// Storage backend is dispatched via scripts/_storage.mjs (R2 if R2_PUBLIC_URL
+// is set, else Supabase Storage). Reads work the same against either backend.
 
 async function resolveItemContent(item) {
   if (typeof item.content === "string" && item.content.length > 0) {
     return { text: item.content, error: null };
   }
   if (item.contentPath) {
-    return await fetchFromStorage(item.contentPath);
+    return await fetchContentByPath(item.contentPath, { timeoutMs: 15_000, maxTries: 3 });
   }
   return { text: null, error: "no inline content and no content_path" };
 }
@@ -599,7 +595,13 @@ async function processKind(kind) {
     // Cross-provider fallback: when all models of the current provider are
     // exhausted (TPD), auto-switch to the fallback provider and continue
     // judging the SAME kind. Already-judged items are skipped via checkpoint.
-    if (result.exhausted && FALLBACK_PROVIDER && FALLBACK_PROVIDER !== PROVIDER) {
+    // `FALLBACK_PROVIDER === "none"` (the default) → no switch, stop early.
+    const hasFallback =
+      result.exhausted &&
+      FALLBACK_PROVIDER &&
+      FALLBACK_PROVIDER !== "none" &&
+      FALLBACK_PROVIDER !== PROVIDER;
+    if (hasFallback) {
       try {
         configureProvider(FALLBACK_PROVIDER);
         console.log(`\n[quality-judge] ↺ switching to fallback provider "${FALLBACK_PROVIDER}" · models=[${MODELS.join(", ")}]\n`);
@@ -612,6 +614,7 @@ async function processKind(kind) {
         stopEarly = true;
       }
     } else if (result.exhausted) {
+      console.log(`\n[quality-judge] all models exhausted for "${PROVIDER}" — retry tomorrow (fallback=${FALLBACK_PROVIDER}). Use --fallback-provider=openrouter-free to extend capacity for free.\n`);
       stopEarly = true;
     }
   }

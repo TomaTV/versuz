@@ -139,6 +139,10 @@ dist
 .backup/
 emergency-backup-*.dump
 
+# Storage migration runtime checkpoints (resumable state)
+.migrate-r2-progress.json
+.migrate-r2-failed.json
+
 # Claude Code internal worktrees (local-only)
 .claude/worktrees/
 

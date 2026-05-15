@@ -36,11 +36,16 @@
     "generate-tasks": "node scripts/generate-tasks.mjs",
     "ads:export": "node scripts/export-ads.mjs",
     "ads:export:list": "node scripts/export-ads.mjs --list",
+    "ads:audio": "node scripts/generate-manifesto-audio.mjs",
     "backup": "node scripts/backup-incremental.mjs",
     "backup:emergency": "node scripts/emergency-dump.mjs",
-    "backup:storage": "node scripts/backup-storage.mjs"
+    "backup:storage": "node scripts/backup-storage.mjs",
+    "migrate:r2": "node scripts/migrate-storage-to-r2.mjs",
+    "cleanup:supabase-storage": "node scripts/cleanup-supabase-storage.mjs",
+    "archive:cold": "node scripts/archive-historical-data.mjs"
   },
   "dependencies": {
+    "@aws-sdk/client-s3": "^3.1047.0",
     "@octokit/rest": "^22.0.1",
     "@supabase/ssr": "^0.10.3",
     "@supabase/supabase-js": "^2.105.4",

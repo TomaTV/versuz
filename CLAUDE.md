@@ -23,20 +23,43 @@ avec count exact + indexes composites (migration 0037). Plus de full-table
 load — landing/leaderboard utilisent `getTopRankedItems(kind, category, N)`
 ou `getCategoryCounts(kind)`.
 
+**Stack hosting (mai 2026)** — Supabase Free pour DB + Auth + RLS,
+Cloudflare R2 pour le content storage (10 GB free, zéro egress fees). DB
+metadata ~228 MB / 500 MB Free cap. R2 content ~856 MB / 10 GB Free cap.
+Coût steady-state = $0/mois. Voir `CLOUDFLARE_R2_SETUP.md` pour
+la doc setup.
+
 **Filters server-side** (migrations 0044+0046+0048) :
 - Bundle : `is_bundled` generated col + `repo_skill_count` denormalized col
 - Tokens : `byte_count` generated col (extrait de `metadata.byte_count`)
 - Source : `normalizeSource()` mappe raw values vers canonical buckets via
   ILIKE patterns (`github-search`, `web-directory`, `mega-github` → `github` etc.)
 
-Storage offload (mig 0042) : `skill_md_content` et `content` body sont sur
-Supabase Storage bucket `content/{kind}/{slug}.md` (public). Colonne
-`content_path` pointe vers le file. Le code de read a un fallback inline
-pour les ~66 rows que Cloudflare WAF refuse (skills security/pentest).
+Storage offload (mig 0042 + migration R2 mai 2026) : `skill_md_content` et
+`content` body sont sur **Cloudflare R2** bucket `versuz-content` (public,
+served via `https://cdn.versuz.dev`). Colonne `content_path` pointe vers
+le file (path shape inchangé : `skills/<slug>.md` ou `claude-md/<slug>.md`).
+~387 rows legacy gardent leur inline fallback (skills security/pentest
+Cloudflare WAF-blocked à l'époque Supabase Storage — purgés post-R2 vu que
+R2 sert sans WAF block).
+
+Dispatch automatique R2 ↔ Supabase Storage via env :
+- `src/lib/content/storage.js` — helpers Next.js runtime (R2 si `R2_PUBLIC_URL`
+  set, sinon Supabase Storage fallback)
+- `scripts/_storage.mjs` — même logique pour scripts Node ESM (scrapers,
+  bench, quality-judge) : `uploadContentMd()`, `fetchContentByPath()`,
+  `resolveItemContent()`, `publicContentUrl()`
+
+Env vars R2 dans `.env.local` :
+- `R2_ACCOUNT_ID`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY` (writes via
+  S3 SDK)
+- `R2_BUCKET=versuz-content`
+- `R2_PUBLIC_URL=https://cdn.versuz.dev` (custom domain CDN)
+
 Important : tout script qui lit le content body (quality-judge.mjs,
-post-cycle-hooks.mjs, etc.) DOIT fallback sur Storage via
-`content_path` quand la colonne inline est NULL — sinon il skip 99% des
-rows.
+load.mjs, post-cycle-hooks.mjs) utilise `fetchContentByPath()` qui
+dispatch transparent. Plus de référence dure à Supabase Storage dans
+les paths critiques.
 
 ## Gamification (V1.6, migration 0052)
 
@@ -158,7 +181,8 @@ jamais hardcode.
   `getBenchedTopByCategory(kind, category, limit)` (V1.6 — top par bench scope
   vs native taxonomy, axes + composite score stamped), `getFeaturedItems(kind,
   limit)` (V1.6 — Versuz-first-party picks `tier='featured'` pour les promo strips).
-- `src/lib/content/storage.js` — helpers Supabase Storage bucket `content` (public). Fetch SKILL.md / CLAUDE.md depuis Storage avec fallback inline DB (migration 0042).
+- `src/lib/content/storage.js` — helpers dispatch R2/Supabase. Fetch SKILL.md / CLAUDE.md depuis Cloudflare R2 (`https://cdn.versuz.dev`) avec fallback Supabase Storage si `R2_PUBLIC_URL` env absent. Writes via `@aws-sdk/client-s3`. Path shape (`skills/<slug>.md`) identique sur les deux backends.
+- `scripts/_storage.mjs` — équivalent Node ESM pour scripts (scrapers, bench, quality-judge). API : `uploadContentMd()`, `fetchContentByPath()`, `resolveItemContent()`, `publicContentUrl()`, `activeStorageBackend()`.
 - `src/lib/auth/`, `src/lib/profiles/`, `src/lib/purchases/`, `src/lib/stripe/`,
   `src/lib/premium/`, `src/lib/resend.js` (default from `Versuz <contact@flukxstudio.fr>`), `src/lib/submit/`, `src/lib/claim/`,
   `src/lib/admin/`, `src/lib/judges.js`, `src/lib/utils.js`
@@ -175,11 +199,14 @@ jamais hardcode.
 - `scripts/dedup-descriptions.mjs` — near-dup via description_hash
 - `scripts/reclassify-all.mjs` — backfill `categories` jsonb (25 workers parallel)
 - `scripts/backfill-licenses.mjs` — GitHub API → license_spdx (multi-token rotation, 20 workers)
-- `scripts/backfill-byte-counts.mjs` — Storage object size → metadata.byte_count
-- `scripts/migrate-content-to-storage.mjs` — DB inline → Storage bucket (cursor pagination, 25 workers)
-- `scripts/cleanup-orphan-storage.mjs` — remove Storage files non-référencés en DB
+- `scripts/backfill-byte-counts.mjs` — Storage object size → metadata.byte_count (lit Supabase Storage, à porter vers R2 si re-run)
+- `scripts/migrate-content-to-storage.mjs` — DB inline → Supabase Storage (legacy, mig 0042 done)
+- `scripts/migrate-storage-to-r2.mjs` — Supabase Storage backup local → R2 (one-shot done mai 2026). Resumable via `.migrate-r2-progress.json`.
+- `scripts/cleanup-supabase-storage.mjs` — wipe Supabase Storage bucket post-R2 (safety flag `--i-know-what-im-doing`)
+- `scripts/cleanup-orphan-storage.mjs` — remove Storage files non-référencés en DB (legacy Supabase Storage)
+- `scripts/archive-historical-data.mjs` (`npm run archive:cold`) — archive `bench_results`/`rank_history`/`cycles` > 30/90 jours vers R2 jsonl.gz, delete from DB. À activer quand DB approche 350 MB.
 - `scripts/backup-incremental.mjs` (REST API par batchs) + `scripts/emergency-dump.mjs` (pg_dump) + `scripts/backup-storage.mjs` (download bucket)
-- `scripts/migrate-stragglers.mjs` — UUID-based path retry pour les ~66 skills Cloudflare-blocked
+- `scripts/migrate-stragglers.mjs` — UUID-based path retry pour les ~66 skills Cloudflare-blocked (legacy, résolu par migration R2)
 - `scripts/bench/` — orchestrator + agent + judge + runner + enqueue +
   rate-limit + 102 built-in tasks + providers/{anthropic, openai, deepseek,
   google, groq, mistral, openrouter} + `post-cycle-hooks.mjs` (V1.6 —
