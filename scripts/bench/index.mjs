@@ -322,11 +322,22 @@ async function main() {
       console.warn(`[bench] bench_pending sweep failed (non-fatal): ${e.message}`);
     }
 
-    // 8. Refresh rankings (Supabase JS thenable doesn't expose .catch directly)
+    // 8. Refresh rankings. The materialized view uses REFRESH CONCURRENTLY
+    // which Postgres rejects if another refresh is already in progress
+    // ("cannot refresh materialized view concurrently"). With 2 bench-runs
+    // overlapping (manual + scheduled, or 2 manual triggers), this happens
+    // routinely. The next run's refresh always succeeds, so we downgrade
+    // this specific error to a calm log instead of warn (it's not actionable
+    // and clutters the workflow output).
     try {
       const { error: refreshErr } = await sb.rpc("refresh_rankings");
       if (refreshErr) {
-        console.warn(`[bench] refresh_rankings rpc failed: ${refreshErr.message}`);
+        const isConcurrent = /cannot refresh materialized view concurrently/i.test(refreshErr.message);
+        if (isConcurrent) {
+          console.log(`[bench] refresh_rankings skipped: another refresh in progress (next run will pick up)`);
+        } else {
+          console.warn(`[bench] refresh_rankings rpc failed: ${refreshErr.message}`);
+        }
       }
     } catch (e) {
       console.warn(`[bench] refresh_rankings threw: ${e.message}`);
