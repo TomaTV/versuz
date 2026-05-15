@@ -11,6 +11,8 @@ export const metadata = {
     "RSS feeds for the Versuz registry. Subscribe to skill or CLAUDE.md updates per category — fresh items land in your reader as soon as they hit the index.",
 };
 
+export const dynamic = "force-dynamic"; // voir /about/page.js
+
 const BASE = process.env.NEXT_PUBLIC_SITE_URL || "https://versuz.dev";
 
 export default async function FeedIndex() {

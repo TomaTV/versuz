@@ -3,6 +3,15 @@ import { cookies } from "next/headers";
 import { createServerClient } from "@supabase/ssr";
 import { env } from "@/lib/env";
 
+// Voir lib/supabase/public.js pour le rationale.
+const FETCH_TIMEOUT_MS = Number(process.env.SUPABASE_FETCH_TIMEOUT_MS) || 5000;
+
+function fetchWithTimeout(input, init = {}) {
+  const ctrl = new AbortController();
+  const t = setTimeout(() => ctrl.abort(), FETCH_TIMEOUT_MS);
+  return fetch(input, { ...init, signal: ctrl.signal }).finally(() => clearTimeout(t));
+}
+
 // Public cookie-less client lives in `./public` — do NOT re-export it here.
 // Pulling that export through this file would drag `next/headers` into the
 // public module graph and force consumers into dynamic rendering.
@@ -31,6 +40,7 @@ export const createSupabaseServerClient = cache(async () => {
           }
         },
       },
+      global: { fetch: fetchWithTimeout },
     }
   );
 });
