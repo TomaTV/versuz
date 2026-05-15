@@ -2,6 +2,7 @@ import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { unsubscribeUser, deleteSubscriber } from "@/lib/admin/actions";
 
 export const metadata = { title: "Subscribers — Admin Versuz" };
+export const dynamic = "force-dynamic";
 
 async function loadSubscribers() {
   const sb = createSupabaseAdminClient();

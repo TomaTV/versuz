@@ -1,6 +1,8 @@
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { RegistryAdminTable } from "@/components/admin/registry-admin-table";
 
+export const dynamic = "force-dynamic";
+
 export default async function ClaudeMdAdmin({ searchParams }) {
   const params = (await searchParams) || {};
   const q = (params.q || "").trim();

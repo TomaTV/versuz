@@ -8,6 +8,8 @@ import {
 
 const STATUS_OPTIONS = ["pending", "approved", "rejected"];
 
+export const dynamic = "force-dynamic";
+
 export default async function TaskProposalsAdmin({ searchParams }) {
   const params = (await searchParams) || {};
   const status = STATUS_OPTIONS.includes(params.status) ? params.status : "pending";

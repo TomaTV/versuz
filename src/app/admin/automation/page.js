@@ -22,6 +22,8 @@ export const metadata = {
   robots: { index: false, follow: false },
 };
 
+export const dynamic = "force-dynamic";
+
 const COLORS = {
   ok: "rgb(80,180,120)",
   warn: "rgb(229,166,68)",

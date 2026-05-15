@@ -8,6 +8,8 @@ export const metadata = {
   description: "Live system status — bench cycle health, judge availability, scraping pipeline, registry size.",
 };
 
+export const dynamic = "force-dynamic";
+
 const PROVIDER_KEY_VARS = {
   google: "GOOGLE_AI_STUDIO_KEY",
   groq: "GROQ_API_KEY",

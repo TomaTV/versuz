@@ -6,6 +6,8 @@ import { VerificationBadge } from "@/components/marketplace/verification-badge";
 import { StatGrid } from "@/components/dashboard/stat-grid";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 
+export const dynamic = "force-dynamic";
+
 export async function generateMetadata({ params }) {
   const { login } = await params;
   return {
