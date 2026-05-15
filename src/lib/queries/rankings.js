@@ -1003,9 +1003,9 @@ export const getIndexCounts = unstable_cache(async () => {
 
 export async function getCategories() {
   if (!HAS_SUPABASE) return CATEGORIES;
-  // Réutilise getCategoryCountsInternal (cached + indexed) au lieu de scanner
+  // Réutilise getCategoryCounts (cached + indexed) au lieu de scanner
   // tous les items pour compter par category.
-  return getCategoryCountsInternal("skill");
+  return getCategoryCounts("skill");
 }
 
 /**
@@ -1748,7 +1748,7 @@ export async function getSiblingSkills(slug, count = 4) {
 
 export async function getProjectCategories() {
   if (!HAS_SUPABASE) return PROJECT_CATEGORIES;
-  const list = await getCategoryCountsInternal("claude_md");
+  const list = await getCategoryCounts("claude_md");
   return list.filter((c) => c.id !== "all");
 }
 
