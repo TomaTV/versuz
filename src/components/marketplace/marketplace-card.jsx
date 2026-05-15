@@ -103,8 +103,6 @@ export function MarketplaceCard({
         position: "relative",
         height: "100%",
         gridColumn: isFeatured ? "span 2" : undefined,
-        contentVisibility: "auto",
-        containIntrinsicSize: "0 320px",
       }}
     >
     {/* Diagonal BOOSTED ribbon — top-right corner, only when boosted */}

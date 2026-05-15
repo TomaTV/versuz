@@ -94,10 +94,26 @@ jobs:
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
           OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
           GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
+          # Optional — Gemini 2.5 Flash via Google AI Studio (free 1500 RPD).
+          # If unset, agent auto-falls-back to Groq Llama free at runtime
+          # below — never hard-fails on missing secret.
+          GOOGLE_AI_STUDIO_KEY: ${{ secrets.GOOGLE_AI_STUDIO_KEY }}
           BENCH_MODE: ${{ inputs.mode || 'or-v1' }}
           BENCH_BUDGET_USD: ${{ inputs.budget_usd || '1' }}
           BENCH_JUDGE_COUNT: ${{ inputs.mode == 'or-v1' && '3' || '1' }}
         run: |
+          # Pick agent provider based on which key is available. Google
+          # Gemini Flash (free 1500 RPD) preferred when key present ; falls
+          # back to Groq Llama 3.3 70B (free tier, GROQ_API_KEY always set).
+          if [ -n "$GOOGLE_AI_STUDIO_KEY" ]; then
+            export BENCH_AGENT_PROVIDER=google
+            export BENCH_AGENT_MODEL=gemini-2.5-flash
+            echo "[bench-runner] agent : google/gemini-2.5-flash (free 1500 RPD)"
+          else
+            export BENCH_AGENT_PROVIDER=groq
+            export BENCH_AGENT_MODEL=llama-3.3-70b-versatile
+            echo "[bench-runner] agent : groq/llama-3.3-70b-versatile (free fallback — set GOOGLE_AI_STUDIO_KEY for Gemini)"
+          fi
           if [ -n "${{ inputs.scope }}" ]; then
             node scripts/bench/index.mjs --scope=${{ inputs.scope }} --concurrency=6
           else
