@@ -863,67 +863,109 @@ export const getTopRankedItems = unstable_cache(async (kind = "skill", category 
   return enrichWithBenchScores(mapped, kind);
 }, ["top-ranked-items"], { revalidate: CACHE_TTL_STABLE, tags: ["top-ranked", "marketplace"] });
 
+// Helper : race une promise contre un timeout. Si la promise n'arrive pas
+// dans `ms`, retourne `fallback`. Utilisé pour les fetches Supabase pendant
+// le build Vercel — si Supabase est en panne, on ne veut pas que le build
+// timeout entier (60s × 3 attempts) ; on dégrade vers null et on continue.
+async function raceWithTimeout(promise, ms, fallback = null) {
+  let timer;
+  try {
+    return await Promise.race([
+      promise,
+      new Promise((resolve) => {
+        timer = setTimeout(() => resolve(fallback), ms);
+      }),
+    ]);
+  } finally {
+    if (timer) clearTimeout(timer);
+  }
+}
+
 export const getCurrentCycle = unstable_cache(async () => {
   if (!HAS_SUPABASE) return CYCLE;
   const sb = createSupabasePublicClient();
   if (!sb) return null;
 
-  // 1. Is there a cycle actively running right now?
-  const { data: running } = await sb
-    .from("cycles")
-    .select("id, scope, started_at, status")
-    .eq("status", "running")
-    .order("started_at", { ascending: false })
-    .limit(1)
-    .maybeSingle();
+  // Cap chaque fetch à 5s. Si Supabase répond pas (panne, free tier saturé),
+  // le ticker fallback à "idle" — bien meilleur qu'un build Vercel qui
+  // timeout à 60s par page.
+  const FETCH_TIMEOUT = 5000;
 
-  if (running) {
-    // Pull the 5 most recent benched items as a marquee feed
-    const { data: recentRanks } = await sb
-      .from("rankings")
-      .select("subject_slug, subject_name, avg_score")
-      .not("avg_score", "is", null)
-      .order("avg_score", { ascending: false })
-      .limit(5);
-    return {
-      id: running.id,
-      scope: running.scope,
-      startedAt: running.started_at,
-      status: "running",
-      recent: (recentRanks || []).map((r) => `${r.subject_name || r.subject_slug} · ${Number(r.avg_score).toFixed(1)}`),
-      nextTick: "live",
-    };
+  try {
+    const running = await raceWithTimeout(
+      sb
+        .from("cycles")
+        .select("id, scope, started_at, status")
+        .eq("status", "running")
+        .order("started_at", { ascending: false })
+        .limit(1)
+        .maybeSingle()
+        .then((r) => r.data),
+      FETCH_TIMEOUT
+    );
+
+    if (running) {
+      const recentRanks = await raceWithTimeout(
+        sb
+          .from("rankings")
+          .select("subject_slug, subject_name, avg_score")
+          .not("avg_score", "is", null)
+          .order("avg_score", { ascending: false })
+          .limit(5)
+          .then((r) => r.data),
+        FETCH_TIMEOUT,
+        []
+      );
+      return {
+        id: running.id,
+        scope: running.scope,
+        startedAt: running.started_at,
+        status: "running",
+        recent: (recentRanks || []).map((r) => `${r.subject_name || r.subject_slug} · ${Number(r.avg_score).toFixed(1)}`),
+        nextTick: "live",
+      };
+    }
+
+    const SEVEN_DAYS_AGO = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
+    const lastCompleted = await raceWithTimeout(
+      sb
+        .from("cycles")
+        .select("id, scope, completed_at")
+        .eq("status", "completed")
+        .gte("completed_at", SEVEN_DAYS_AGO)
+        .order("completed_at", { ascending: false })
+        .limit(1)
+        .maybeSingle()
+        .then((r) => r.data),
+      FETCH_TIMEOUT
+    );
+
+    if (lastCompleted) {
+      const recentRanks = await raceWithTimeout(
+        sb
+          .from("rankings")
+          .select("subject_slug, subject_name, avg_score")
+          .not("avg_score", "is", null)
+          .order("avg_score", { ascending: false })
+          .limit(5)
+          .then((r) => r.data),
+        FETCH_TIMEOUT,
+        []
+      );
+      return {
+        id: lastCompleted.id,
+        scope: lastCompleted.scope,
+        completedAt: lastCompleted.completed_at,
+        status: "completed",
+        recent: (recentRanks || []).map((r) => `${r.subject_name || r.subject_slug} · ${Number(r.avg_score).toFixed(1)}`),
+        nextTick: "—",
+      };
+    }
+  } catch (err) {
+    console.warn(`[rankings] getCurrentCycle failed: ${err.message}`);
   }
 
-  // 2. No running cycle — pull the most recent completed one (last 7d) to display
-  const SEVEN_DAYS_AGO = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
-  const { data: lastCompleted } = await sb
-    .from("cycles")
-    .select("id, scope, completed_at")
-    .eq("status", "completed")
-    .gte("completed_at", SEVEN_DAYS_AGO)
-    .order("completed_at", { ascending: false })
-    .limit(1)
-    .maybeSingle();
-
-  if (lastCompleted) {
-    const { data: recentRanks } = await sb
-      .from("rankings")
-      .select("subject_slug, subject_name, avg_score")
-      .not("avg_score", "is", null)
-      .order("avg_score", { ascending: false })
-      .limit(5);
-    return {
-      id: lastCompleted.id,
-      scope: lastCompleted.scope,
-      completedAt: lastCompleted.completed_at,
-      status: "completed",
-      recent: (recentRanks || []).map((r) => `${r.subject_name || r.subject_slug} · ${Number(r.avg_score).toFixed(1)}`),
-      nextTick: "—",
-    };
-  }
-
-  return null; // Genuinely no cycle in the last 7 days → ticker falls back to "idle"
+  return null;
 }, ["current-cycle"], { revalidate: CACHE_TTL_HOT, tags: ["current-cycle"] });
 
 /**
