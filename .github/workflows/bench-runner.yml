@@ -102,17 +102,26 @@ jobs:
           BENCH_BUDGET_USD: ${{ inputs.budget_usd || '1' }}
           BENCH_JUDGE_COUNT: ${{ inputs.mode == 'or-v1' && '3' || '1' }}
         run: |
-          # Pick agent provider based on which key is available. Google
-          # Gemini Flash (free 1500 RPD) preferred when key present ; falls
-          # back to Groq Llama 3.3 70B (free tier, GROQ_API_KEY always set).
-          if [ -n "$GOOGLE_AI_STUDIO_KEY" ]; then
+          # Agent selection — matched to the bench mode :
+          #   or-v1 / v1 / v1-thrift  → DeepSeek V4 Flash via OpenRouter
+          #                             (OR key always set, ~$0.30/day, matches
+          #                              CLAUDE.md spec "DeepSeek V4 Flash agent")
+          #   dev / prod / gold       → Gemini 2.5 Flash via Google AI Studio
+          #                             (free 1500 RPD) if key present, else
+          #                             Groq Llama free fallback.
+          MODE="${{ inputs.mode || 'or-v1' }}"
+          if [ "$MODE" = "or-v1" ] || [ "$MODE" = "v1" ] || [ "$MODE" = "v1-thrift" ]; then
+            export BENCH_AGENT_PROVIDER=openrouter
+            export BENCH_AGENT_MODEL=deepseek/deepseek-v4-flash
+            echo "[bench-runner] agent : openrouter/deepseek-v4-flash (~\$0.30/day)"
+          elif [ -n "$GOOGLE_AI_STUDIO_KEY" ]; then
             export BENCH_AGENT_PROVIDER=google
             export BENCH_AGENT_MODEL=gemini-2.5-flash
             echo "[bench-runner] agent : google/gemini-2.5-flash (free 1500 RPD)"
           else
             export BENCH_AGENT_PROVIDER=groq
             export BENCH_AGENT_MODEL=llama-3.3-70b-versatile
-            echo "[bench-runner] agent : groq/llama-3.3-70b-versatile (free fallback — set GOOGLE_AI_STUDIO_KEY for Gemini)"
+            echo "[bench-runner] agent : groq/llama-3.3-70b-versatile (free fallback)"
           fi
           if [ -n "${{ inputs.scope }}" ]; then
             node scripts/bench/index.mjs --scope=${{ inputs.scope }} --concurrency=6

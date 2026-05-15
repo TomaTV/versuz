@@ -57,16 +57,22 @@ export async function runJob(
   });
   const duration = Date.now() - started;
 
-  // 3. Persist the output.
+  // 3. Persist the output. Use upsert with onConflict on output_hash to
+  // tolerate concurrent worker races (multiple jobs with same input hash
+  // checking the cache simultaneously, both miss, both insert → unique
+  // constraint violation on the slower one). Upsert returns the winning row.
   const { data, error } = await sb
     .from("run_outputs")
-    .insert({
-      output_hash: hash,
-      output: { text: output.text, provider: output.provider },
-      cost_usd: output.cost_usd,
-      duration_ms: duration,
-      model_used: output.model || model || DEFAULT_MODEL,
-    })
+    .upsert(
+      {
+        output_hash: hash,
+        output: { text: output.text, provider: output.provider },
+        cost_usd: output.cost_usd,
+        duration_ms: duration,
+        model_used: output.model || model || DEFAULT_MODEL,
+      },
+      { onConflict: "output_hash" }
+    )
     .select("id")
     .single();
   if (error) throw error;
