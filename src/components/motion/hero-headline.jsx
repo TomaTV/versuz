@@ -18,7 +18,10 @@ export function HeroHeadline() {
     <h1
       style={{
         fontFamily: "var(--font-display)",
-        fontSize: "clamp(72px, 16vw, 200px)",
+        // Floor 72px mobile (audit terrain : H1 dominant sur viewport),
+        // cap 160px desktop (au-delà ça mange tout le viewport et casse
+        // la composition avec le CLI demo / formes décoratives).
+        fontSize: "clamp(72px, 10vw, 160px)",
         fontWeight: 400,
         letterSpacing: "-0.045em",
         lineHeight: 0.9,
