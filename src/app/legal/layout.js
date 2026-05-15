@@ -13,6 +13,11 @@ export const metadata = {
   description: "Terms, privacy policy, refund policy, DMCA, and legal notice for Versuz.",
 };
 
+// Force-dynamic au niveau layout = applique à toutes les /legal/* pages
+// (terms, privacy, refund, dmca, imprint). Skip le pré-render pour éviter
+// timeout via VzTicker dans le root layout. Voir /about/page.js.
+export const dynamic = "force-dynamic";
+
 export default function LegalLayout({ children }) {
   return (
     <div

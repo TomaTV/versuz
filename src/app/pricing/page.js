@@ -7,6 +7,8 @@ export const metadata = {
   description: "Versuz is free to use. Authors can sell premium skills (30/70 split). Boost placement at $4.99 / 30 days.",
 };
 
+export const dynamic = "force-dynamic"; // voir /about/page.js
+
 const TIERS = [
   {
     id: "free",

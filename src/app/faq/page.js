@@ -7,6 +7,10 @@ export const metadata = {
   description: "Common questions about Versuz : how skills are ranked, how premium works, who sees what, what the data is for.",
 };
 
+// Defensive force-dynamic (voir /about/page.js). Skip le pré-render au
+// build pour éviter timeout via VzTicker dans le layout global.
+export const dynamic = "force-dynamic";
+
 const CATEGORIES = [
   {
     id: "general",

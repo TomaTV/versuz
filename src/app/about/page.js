@@ -8,6 +8,12 @@ export const metadata = {
     "Versuz is a public adversarial leaderboard for AI agent skills. Built in public by FlukX Studio.",
 };
 
+// Force-dynamic defensive : la page ne fetch rien elle-même mais le layout
+// global wrap VzTicker (async Server Component qui appelle Supabase). Si
+// Supabase est down au build, le pré-render timeoutait à 60s × 3 retries.
+// Cette directive skip le pré-render pour cette page.
+export const dynamic = "force-dynamic";
+
 export default function AboutPage() {
   return (
     <div>

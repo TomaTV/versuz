@@ -7,6 +7,11 @@ export const metadata = {
   description: "Public JSON API v1 documentation for Versuz. Read skills + CLAUDE.md, submit your own, no signup for public endpoints.",
 };
 
+// Defensive force-dynamic — page 100% static mais le layout global wrap
+// VzTicker qui hit Supabase au pré-render. Sans ça, le build timeout
+// quand Supabase est down. Voir /about/page.js pour le même pattern.
+export const dynamic = "force-dynamic";
+
 const BASE = "https://versuz.dev";
 
 const ENDPOINTS = [

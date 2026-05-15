@@ -6,6 +6,8 @@ export const metadata = {
   description: "What we've shipped on Versuz, newest first. Bugs, features, infrastructure, all in public.",
 };
 
+export const dynamic = "force-dynamic"; // voir /about/page.js
+
 // Static changelog. Edit this array when you ship. Each entry can have any
 // number of bullets — keep them terse, "what changed + why" not "how".
 // Group buckets : feat (new) · fix (bug) · perf (optimisation) · infra (ops) ·
