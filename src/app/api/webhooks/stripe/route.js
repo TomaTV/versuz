@@ -60,6 +60,10 @@ export async function POST(request) {
     "charge.refunded",
     "charge.dispute.created",
     "charge.dispute.closed",
+    // Pro Author tier (mig 0054) — recurring subscription lifecycle.
+    "customer.subscription.created",
+    "customer.subscription.updated",
+    "customer.subscription.deleted",
   ]);
   if (!HANDLED.has(event.type)) {
     return NextResponse.json({ received: true, ignored: event.type });
@@ -94,6 +98,15 @@ export async function POST(request) {
 
       case "charge.dispute.closed":
         await handleDisputeClosed(sb, event.data.object);
+        break;
+
+      case "customer.subscription.created":
+      case "customer.subscription.updated":
+        await handleSubscriptionUpsert(sb, event.data.object);
+        break;
+
+      case "customer.subscription.deleted":
+        await handleSubscriptionDeleted(sb, event.data.object);
         break;
     }
   } catch (err) {
@@ -431,4 +444,104 @@ async function handleDisputeClosed(sb, dispute) {
     .update({ status: newStatus })
     .eq("stripe_payment_intent_id", dispute.payment_intent);
   if (error) throw new Error(`dispute close update: ${error.message}`);
+}
+
+/**
+ * Pro Author subscription created / updated.
+ *
+ * Stripe fires this for any subscription state change : new sub, plan
+ * change, status flip (active ↔ past_due ↔ canceled). We compute
+ * is_pro_author based on the current status + cancel_at_period_end :
+ *
+ *   - active or trialing                        → active (is_pro_author=true)
+ *   - active + cancel_at_period_end             → grace until current_period_end
+ *   - past_due, unpaid, incomplete              → flip to false immediately
+ *   - canceled                                  → handled by .deleted (below)
+ *
+ * Profile lookup is by stripe_customer_id (mig 0054 added the index).
+ * Falls back to metadata.versuz_user_id if we can't match by customer
+ * (rare — Customer is always created before checkout).
+ */
+async function handleSubscriptionUpsert(sb, sub) {
+  const customerId = typeof sub.customer === "string" ? sub.customer : sub.customer?.id;
+  const subUserId = sub.metadata?.versuz_user_id || null;
+  if (!customerId && !subUserId) {
+    console.warn(`[stripe-webhook] subscription event missing customer + metadata`);
+    return;
+  }
+
+  // Find the profile by either customer or metadata user id.
+  let profile = null;
+  if (customerId) {
+    const { data } = await sb
+      .from("profiles")
+      .select("id, is_pro_author, pro_author_until")
+      .eq("stripe_customer_id", customerId)
+      .maybeSingle();
+    profile = data;
+  }
+  if (!profile && subUserId) {
+    const { data } = await sb
+      .from("profiles")
+      .select("id, is_pro_author, pro_author_until")
+      .eq("id", subUserId)
+      .maybeSingle();
+    profile = data;
+    if (profile && customerId) {
+      // Backfill the customer id so next event finds it directly.
+      await sb
+        .from("profiles")
+        .update({ stripe_customer_id: customerId })
+        .eq("id", profile.id);
+    }
+  }
+  if (!profile) {
+    console.warn(`[stripe-webhook] subscription ${sub.id} : no matching profile`);
+    return;
+  }
+
+  const isActive = sub.status === "active" || sub.status === "trialing";
+  const periodEnd = sub.current_period_end
+    ? new Date(sub.current_period_end * 1000).toISOString()
+    : null;
+
+  const patch = {
+    pro_author_subscription_id: sub.id,
+  };
+  if (isActive) {
+    patch.is_pro_author = true;
+    // If user has flipped on cancel_at_period_end, save the end date
+    // so the UI can show "active until X" but they keep features
+    // through then.
+    patch.pro_author_until = sub.cancel_at_period_end ? periodEnd : null;
+  } else {
+    // past_due / unpaid / incomplete → revoke immediately. Stripe will
+    // fire .deleted later if it gives up retrying.
+    patch.is_pro_author = false;
+    patch.pro_author_until = null;
+  }
+
+  const { error } = await sb
+    .from("profiles")
+    .update(patch)
+    .eq("id", profile.id);
+  if (error) throw new Error(`subscription upsert: ${error.message}`);
+}
+
+async function handleSubscriptionDeleted(sb, sub) {
+  const customerId = typeof sub.customer === "string" ? sub.customer : sub.customer?.id;
+  if (!customerId) {
+    console.warn(`[stripe-webhook] subscription.deleted missing customer`);
+    return;
+  }
+  // canceled_at can be in the past (terminal) — flip everything off.
+  const { error } = await sb
+    .from("profiles")
+    .update({
+      is_pro_author: false,
+      pro_author_subscription_id: null,
+      pro_author_until: null,
+    })
+    .eq("stripe_customer_id", customerId);
+  if (error) throw new Error(`subscription deleted: ${error.message}`);
 }

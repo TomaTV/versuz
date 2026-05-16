@@ -2,6 +2,8 @@ import Link from "next/link";
 import { PageHero } from "@/components/section";
 import { Reveal, RevealStagger, RevealItem } from "@/components/motion/reveal";
 import { ProAuthorWaitlist } from "./pro-author-waitlist";
+import { ProAuthorSubscribe } from "./pro-author-subscribe";
+import { isProAuthorAvailable } from "@/lib/pro-author";
 
 export const metadata = {
   title: "Pricing — Versuz",
@@ -92,6 +94,7 @@ const BOOST = {
 };
 
 export default function PricingPage() {
+  const proAuthorLive = isProAuthorAvailable();
   return (
     <div>
       <PageHero
@@ -436,7 +439,7 @@ export default function PricingPage() {
                   color: "var(--accent)",
                 }}
               >
-                Coming Q3 — author add-on
+                {proAuthorLive ? "New — author add-on" : "Coming Q3 — author add-on"}
               </span>
               <h2
                 style={{
@@ -498,9 +501,9 @@ export default function PricingPage() {
                   fontStyle: "italic",
                 }}
               >
-                We&apos;re validating demand before we build Stripe Subscriptions
-                + the analytics surface. Drop your email and you&apos;ll be the
-                first 50 invited at $4.50/mo for 3 months.
+                {proAuthorLive
+                  ? "Live now. $9/mo, cancel anytime, billed monthly via Stripe. The Customer Portal lets you manage payment + invoices."
+                  : "We're validating demand before we build Stripe Subscriptions + the analytics surface. Drop your email and you'll be the first 50 invited at $4.50/mo for 3 months."}
               </p>
             </div>
             <ul
@@ -547,7 +550,7 @@ export default function PricingPage() {
                 </li>
               ))}
               <li style={{ marginTop: 14 }}>
-                <ProAuthorWaitlist />
+                {proAuthorLive ? <ProAuthorSubscribe /> : <ProAuthorWaitlist />}
               </li>
             </ul>
           </div>
