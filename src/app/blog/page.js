@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { PageHero, Section } from "@/components/section";
 import { Reveal, RevealStagger, RevealItem } from "@/components/motion/reveal";
+import { NewsletterInline } from "@/components/newsletter-inline";
 import { getAllPosts } from "@/lib/blog";
 
 export const revalidate = 3600;
@@ -9,7 +10,12 @@ export const metadata = {
   title: "Blog — building Versuz in public",
   description:
     "Notes from building Versuz, the open public benchmark for AI agent skills. Solo dev, indexing 100k+ items, anti-spam, CLI design.",
-  alternates: { canonical: "/blog" },
+  alternates: {
+    canonical: "/blog",
+    types: {
+      "application/rss+xml": [{ url: "/blog/feed.xml", title: "Versuz · Blog" }],
+    },
+  },
   openGraph: {
     title: "Versuz · Blog",
     description:
@@ -136,6 +142,35 @@ export default function BlogIndexPage() {
             ))}
           </RevealStagger>
         )}
+      </Section>
+
+      <Section eyebrow="§ Subscribe" markerColor="var(--accent)" paddingY={64}>
+        <div style={{ maxWidth: 560 }}>
+          <NewsletterInline
+            source="blog"
+            title="New posts in your inbox"
+            body="Each new piece on building Versuz in public — engineering notes, product decisions, lessons from a solo marketplace. One email per post, no other noise."
+            ctaLabel="Subscribe"
+          />
+        </div>
+        <p
+          style={{
+            marginTop: 16,
+            fontFamily: "var(--font-mono)",
+            fontSize: 11,
+            color: "var(--fg-muted)",
+            letterSpacing: "0.04em",
+          }}
+        >
+          Prefer RSS?{" "}
+          <a
+            href="/blog/feed.xml"
+            className="vz-link"
+            style={{ color: "var(--fg)" }}
+          >
+            /blog/feed.xml ↗
+          </a>
+        </p>
       </Section>
     </div>
   );

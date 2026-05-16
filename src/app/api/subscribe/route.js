@@ -38,11 +38,25 @@ export async function POST(request) {
 
   const userAgent = request.headers.get("user-agent")?.slice(0, 240) || null;
 
+  // Source whitelist — clean signal for /admin/subscribers segmentation.
+  // Unknown values silently fall back to 'footer' (the original default)
+  // so we never persist arbitrary user input.
+  const VALID_SOURCES = new Set([
+    "footer",
+    "inline",
+    "achievements",
+    "blog",
+    "best-page",
+    "pro-author-waitlist",
+  ]);
+  const sourceRaw = String(formData.get("source") || "footer").trim();
+  const source = VALID_SOURCES.has(sourceRaw) ? sourceRaw : "footer";
+
   // Upsert: idempotent on email (re-subscribe is fine).
   const { error } = await sb
     .from("subscribers")
     .upsert(
-      { email, source: "footer", user_agent: userAgent, unsubscribed_at: null },
+      { email, source, user_agent: userAgent, unsubscribed_at: null },
       { onConflict: "email" }
     );
 

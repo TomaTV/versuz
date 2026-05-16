@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { PageHero, Section, SectionHeader } from "@/components/section";
 import { Reveal, RevealStagger, RevealItem } from "@/components/motion/reveal";
 import { SkillRow } from "@/components/skill-row";
+import { NewsletterInline } from "@/components/newsletter-inline";
 import {
   getRankableCategories,
   getProjectCategories,
@@ -354,6 +355,16 @@ export default async function BestCategoryPage({ params }) {
                 . Some items are author-listed Premium (70/30 split) — those have a price tag on the card.
               </>
             }
+          />
+        </div>
+      </Section>
+
+      <Section eyebrow="§ 04 — Stay close" markerColor="var(--amber)" paddingY={64}>
+        <div style={{ maxWidth: 560 }}>
+          <NewsletterInline
+            source="best-page"
+            title={`Updates on ${niceCat}`}
+            body={`Top movers, new entries, and ranking shifts in the ${niceCat} category. One email per week, no other noise.`}
           />
         </div>
       </Section>

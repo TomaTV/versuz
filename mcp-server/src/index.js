@@ -140,6 +140,27 @@ const TOOLS = [
       required: ["a", "b"],
     },
   },
+  {
+    name: "versuz_submit",
+    description:
+      "Submit a SKILL.md or CLAUDE.md from a public GitHub repo to the Versuz registry. Requires a GitHub Personal Access Token (PAT) configured via VERSUZ_GITHUB_TOKEN env var — the same token format as `npx versuz login`. Only the repo owner or a verified org member can submit. Free tier only via MCP ; premium submissions go through the web at versuz.dev/submit. Use when the user asks to publish their skill on Versuz, share a SKILL.md they wrote, or list their repo.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        url: {
+          type: "string",
+          description:
+            "Public GitHub URL of the SKILL.md or CLAUDE.md (e.g. 'https://github.com/owner/repo' or with /blob/main/SKILL.md). Owner-or-org-member only.",
+        },
+        kind: {
+          type: "string",
+          enum: ["skill", "claude_md"],
+          description: "Default: skill. Use claude_md for CLAUDE.md files.",
+        },
+      },
+      required: ["url"],
+    },
+  },
 ];
 
 async function handleSearch({ query }) {
@@ -222,6 +243,62 @@ async function handleInstall({ slug, kind, cwd, overwrite }) {
     ? `\nNote: this skill has ${payload.bundle_files.length} bundle file(s). Clone the repo for the full bundle: ${payload.github_url}`
     : "";
   return `✓ Wrote ${target} (${payload.content.length} chars)${bundleNote}\nSource: ${payload.github_url || "—"}`;
+}
+
+async function handleSubmit({ url, kind }) {
+  if (!url) throw new Error("Missing `url` — pass a public GitHub URL");
+  const token = process.env.VERSUZ_GITHUB_TOKEN || process.env.GITHUB_TOKEN;
+  if (!token) {
+    return [
+      "**Submission requires a GitHub PAT.**",
+      "",
+      "Configure the MCP server with `VERSUZ_GITHUB_TOKEN=ghp_...` in your `.mcp.json` env block, then retry. The token needs the `read:user` scope minimum (we don't write to your repos).",
+      "",
+      "Create one at https://github.com/settings/tokens/new — same format as `npx versuz login`.",
+    ].join("\n");
+  }
+
+  const k = kind === "claude_md" ? "claude_md" : "skill";
+  const res = await fetch(`${API_BASE}/api/v1/submit`, {
+    method: "POST",
+    headers: {
+      "content-type": "application/json",
+      authorization: `Bearer ${token}`,
+      "User-Agent": "versuz-mcp/0.2.0",
+    },
+    body: JSON.stringify({ kind: k, url }),
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    const reason = data?.error || `${res.status} ${res.statusText}`;
+    return `**Submission failed.** ${reason}\n\nCommon causes : (1) you don't own the repo or aren't an org member, (2) rate-limited (5 submits/hour), (3) URL already submitted in the last 24h, (4) malformed SKILL.md.`;
+  }
+
+  const slug = data?.item?.slug || data?.slug;
+  const detailUrl = slug
+    ? `${API_BASE}/${k === "claude_md" ? "claude-md" : "skills"}/${slug}`
+    : null;
+  const badgeMd = slug
+    ? `[![Versuz](${API_BASE}/badge/${k === "claude_md" ? "claude-md" : "skill"}/${slug})](${detailUrl})`
+    : null;
+
+  return [
+    `**✓ Submitted to Versuz.**`,
+    "",
+    slug ? `Slug : \`${slug}\`` : "",
+    detailUrl ? `Detail page : ${detailUrl}` : "",
+    "",
+    "**Next 4 hours :** the quality judge will score it (5-axis rubric).",
+    "**Next 24 hours :** it enters the bench rotation — ELO ranking starts.",
+    "",
+    badgeMd
+      ? `**Badge for your README :**\n\`\`\`markdown\n${badgeMd}\n\`\`\``
+      : "",
+    "",
+    "Reply with feedback at contact@flukxstudio.fr — every message reaches a real human.",
+  ]
+    .filter(Boolean)
+    .join("\n");
 }
 
 async function handleBattle({ a, b, kind }) {
@@ -323,6 +400,7 @@ export async function startServer() {
       else if (name === "versuz_get") text = await handleGet(args);
       else if (name === "versuz_install") text = await handleInstall(args);
       else if (name === "versuz_battle") text = await handleBattle(args);
+      else if (name === "versuz_submit") text = await handleSubmit(args);
       else throw new Error(`Unknown tool: ${name}`);
       return { content: [{ type: "text", text }] };
     } catch (err) {

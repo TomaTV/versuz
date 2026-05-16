@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { PageHero, Section, SectionHeader } from "@/components/section";
 import { Reveal, RevealStagger, RevealItem } from "@/components/motion/reveal";
+import { NewsletterInline } from "@/components/newsletter-inline";
 import {
   getRecentItemAchievements,
   getStreakLeaders,
@@ -426,6 +427,16 @@ export default async function AchievementsPage() {
             </div>
           </Reveal>
         )}
+      </Section>
+
+      <Section eyebrow="§ 04 — Follow" markerColor="var(--amber)" paddingY={64}>
+        <div style={{ maxWidth: 560 }}>
+          <NewsletterInline
+            source="achievements"
+            title="Get the next unlock first"
+            body="Every Friday : Triple Crowns, category winners, streak milestones — straight to your inbox. No spam, unsubscribe in one click."
+          />
+        </div>
       </Section>
     </div>
   );
