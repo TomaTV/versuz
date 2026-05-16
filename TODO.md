@@ -3,7 +3,27 @@
 Tout ce qui est `[x]` archivé vit dans [CHANGELOG.md](./CHANGELOG.md) (en anglais — public).
 Ce fichier ne garde que les `[ ]` actifs.
 
-Dernière mise à jour : **2026-05-14 (V1.6 — landing flip + badge V2 + gamification + content automation)**
+Dernière mise à jour : **2026-05-16 (V1.7 — audit P1 batch + /best 404 fix + PostHog wire)**
+
+---
+
+## 🎯 V1.7 — Audit P0 restant (à faire dans la semaine)
+
+V1.7 a shippé : PostHog provider, `/best/[kind]` index, `.vz-blog-body` typographie,
+hero install strip retiré, changelog stats bar retirée, fix /best/skill/* 404
+(fixture fallback quand RPC `get_category_counts` 500), CLI v0.2.1 bumpé.
+
+Reste à exécuter (humain / ops) :
+
+- [ ] **Publier CLI v0.2.1** : `cd cli && npm publish --access public`
+- [ ] **Publier MCP v0.2.0** : `cd mcp-server && npm publish --access public`
+- [ ] **PostHog dashboard EU** : créer 5 funnels prio (landing→marketplace→checkout, hero CTA, boost CTA, search→install, submit conversion)
+- [ ] **PostHog feature flags** : setup A/B sur les 5 surfaces de monétisation (P1 #10 audit)
+- [ ] **Pipeline Featured doc** (`docs/featured-skill-sop.md`) — SOP pour produire 1 vz-* / semaine
+- [ ] **Ship 5 nouveaux vz-** Featured (cf vz-skills/, actuellement 7, target 12)
+- [ ] **Outreach Anthropic / Vercel / Stripe** — pitch Featured tier sur leurs skills officiels
+- [ ] **Pro author abo $9/mo** — analytics + boost gratuit mensuel + badges custom (P1 #6 audit)
+- [ ] **Brancher `post-cycle-hooks.mjs`** dans `.github/workflows/bench-runner.yml` (P1 #8 audit)
 
 ---
 
@@ -25,8 +45,8 @@ Pour augmenter l'inventaire / le revenu :
 - [ ] Démarcher 3-5 top authors pour Premium (30/70 split)
 - [ ] Build plus de skills `vz-*` first-party (chaque nouveau = inventaire Featured supplémentaire)
 
-### À publier sur npm
-- [ ] `cd cli && npm publish` — v0.2.0 (badge handoff + `versuz battle` command, description SEO + keywords étendus)
+### À publier sur npm (déplacé vers V1.7 — bump 0.2.1)
+- [x] `cd cli && npm publish` — v0.2.0 publié 2026-05-15, **v0.2.1 bumpé 2026-05-16** (à republish)
 - [ ] `cd mcp-server && npm publish` — bump description + keywords (cf [.distribution/npm-submissions.md](./.distribution/npm-submissions.md))
 
 ### À submit sur les directories (toi)

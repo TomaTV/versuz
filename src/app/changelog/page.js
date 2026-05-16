@@ -16,6 +16,19 @@ export const revalidate = 3600; // ISR 1h — contenu statique, voir /about/page
 
 const ENTRIES = [
   {
+    date: "2026-05-16",
+    title: "V1.7 — Audit P1 batch + /best 404 fix + PostHog wire",
+    items: [
+      { type: "fix", body: "/best/skill/* 404 under load — getCategoryCountsImpl was returning [] when the Supabase RPC get_category_counts intermittently 500'd, unstable_cache then froze that empty list for 300s, and every /best/[kind]/[category] page validated the slug against the empty list → notFound(). Now falls back to the static CATEGORIES / PROJECT_CATEGORIES fixtures whenever the RPC errors or returns empty. /standings/* was unaffected because it uses the sync getCategoryIds() path." },
+      { type: "feat", body: "/best/[kind] index page — landing for /best/skill and /best/claude-md that lists every category with its count, linking into /best/[kind]/[category]. Catches visitors who hit the kind-only URL without a category (previously a generic 404). Static-generated for both kinds." },
+      { type: "feat", body: "PostHog wired (App Router) — new <PostHogProvider> client component mounted in layout.js, inits posthog-js once on first mount (EU instance eu.i.posthog.com), captures $pageview on every usePathname/useSearchParams change. Pageleave + session recording on by default. The audit's P0 \"wire PostHog before ad spend\" item is unblocked." },
+      { type: "perf", body: "Hero install strip removed — <HeroInstallStrip /> in the landing hero column was visually cluttered under the search input. Desktop <CliDemo /> animated terminal in the right column retained. File deleted." },
+      { type: "perf", body: "Changelog stats strip removed — the \"N releases · N items shipped · N feat · …\" band at the top of /changelog pushed actual entries below the fold. Filter pills retained." },
+      { type: "fix", body: "Blog body typography — /blog/[slug] posts were rendering as raw HTML (no <p> margins, no <h2> styling, code blocks unstyled). Added .vz-blog-body p / h2 / h3 / ul / code / pre / blockquote / a / hr styles scoped to the article. The 3 existing posts now read as polished articles." },
+      { type: "infra", body: "CLI v0.2.1 — bump to allow npm republish. No CLI command changes." },
+    ],
+  },
+  {
     date: "2026-05-15",
     title: "V1.6.1 — Cloudflare R2 migration, query cache, no-flash auth, manifesto motion ad",
     items: [

@@ -10,6 +10,7 @@ import { CmdKSearch } from "@/components/site/cmd-k-search";
 import { SubscribeToast } from "@/components/site/subscribe-toast";
 import { DbStatusBanner } from "@/components/site/db-status-banner";
 import { ArenaStickyCTA } from "@/components/arena-sticky-cta";
+import { PostHogProvider } from "@/components/posthog-provider";
 
 const geist = Geist({
   subsets: ["latin"],
@@ -193,14 +194,16 @@ export default function RootLayout({ children }) {
         style={{ background: "#f2eee6", color: "#14120e" }}
         suppressHydrationWarning
       >
-        <DbStatusBanner />
-        <VzNav />
-        <VzTicker />
-        <main className="flex-1 vz-fadein">{children}</main>
-        <VzFooter />
-        <CmdKSearch />
-        <SubscribeToast />
-        <ArenaStickyCTA />
+        <PostHogProvider>
+          <DbStatusBanner />
+          <VzNav />
+          <VzTicker />
+          <main className="flex-1 vz-fadein">{children}</main>
+          <VzFooter />
+          <CmdKSearch />
+          <SubscribeToast />
+          <ArenaStickyCTA />
+        </PostHogProvider>
         <Analytics />
         <SpeedInsights />
       </body>

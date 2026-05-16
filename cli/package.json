@@ -1,6 +1,6 @@
 {
   "name": "versuz",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "CLI for the Versuz marketplace — browse, search, install, submit, and battle Claude skills + CLAUDE.md from the terminal. 100k+ ranked SKILL.md files, daily benchmark.",
   "type": "module",
   "bin": {

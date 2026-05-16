@@ -71,56 +71,10 @@ export function ChangelogList({ entries, typeStyles }) {
     return [...groups.entries()].sort((a, b) => Number(b[0]) - Number(a[0]));
   }, [filteredEntries]);
 
-  const totalItems = filteredEntries.reduce(
-    (s, e) => s + (e.items?.length || 0),
-    0
-  );
-  const totalEntries = filteredEntries.length;
-
   const TYPES = ["all", "feat", "fix", "perf", "infra", "content", "docs"];
 
   return (
     <>
-      {/* Stats strip */}
-      <div
-        style={{
-          marginBottom: 24,
-          padding: "16px 0",
-          borderTop: "1px solid var(--rule-strong, var(--rule))",
-          borderBottom: "1px solid var(--rule)",
-          display: "flex",
-          alignItems: "baseline",
-          gap: 24,
-          flexWrap: "wrap",
-          fontFamily: "var(--font-mono)",
-          fontSize: 11,
-          color: "var(--fg-muted)",
-          letterSpacing: "0.06em",
-        }}
-      >
-        <span>
-          <strong style={{ color: "var(--fg)", fontVariantNumeric: "tabular-nums" }}>
-            {totalEntries}
-          </strong>{" "}
-          release{totalEntries === 1 ? "" : "s"}
-        </span>
-        <span style={{ opacity: 0.4 }}>·</span>
-        <span>
-          <strong style={{ color: "var(--fg)", fontVariantNumeric: "tabular-nums" }}>
-            {totalItems}
-          </strong>{" "}
-          item{totalItems === 1 ? "" : "s"} shipped
-        </span>
-        <span style={{ opacity: 0.4 }}>·</span>
-        <span>
-          {Object.entries(typeCounts)
-            .filter(([k]) => k !== "all" && typeCounts[k] > 0)
-            .sort((a, b) => b[1] - a[1])
-            .map(([k, v]) => `${v} ${TYPE_LABELS[k]?.toLowerCase() || k}`)
-            .join(" · ")}
-        </span>
-      </div>
-
       {/* Filters + search */}
       <div
         style={{

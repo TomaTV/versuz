@@ -1468,6 +1468,92 @@ html[data-auth="anon"] .vz-auth-slot__anon {
   }
 }
 
+/* Blog post body : les <Body /> rendent du HTML nu (<p>/<h2>/<ul>/<pre>).
+   Sans cette feuille, tout sort collé sans rythme. Scope strict pour pas
+   leak aux autres pages. */
+.vz-blog-body > * + * { margin-top: 0; }
+.vz-blog-body p {
+  margin: 0 0 1.15em;
+  line-height: 1.75;
+}
+.vz-blog-body p:last-child { margin-bottom: 0; }
+.vz-blog-body h2 {
+  margin: 2.4em 0 0.7em;
+  font-family: var(--font-display);
+  font-size: clamp(24px, 3vw, 30px);
+  font-weight: 400;
+  letter-spacing: -0.02em;
+  line-height: 1.2;
+  color: var(--fg);
+}
+.vz-blog-body h2:first-child { margin-top: 0; }
+.vz-blog-body h3 {
+  margin: 2em 0 0.5em;
+  font-family: var(--font-display);
+  font-size: 22px;
+  font-weight: 500;
+  letter-spacing: -0.01em;
+  color: var(--fg);
+}
+.vz-blog-body ul,
+.vz-blog-body ol {
+  margin: 0 0 1.15em;
+  padding-left: 1.4em;
+}
+.vz-blog-body li {
+  margin: 0.4em 0;
+  line-height: 1.7;
+}
+.vz-blog-body code {
+  font-family: var(--font-mono);
+  font-size: 0.92em;
+  padding: 2px 6px;
+  background: color-mix(in oklab, var(--fg) 6%, transparent);
+  border-radius: 2px;
+}
+.vz-blog-body pre {
+  margin: 1.4em 0;
+  padding: 16px 18px;
+  background: var(--ink);
+  color: var(--bone);
+  font-family: var(--font-mono);
+  font-size: 13px;
+  line-height: 1.6;
+  overflow-x: auto;
+}
+.vz-blog-body pre code {
+  background: transparent;
+  padding: 0;
+  color: inherit;
+  font-size: inherit;
+}
+.vz-blog-body a {
+  color: var(--accent);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  text-decoration-thickness: 1px;
+}
+.vz-blog-body a:hover { text-decoration-thickness: 2px; }
+.vz-blog-body blockquote {
+  margin: 1.5em 0;
+  padding: 4px 0 4px 20px;
+  border-left: 2px solid var(--accent);
+  color: var(--fg-muted);
+  font-style: italic;
+}
+.vz-blog-body strong { font-weight: 600; color: var(--fg); }
+.vz-blog-body hr {
+  border: 0;
+  border-top: 1px solid var(--rule);
+  margin: 2.5em 0;
+}
+
+/* /best/[kind] category cards hover : ember accent on the border + soft bg. */
+.vz-best-cat-card:hover {
+  border-color: var(--accent);
+  background: color-mix(in oklab, var(--accent) 5%, var(--surface));
+}
+
 /* Profile "My skills" / "My CLAUDE.md" rows : desktop = titre à gauche +
    badges + menu à droite sur une ligne. Mobile = stack vertical avec
    badges sous le titre (pas tassés). */

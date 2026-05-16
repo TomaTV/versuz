@@ -593,9 +593,13 @@ async function getCategoryCountsImpl(kind) {
     p_cat_col: catCol,
     p_kind: kind,
   });
-  if (error) {
-    console.warn(`[getCategoryCounts] RPC failed for ${kind}: ${error.message}`);
-    return [];
+  // RPC intermittently 500s on Supabase Free under load. Returning []
+  // poisons the unstable_cache for 300s, which 404s every page that
+  // validates a slug against this list (e.g. /best/[kind]/[category]).
+  // Fall back to the static fixture so SSR keeps rendering.
+  if (error || !data || data.length === 0) {
+    if (error) console.warn(`[getCategoryCounts] RPC failed for ${kind}: ${error.message}`);
+    return kind === "skill" ? CATEGORIES : PROJECT_CATEGORIES;
   }
   const counts = (data || []).map((r) => ({
     category: r.category,
