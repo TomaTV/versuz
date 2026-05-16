@@ -117,6 +117,24 @@ export async function callOpenRouter({
     };
   }
 
+  // Reasoning tokens eat the max_tokens budget *before* the model emits its
+  // visible response. For judges that just return a score + 1-2 sentences of
+  // rationale, the chain-of-thought is wasted budget and triggers truncated /
+  // empty responses (parse fail). Disable reasoning explicitly for the two
+  // judges that default to it on OpenRouter : DeepSeek V4 (Flash & Pro) and
+  // OpenAI gpt-5-mini / gpt-5-nano. Cheaper, faster, way higher parse rate.
+  // The agent role can keep reasoning (different code path, doesn't pass
+  // label="judge" — gated by the env switch below as a safety net).
+  const isReasoningModel =
+    isDeepSeek || /^openai\/gpt-5/.test(modelId);
+  if (isReasoningModel && label === "judge" && process.env.BENCH_DISABLE_JUDGE_REASONING !== "0") {
+    // `enabled: false` tells supporting providers to skip reasoning entirely.
+    // `exclude: true` is a belt-and-suspenders : if a provider ignores
+    // `enabled` and still reasons, the tokens are at least kept out of the
+    // visible response so they don't crowd out the JSON we asked for.
+    body.reasoning = { enabled: false, exclude: true };
+  }
+
   const res = await fetch(ENDPOINT, {
     method: "POST",
     headers: {
