@@ -264,7 +264,7 @@ versuz/
 
 ## Position du fondateur
 
-Solo build par Toma (FlukX Studio). 21 ans, basé en France, expertise design + dev fullstack + automatisation EdTech (PST&B / Galileo). Objectif V0 : ship en 6 semaines à partir du démarrage. Ce projet vise les 3 priorités simultanées : générer du cash en solo (à terme via API enterprise et placements), apprendre l'IA en profondeur (LLM-as-judge, benchmarking, distributed systems), et construire un truc public dont je suis fier.
+Solo build par Toma (FlukX Studio). 21 ans, basé en France, expertise design + dev fullstack + automatisation EdTech (PST&B / Galileo). Objectif V0 : ship en 6 semaines à partir du démarrage. Ce projet vise les 3 priorités simultanées : générer du cash en solo (Premium 30/70, Boost $4.99/30j, Featured 100%, Pro Author $9/mo), apprendre l'IA en profondeur (LLM-as-judge, benchmarking, distributed systems), et construire un truc public dont je suis fier.
 
 ## Contraintes
 
@@ -485,7 +485,7 @@ Solo build par Toma (FlukX Studio). 21 ans, basé en France, expertise design + 
 - Submit flows → Storage direct (au lieu de skill_md_content inline)
 
 Tout le reste est V2+ (real-time battles, dark theme, deterministic
-pre-judge, multi-vertical scaling, API enterprise).
+pre-judge, multi-vertical scaling).
 
 ## Comment travailler avec une IA sur ce projet
 

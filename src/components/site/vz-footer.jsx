@@ -88,9 +88,6 @@ export function VzFooter() {
             <Link href="/pricing" className="vz-link">
               Pricing
             </Link>
-            <Link href="/enterprise" className="vz-link">
-              Enterprise
-            </Link>
             <Link href="/about" className="vz-link">
               About
             </Link>

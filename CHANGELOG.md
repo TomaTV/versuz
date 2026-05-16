@@ -27,6 +27,11 @@ Lightweight batch after the V1.6.1 R2 migration. Wires the analytics layer that 
 ### Files touched
 **Modified** : `src/lib/queries/rankings.js`, `src/app/layout.js`, `src/app/globals.css`, `src/components/landing/landing-hero.jsx`, `src/components/changelog/changelog-list.jsx`, `cli/package.json`, `package.json`, `package-lock.json`. **New** : `src/components/posthog-provider.jsx`, `src/app/best/[kind]/page.js`. **Deleted** : `src/components/landing/hero-install-strip.jsx`.
 
+### Enterprise tier removed
+- `/enterprise` lead capture page was vending a Starter $99/mo + Team $299/mo tier whose underlying features (private skills scope, isolated dashboard, weekly bench cycle, Slack notif, custom task suite, REST CI/CD gating) weren't built. Strategic decision : Versuz isn't going after big-co contracts at this stage, the unit economics don't justify the dev effort vs. ad-supported skill-author flow.
+- **Deleted** : `src/app/enterprise/` (page + contact form), `src/app/api/enterprise/contact/route.js`, `src/app/admin/enterprise-leads/page.js`, `supabase/migrations/0053_enterprise_leads.sql` (the table itself was DROPped via MCP — `enterprise_leads` no longer in the DB).
+- **Modified** : `src/components/site/vz-footer.jsx` (footer link removed), `src/app/sitemap.js` (route removed), `src/app/pricing/page.js` (FAQ "Enterprise / private bench" block removed), `src/lib/admin/actions.js` (`updateEnterpriseLeadStatus` + `deleteEnterpriseLead` removed), `src/app/admin/layout.js` (admin nav link removed), `CONTEXT.md` + `TODO.md` (V2+ "API enterprise premium" mentions removed for direction alignment).
+
 ## 2026-05-15 — V1.6.1 — Cloudflare R2 migration, query cache, no-flash auth + manifesto motion ad
 
 The free-tier ceiling on Supabase Storage hit at 1.162 / 1 GB and froze the DB. Used the unblock window to rebuild the storage architecture properly : **Postgres metadata stays on Supabase, all heavy content moves to Cloudflare R2** (10 GB free, zero egress fees, edge CDN via `cdn.versuz.dev`). Steady-state cost back to $0/mois with breathing room for years.

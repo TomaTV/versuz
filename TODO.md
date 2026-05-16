@@ -315,7 +315,6 @@ Helpers cinématiques en place dans `.ads/versuz-ads-scenes-3.jsx` : `breathe()`
 - Real-time battles style Chatbot-Arena (live judging avec vote user)
 - Dark theme (tokens prêts dans `.ui/`)
 - Webhook creator (notify on rank change → Discord / Slack / email)
-- API enterprise premium (custom benchmarks for clients)
 - Anthropic Message Batches pour `prod` mode (50% off Sonnet, async)
 - Deterministic pre-judge layer (regex/JSON-schema pre-pass)
 - Hetzner VPS V1 (si > 500 submits/jour)

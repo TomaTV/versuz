@@ -627,28 +627,6 @@ export default function PricingPage() {
                 independent of any payment. We keep that line bright.
               </p>
             </div>
-            <div>
-              <h3
-                style={{
-                  margin: 0,
-                  marginBottom: 8,
-                  fontFamily: "var(--font-display)",
-                  fontSize: 18,
-                  fontWeight: 400,
-                  letterSpacing: "-0.01em",
-                }}
-              >
-                Enterprise / private bench ?
-              </h3>
-              <p style={{ margin: 0, fontSize: 13, lineHeight: 1.6, color: "var(--fg-muted)" }}>
-                Yes — Starter $99/mo (5 skills, weekly), Team $299/mo (25
-                skills, daily), Custom on request. Full pricing + form on{" "}
-                <Link href="/enterprise" className="vz-link">
-                  /enterprise
-                </Link>
-                .
-              </p>
-            </div>
           </div>
         </Reveal>
 
