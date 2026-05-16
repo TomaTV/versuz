@@ -3,16 +3,17 @@
 Tout ce qui est `[x]` archivé vit dans [CHANGELOG.md](./CHANGELOG.md) (en anglais — public).
 Ce fichier ne garde que les `[ ]` actifs.
 
-Dernière mise à jour : **2026-05-16 (V1.7 — audit P1 batch + /best 404 fix + PostHog wire)**
+Dernière mise à jour : **2026-05-16 (V1.7 — /best 404 fix + observability rolled back + post-enterprise sprint)**
 
 ---
 
-## 🎯 V1.7 — Sprint actualisé post-enterprise (semaine 16-18 mai)
+## 🎯 V1.7 — Sprint actualisé (semaine 16-18 mai)
 
-V1.7 shippé : PostHog provider + 10 events + 5 funnels prêts pour dashboard,
-`/best/[kind]` index, `.vz-blog-body` typographie, hero install strip retiré,
-fix /best/skill/* 404, CLI v0.2.1 + MCP v0.2.0 publiés, enterprise tier retiré
-entièrement (page + admin + DB table + docs).
+V1.7 shippé : `/best/[kind]` index, fix `/best/skill/*` 404 (fixture fallback
+quand RPC `get_category_counts` 500), `.vz-blog-body` typographie, hero install
+strip retiré, changelog stats bar retirée, enterprise tier entièrement retiré
+(page + admin + DB + docs), PostHog + Sentry retirés (trop de friction),
+CLI v0.2.1 + MCP v0.2.0 publiés, `<NewsletterInline>` ajouté sur skill detail.
 
 Stack monétisation consolidé : Premium 30/70 + Boost $4.99/30j + Featured 100%
 + **Pro Author $9/mo** (schéma DB ready via mig 0054, code checkout livré, env
@@ -22,10 +23,8 @@ Plafond cible : **$1200-1950/mo @ steady-state**.
 
 ### P0 — cette semaine (must-ship avant Wave 1 samedi 18 mai)
 
-- [ ] **Ship 5 nouveaux vz-* Featured** — actuel 7, target 12. Cadence 2-3/jour mercredi-jeudi. SOP : pick depuis PostHog top searches × gap-categories, write SKILL.md < 1500 mots, test live Claude Code, quality-judge ≥ 80, seed + push
-- [ ] **A/B Boost CTA copy** via PostHog feature flags — 3 variants ("Boost $4.99/30d" vs "Surface yours $4.99" vs "Pin to top $4.99") sur les surfaces home / marketplace / leaderboard / detail
-- [ ] **Newsletter capture sur `/skills/[slug]`** — `<NewsletterInline>` en fin de page detail pour capter le viral Wave 1
-- [ ] **PostHog dashboard EU — créer les 5 funnels** : (1) Hero→CLI activation, (2) Browse→Buy, (3) Author conversion, (4) Submit funnel, (5) Newsletter capture. Cibles dans `AUDIT.md` §4
+- [ ] **Ship 5 nouveaux vz-* Featured** — actuel 7, target 12. Cadence 2-3/jour mercredi-jeudi. SOP : pick par gap-category (cat avec >20 indexed et <10 benched), write SKILL.md < 1500 mots, test live Claude Code, quality-judge ≥ 80, seed + push
+- [ ] **Boost CTA copy iterations** — tester 3 variants ("Boost $4.99/30d" vs "Surface yours $4.99" vs "Pin to top $4.99") manuellement par switches deploy, observer Vercel Analytics conversions
 - [ ] **Wave 1 social drop samedi 18 mai** — humain (Twitter thread + LinkedIn + TikTok terminal demo)
 
 ### P1 — ce mois-ci (Wave 2-3)

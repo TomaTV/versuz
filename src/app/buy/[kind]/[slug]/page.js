@@ -9,7 +9,6 @@ import { TierBadge } from "@/components/marketplace/tier-badge";
 import { VerificationBadge } from "@/components/marketplace/verification-badge";
 import { OfficialBadge } from "@/components/marketplace/official-badge";
 import { BackButton } from "@/components/site/back-button";
-import { TrackClick } from "@/components/track-click";
 
 export const metadata = { title: "Buy — Versuz" };
 
@@ -180,26 +179,21 @@ export default async function BuyPage({ params, searchParams }) {
             <form action={createCheckoutAction} style={{ marginTop: 16 }}>
               <input type="hidden" name="kind" value={kind} />
               <input type="hidden" name="slug" value={slug} />
-              <TrackClick
-                event="purchase_started"
-                props={{ kind, slug, price_usd: Number(subject.price_usd) }}
+              <button
+                type="submit"
+                style={{
+                  width: "100%",
+                  padding: "16px 20px",
+                  border: "1px solid var(--accent)",
+                  background: "var(--accent)",
+                  color: "var(--bg)",
+                  fontFamily: "var(--font-sans)",
+                  fontSize: 15,
+                  cursor: "pointer",
+                }}
               >
-                <button
-                  type="submit"
-                  style={{
-                    width: "100%",
-                    padding: "16px 20px",
-                    border: "1px solid var(--accent)",
-                    background: "var(--accent)",
-                    color: "var(--bg)",
-                    fontFamily: "var(--font-sans)",
-                    fontSize: 15,
-                    cursor: "pointer",
-                  }}
-                >
-                  Pay with Stripe →
-                </button>
-              </TrackClick>
+                Pay with Stripe →
+              </button>
               <p
                 style={{
                   marginTop: 12,

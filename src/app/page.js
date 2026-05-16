@@ -2,8 +2,6 @@ import Link from "next/link";
 import { Eyebrow } from "@/components/brand/eyebrow";
 import { BattleSpread } from "@/components/battle-spread";
 import { SkillRow } from "@/components/skill-row";
-import { TrackPage } from "@/components/track-page";
-import { TrackClick } from "@/components/track-click";
 import { Reveal, RevealStagger, RevealItem } from "@/components/motion/reveal";
 import { ScrollReveal, ScrollRevealStagger } from "@/components/motion/scroll-reveal";
 import { LiveStatsGrid } from "@/components/live-stats-grid";
@@ -224,7 +222,6 @@ export default async function LandingPage() {
 
   return (
     <div style={{ position: "relative" }}>
-      <TrackPage event="landing_view" />
       <LandingHero counts={counts} />
       {whatsNew && <WhatsNewBanner event={whatsNew} />}
 
@@ -1082,28 +1079,26 @@ $ npx versuz install pdf-generator
                   marginBottom: 32,
                 }}
               >
-                <TrackClick event="cta_submit_click" props={{ placement: "landing-08" }}>
-                  <Link
-                    href="/submit"
-                    style={{
-                      display: "inline-flex",
-                      alignItems: "center",
-                      gap: 12,
-                      padding: "18px 26px",
-                      background: "var(--fg)",
-                      color: "var(--bg)",
-                      fontFamily: "var(--font-display)",
-                      fontSize: 16,
-                      letterSpacing: "-0.01em",
-                      border: "1px solid var(--fg)",
-                      textDecoration: "none",
-                      transition: "background 0.2s",
-                    }}
-                  >
-                    Submit your skill
-                    <span style={{ marginLeft: 4 }}>→</span>
-                  </Link>
-                </TrackClick>
+                <Link
+                  href="/submit"
+                  style={{
+                    display: "inline-flex",
+                    alignItems: "center",
+                    gap: 12,
+                    padding: "18px 26px",
+                    background: "var(--fg)",
+                    color: "var(--bg)",
+                    fontFamily: "var(--font-display)",
+                    fontSize: 16,
+                    letterSpacing: "-0.01em",
+                    border: "1px solid var(--fg)",
+                    textDecoration: "none",
+                    transition: "background 0.2s",
+                  }}
+                >
+                  Submit your skill
+                  <span style={{ marginLeft: 4 }}>→</span>
+                </Link>
                 <div
                   style={{
                     display: "inline-flex",

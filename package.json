@@ -50,7 +50,6 @@
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1047.0",
     "@octokit/rest": "^22.0.1",
-    "@sentry/nextjs": "^10.53.1",
     "@supabase/ssr": "^0.10.3",
     "@supabase/supabase-js": "^2.105.4",
     "@vercel/analytics": "^2.0.1",
@@ -61,7 +60,6 @@
     "gray-matter": "^4.0.3",
     "lucide-react": "^1.14.0",
     "next": "16.2.6",
-    "posthog-js": "^1.373.5",
     "react": "19.2.4",
     "react-dom": "19.2.4",
     "stripe": "^22.1.1",

@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useLayoutEffect, useState } from "react";
-import { track } from "@/lib/track";
 import Link from "next/link";
 import { UserMenu } from "@/components/site/user-menu";
 import { MobileNavMenu } from "@/components/site/mobile-nav-menu";
@@ -161,7 +160,6 @@ export function NavAuthCluster({ links }) {
         <Link
           href="/submit"
           className="vz-nav-submit-ember"
-          onClick={() => track("cta_submit_click", { placement: "header" })}
           style={{
             padding: "9px 18px",
             fontSize: 13,

@@ -2,7 +2,6 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getStripe, isStripeConfigured } from "@/lib/stripe/server";
 import { Section, PageHero } from "@/components/section";
-import { TrackPage } from "@/components/track-page";
 
 export const metadata = { title: "Thanks — Versuz" };
 
@@ -36,12 +35,6 @@ export default async function CheckoutSuccessPage({ params, searchParams }) {
 
   return (
     <div>
-      {paid && (
-        <TrackPage
-          event="purchase_success"
-          props={{ kind, slug, price_usd: amount ? Number(amount) : null }}
-        />
-      )}
       <PageHero
         compact
         eyebrow="Order"

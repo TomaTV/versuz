@@ -1,8 +1,6 @@
 import Link from "next/link";
 import { PageHero } from "@/components/section";
 import { MarketplaceGrid } from "@/components/marketplace/marketplace-grid";
-import { TrackPage } from "@/components/track-page";
-import { TrackClick } from "@/components/track-click";
 import {
   getPaginatedItems,
   getCategoryCounts,
@@ -44,13 +42,8 @@ export default async function MarketplacePage({ searchParams }) {
   }
   const items = result.items.map((it) => stampRank(it, kind === "skill" ? "skill" : "claude_md"));
 
-  const filterActive = Boolean(
-    params.category || params.tier || params.q || params.topics || params.source
-  );
-
   return (
     <div>
-      <TrackPage event="marketplace_view" props={{ kind, filter_active: filterActive }} />
       <PageHero
         eyebrow="Marketplace"
         title={
@@ -170,25 +163,23 @@ function PromoteSlot() {
         >
           How it works
         </Link>
-        <TrackClick event="cta_boost_click" props={{ placement: "marketplace-top" }}>
-          <Link
-            href="/submit"
-            style={{
-              padding: "10px 18px",
-              fontFamily: "var(--font-mono)",
-              fontSize: 11,
-              letterSpacing: "0.06em",
-              textTransform: "uppercase",
-              color: "var(--bg)",
-              background: "var(--fg)",
-              border: "1px solid var(--fg)",
-              textDecoration: "none",
-              whiteSpace: "nowrap",
-            }}
-          >
-            Submit yours →
-          </Link>
-        </TrackClick>
+        <Link
+          href="/submit"
+          style={{
+            padding: "10px 18px",
+            fontFamily: "var(--font-mono)",
+            fontSize: 11,
+            letterSpacing: "0.06em",
+            textTransform: "uppercase",
+            color: "var(--bg)",
+            background: "var(--fg)",
+            border: "1px solid var(--fg)",
+            textDecoration: "none",
+            whiteSpace: "nowrap",
+          }}
+        >
+          Submit yours →
+        </Link>
       </div>
     </div>
   );

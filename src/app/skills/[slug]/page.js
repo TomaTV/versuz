@@ -26,7 +26,6 @@ import {
 } from "@/components/skills/skill-user-gate";
 import { SkillInstallBundle } from "@/components/skills/install-bundle";
 import { PromoteSkillSlot } from "@/components/skills/promote-skill-slot";
-import { TrackPage } from "@/components/track-page";
 import { NewsletterInline } from "@/components/newsletter-inline";
 
 function formatCount(n) {
@@ -512,16 +511,6 @@ export default async function SkillDetailPage({ params }) {
 
   return (
     <div style={{ position: "relative" }}>
-      <TrackPage
-        event="item_detail_view"
-        props={{
-          kind: "skill",
-          slug,
-          tier: detail.tier || "free",
-          is_premium: detail.tier === "premium" || detail.tier === "featured",
-          rank: detail.rank ?? null,
-        }}
-      />
       {/* HERO with rank-aware composition */}
       <section
         style={{

@@ -82,7 +82,7 @@ On est l'équivalent **LMArena pour les skills** : transparent, indépendant, di
   1. `run_outputs.output_hash` dedup (skill+task identique → output réutilisé, déjà câblé dans `runner.mjs`)
   2. `task_proposals` cache pour Gemini-generated tasks (jamais re-générées)
   3. **Anthropic prompt cache** : SKILL.md + task setup envoyés avec `cache_control: ephemeral` → 90% off après le 1er judge dans la fenêtre 5min
-- **Observabilité** : Sentry (errors, V1.6.1 — wizard + global-error capture), PostHog (analytics + session replay, V1.7 — provider monté dans `layout.js` via [src/components/posthog-provider.jsx](./src/components/posthog-provider.jsx), EU instance `eu.i.posthog.com`, pageview capturé manuellement sur change `usePathname`)
+- **Observabilité** : Vercel Analytics + Speed Insights uniquement (mountés dans `layout.js`). PostHog + Sentry ont été tentés puis retirés V1.7 — trop de friction pour ce stage, pas de funnels intéressants avec 50 visiteurs. À reconsidérer si trafic > 1k unique/jour.
 - **Package manager** : npm
 
 > **Note Next 16** : `AGENTS.md` rappelle que la surface d'API diffère du training (params async, etc.). Consulter `node_modules/next/dist/docs/01-app/` avant tout ajout Next-spécifique.
@@ -271,7 +271,7 @@ Solo build par Toma (FlukX Studio). 21 ans, basé en France, expertise design + 
 - ~~**Pas d'auth en V0**~~ → Supabase Auth + GitHub OAuth shippés (V0.5 mai 2026)
 - ~~**Pas de paiements en V0**~~ → Stripe Connect Express + destination charges + webhook
   + premium downloads + boost shippés en test mode (V1.5 mai 2026). Live mode pending domain.
-- ~~**Pas d'analytics tant que la prod n'est pas live** — PostHog reste désinstallé.~~ → PostHog wired V1.7 (provider EU instance, pageview manuel via App Router).
+- **Pas d'analytics tant que la prod n'est pas live au-delà de Vercel Analytics** — PostHog/Sentry retirés V1.7, à reconsidérer si trafic > 1k unique/jour.
 - **Ne PAS ajouter sans demander** : redux, zustand, axios, moment, date-fns (utiliser Intl natif), styled-components, MUI, Chakra. (framer-motion est installé pour les reveal/parallax — OK pour le hero.)
 - Chaque décision se justifie contre la question : "est-ce V0 ?"
 

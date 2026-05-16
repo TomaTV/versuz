@@ -168,7 +168,6 @@ jamais hardcode.
 - `src/components/embed-badge-block.jsx` — 3 tabs (markdown/html/url) + 1-click copy + V1.6 selectors Show/Style. SVG badge `<img src="/badge/{kind}/{slug}">` portable Notion/Linear/Discord. Query params : `?show=score|elo|prior|rank`, `?style=default|terminal`.
 - `src/components/next-cycle-countdown.jsx` (V1.6) — countdown live vers `06:00 UTC`. Variants `long` / `short` pour `<VzTicker>`.
 - `src/components/arena-sticky-cta.jsx` (V1.6) — floating CTA "Enter the Arena", suppressed sur `/submit`, `/admin`, `/buy`, `/promote`, `/claim`, `/profile`, `/success`.
-- `src/components/posthog-provider.jsx` (V1.7) — client wrapper qui init `posthog-js` (EU instance `eu.i.posthog.com`) et capture `$pageview` manuellement à chaque change de `usePathname`/`useSearchParams`. Mount inconditionnellement dans `layout.js` — no-op si `NEXT_PUBLIC_POSTHOG_KEY` absent. Pour tracker un event custom : `import posthog from "posthog-js"; posthog.capture("event_name", {...})`.
 - `src/components/copy-content-button.jsx` — bouton copy absolu top-right, utilisé inline dans les `CommandBlock` des detail pages.
 - `src/components/site/` — VzNav (mark seul 64px), VzFooter (5 colonnes : Project / Open data / Tools / Legal / Subscribe), MobileNavMenu, BackButton, VzTicker, CmdKHint
 - `src/components/brand/` — VersuzMark (SVG 2-flammes officiel), VersuzWordmark, Eyebrow, FigureNumber, SkillGlyph, StencilGlyph

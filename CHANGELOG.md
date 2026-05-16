@@ -4,28 +4,27 @@ Format: date · cluster · what shipped. Newest first.
 
 ---
 
-## 2026-05-16 — V1.7 — Audit P1 batch + `/best` 404 fix + PostHog wire
+## 2026-05-16 — V1.7 — `/best` 404 fix + audit hygiene + observability rolled back
 
-Lightweight batch after the V1.6.1 R2 migration. Wires the analytics layer that was already half-installed (env vars + package present, no provider mounted), unblocks the `/best/[kind]/[category]` SEO long-tail pages, and cleans up two pieces of hero/changelog noise the audit flagged.
+Lightweight batch after the V1.6.1 R2 migration. Unblocks the `/best/[kind]/[category]` SEO long-tail pages, cleans up hero/changelog noise the audit flagged, removes the enterprise tier entirely, and rolls back PostHog + Sentry instrumentation (too much friction for the current stage — Vercel Analytics stays as the only observability layer).
 
 ### `/best/skill/*` no longer 404s under load
 - **Root cause** : `get_category_counts` RPC intermittently returns 500 on Supabase Free under burst load (8 parallel HEAD/POST in landing render). `getCategoryCountsImpl` was returning `[]` on error, `unstable_cache` then froze that empty list for 300s, and every `/best/[kind]/[category]` page validated the slug against the empty list → `notFound()`.
 - **Fix** : [src/lib/queries/rankings.js](src/lib/queries/rankings.js#L596) — fallback to the static `CATEGORIES` / `PROJECT_CATEGORIES` fixtures whenever the RPC errors or returns empty. Cache no longer poisons, routes keep rendering even during a Supabase hiccup. `/standings/[category]` was unaffected because it uses the synchronous `getCategoryIds()` path.
 - **New** : [src/app/best/[kind]/page.js](src/app/best/[kind]/page.js) — index page that lists every category linking into `/best/[kind]/[category]`. Catches visitors who hit `/best/skill` without a category (previously a generic 404). Static-generated for both kinds.
 
-### PostHog wired (App Router)
-- **New** : [src/components/posthog-provider.jsx](src/components/posthog-provider.jsx) — `"use client"` provider that inits `posthog-js` once on first mount (EU instance `eu.i.posthog.com`), captures `$pageview` on every `usePathname`/`useSearchParams` change. Wrapped around children in [src/app/layout.js](src/app/layout.js). Pageleave + session recording on by default, persistence `localStorage+cookie`.
-- **package.json** : `posthog-js@^1.373.5` promoted from lockfile-only to a declared dependency.
-- The audit's P0 "wire PostHog before any ad spend" item is unblocked — events flow as soon as deploy lands. Funnels + feature flags (P1 #10) still to configure in the dashboard.
-
 ### Audit hygiene
 - **Hero install strip removed** — `<HeroInstallStrip />` and the matching `src/components/landing/hero-install-strip.jsx` file deleted. Visually cluttered under the search input. Desktop `<CliDemo />` (the right-column animated terminal) untouched.
 - **Changelog stats strip removed** — the `6 releases · 69 items shipped · 32 feat · …` band at the top of `/changelog` was metadata noise that pushed the actual entries below the fold. Filter pills retained.
-- **Blog body typography** — `/blog/[slug]` posts were rendering as raw HTML (no `<p>` margins, no `<h2>` styling, code blocks unstyled). Added `.vz-blog-body p / h2 / h3 / ul / code / pre / blockquote / a / hr` styles scoped to the article in [src/app/globals.css](src/app/globals.css). The 3 existing posts (anti-spam, lessons-from-indexing, building-a-cli) now read as polished articles.
+- **Blog body typography** — `/blog/[slug]` posts were rendering as raw HTML (no `<p>` margins, no `<h2>` styling, code blocks unstyled). Added `.vz-blog-body p / h2 / h3 / ul / code / pre / blockquote / a / hr` styles scoped to the article in [src/app/globals.css](src/app/globals.css). The 3 existing posts now read as polished articles.
 - **CLI v0.2.1 bump** — [cli/package.json](cli/package.json) bumped to allow republish (v0.2.0 was the last published version).
 
-### Files touched
-**Modified** : `src/lib/queries/rankings.js`, `src/app/layout.js`, `src/app/globals.css`, `src/components/landing/landing-hero.jsx`, `src/components/changelog/changelog-list.jsx`, `cli/package.json`, `package.json`, `package-lock.json`. **New** : `src/components/posthog-provider.jsx`, `src/app/best/[kind]/page.js`. **Deleted** : `src/components/landing/hero-install-strip.jsx`.
+### Observability rolled back
+- PostHog + Sentry were wired earlier in the session but added more friction than value at this stage (50 visitors, no funnels worth measuring yet, dashboards confused between project keys). Both removed entirely.
+- **Uninstalled** : `posthog-js`, `@sentry/nextjs` (package.json + lockfile).
+- **Deleted** : `src/components/posthog-provider.jsx`, `src/lib/track.js`, `src/components/track-page.jsx`, `src/components/track-click.jsx`, `sentry.edge.config.js`, `sentry.server.config.js`, `src/instrumentation.js`, `src/instrumentation-client.js`, `src/app/global-error.js`, `src/app/api/sentry-example-api/`, `src/app/sentry-example-page/`.
+- **Modified** : `next.config.mjs` (withSentryConfig wrap removed), `src/app/layout.js` (PostHogProvider unwrapped), `.env.local` (NEXT_PUBLIC_POSTHOG_* removed), all event call sites cleaned (landing / marketplace / skill detail / buy / submit / subscribe / achievements / promote-skill-slot / nav-auth-cluster / submit-form).
+- Sole remaining analytics : Vercel Analytics + Speed Insights (already mounted in `layout.js`, dashboards via Vercel project).
 
 ## 2026-05-15 — V1.6.1 — Cloudflare R2 migration, query cache, no-flash auth + manifesto motion ad
 
