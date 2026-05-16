@@ -35,7 +35,7 @@ Plafond cible : **$1200-1950/mo @ steady-state**.
 - [ ] **Bluesky auto-post** depuis `post-cycle-hooks.mjs` — Bluesky API gratuite, post le top mover par cycle
 - [ ] **Outreach Anthropic + Vercel** — pitch Featured partnership (5 skills `anthropics/skills/*` en Featured Versuz 100%, leur exposition vs notre data publique). Stripe retiré du pitch
 - [ ] **Top movers email weekly** — subset du digest, test la cadence retention
-- [ ] **Brancher `post-cycle-hooks.mjs`** dans `.github/workflows/bench-runner.yml`
+- [x] ~~Brancher `post-cycle-hooks.mjs` dans `.github/workflows/bench-runner.yml`~~ (déjà wired — step "Post-cycle hooks" lignes 146-151)
 
 ### P2 — parqué (après V1.7)
 

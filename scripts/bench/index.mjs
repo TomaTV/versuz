@@ -332,7 +332,7 @@ async function main() {
     try {
       const { error: refreshErr } = await sb.rpc("refresh_rankings");
       if (refreshErr) {
-        const isConcurrent = /cannot refresh materialized view concurrently/i.test(refreshErr.message);
+        const isConcurrent = /cannot refresh materialized view (?:"[^"]+" )?concurrently/i.test(refreshErr.message);
         if (isConcurrent) {
           console.log(`[bench] refresh_rankings skipped: another refresh in progress (next run will pick up)`);
         } else {
