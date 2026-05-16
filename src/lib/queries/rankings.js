@@ -1007,13 +1007,20 @@ export async function getStandings(category) {
  * row payload, juste le count. ~5ms total. Falls back aux fixtures
  * lengths quand Supabase n'est pas configuré.
  */
+// Last-known-good counts. Used only as a transient fallback when Supabase is
+// unreachable so the landing doesn't fall back to the 247-skill seed.js
+// fixture. Update by hand a few times a year — order of magnitude matters
+// more than precision (the LiveStatsGrid polls /api/stats and corrects to
+// the real number within seconds of recovery).
+const FALLBACK_COUNTS = { skills: 92000, claudeMds: 10000 };
+
 export const getIndexCounts = unstable_cache(async () => {
   if (!HAS_SUPABASE) {
-    return { skills: SKILLS.length, claudeMds: 0, asOf: new Date().toISOString() };
+    return { ...FALLBACK_COUNTS, asOf: new Date().toISOString() };
   }
   const sb = createSupabasePublicClient();
   if (!sb) {
-    return { skills: SKILLS.length, claudeMds: 0, asOf: new Date().toISOString() };
+    return { ...FALLBACK_COUNTS, asOf: new Date().toISOString() };
   }
   // Pre-migration the claude_md filter was `word_count >= 40` to skip marker-
   // file stubs (3-token CLAUDE.md placeholders). After the Storage offload,
@@ -1048,9 +1055,14 @@ export const getIndexCounts = unstable_cache(async () => {
   if (claudeMdRes.error) {
     console.warn("[getIndexCounts] claude_md count failed:", claudeMdRes.error.message);
   }
+  // If both queries failed, return the last-known-good fallback rather
+  // than 0 / 0 — a fresh visitor seeing "0 skills" looks worse than seeing
+  // an order-of-magnitude estimate that gets corrected by the live poll.
+  const skillsCount = skillsRes.error ? FALLBACK_COUNTS.skills : (skillsRes.count ?? 0);
+  const claudeMdCount = claudeMdRes.error ? FALLBACK_COUNTS.claudeMds : (claudeMdRes.count ?? 0);
   return {
-    skills: skillsRes.count ?? 0,
-    claudeMds: claudeMdRes.count ?? 0,
+    skills: skillsCount,
+    claudeMds: claudeMdCount,
     asOf: new Date().toISOString(),
   };
 }, ["index-counts"], { revalidate: CACHE_TTL_STABLE, tags: ["index-counts"] });

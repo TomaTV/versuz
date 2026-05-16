@@ -19,6 +19,9 @@ const DISMISS_KEY = "vz-db-banner-dismissed";
 const HEALTH_KEY = "vz-db-health-ok";
 const HEALTH_TTL_MS = 60 * 60 * 1000; // 1h — re-verify max 1×/heure
 const RECOVERY_POLL_MS = 120_000; // 2min entre tentatives quand down
+const FETCH_TIMEOUT_MS = 12_000; // 12s — Supabase Free peut lag sous charge
+const RETRY_DELAY_MS = 4000; // 4s entre les 2 tentatives avant de banner
+const MAX_CONSECUTIVE_FAILS = 2; // Require 2 fails before crying wolf
 
 export function DbStatusBanner() {
   const [state, setState] = useState({ checked: false, healthy: true });
@@ -33,6 +36,7 @@ export function DbStatusBanner() {
   useEffect(() => {
     let cancelled = false;
     let timer = null;
+    let consecutiveFails = 0;
 
     // Skip le ping si on a un OK récent en sessionStorage. Coupe ~80%
     // des hits /api/stats pour les sessions multi-pages.
@@ -47,35 +51,45 @@ export function DbStatusBanner() {
       }
     } catch {}
 
-    async function check() {
+    async function pingOnce() {
       try {
         const ctrl = new AbortController();
-        const t = setTimeout(() => ctrl.abort(), 6000);
+        const t = setTimeout(() => ctrl.abort(), FETCH_TIMEOUT_MS);
         const res = await fetch("/api/stats", { signal: ctrl.signal });
         clearTimeout(t);
-        if (cancelled) return;
-        if (!res.ok) {
-          setState({ checked: true, healthy: false });
-          // Retry-poll seulement quand down — silence quand UP.
-          timer = setTimeout(check, RECOVERY_POLL_MS);
-          return;
-        }
+        if (cancelled) return { ok: false, transient: true };
+        if (!res.ok) return { ok: false, transient: false };
         const data = await res.json();
         const healthy = (data.skills || 0) > 0 || (data.claudeMds || 0) > 0;
-        setState({ checked: true, healthy });
-        if (healthy) {
-          try {
-            sessionStorage.setItem(HEALTH_KEY, String(Date.now()));
-          } catch {}
-        } else {
-          timer = setTimeout(check, RECOVERY_POLL_MS);
-        }
+        return { ok: healthy, transient: false };
       } catch {
-        if (!cancelled) {
-          setState({ checked: true, healthy: false });
-          timer = setTimeout(check, RECOVERY_POLL_MS);
-        }
+        return { ok: false, transient: true };
       }
+    }
+
+    async function check() {
+      const result = await pingOnce();
+      if (cancelled) return;
+
+      if (result.ok) {
+        consecutiveFails = 0;
+        setState({ checked: true, healthy: true });
+        try {
+          sessionStorage.setItem(HEALTH_KEY, String(Date.now()));
+        } catch {}
+        return;
+      }
+
+      consecutiveFails += 1;
+      if (consecutiveFails < MAX_CONSECUTIVE_FAILS) {
+        // First failure could be a slow cold cache. Retry once after a
+        // short delay before showing the scary banner to a fresh visitor.
+        timer = setTimeout(check, RETRY_DELAY_MS);
+        return;
+      }
+      // Threshold hit — surface the banner + keep polling slowly until recovery.
+      setState({ checked: true, healthy: false });
+      timer = setTimeout(check, RECOVERY_POLL_MS);
     }
 
     check();
