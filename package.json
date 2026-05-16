@@ -12,6 +12,7 @@
     "seed": "node scripts/seed.mjs",
     "seed:premium": "node scripts/seed-premium.mjs",
     "seed:vz-skills": "node scripts/seed-vz-skills.mjs",
+    "seed:vz-claude-md": "node scripts/seed-vz-claude-md.mjs",
     "reset:premium": "node scripts/reset-premium.mjs",
     "scrape": "node scripts/scrape.mjs",
     "scrape:skills": "node scripts/scrape.mjs --kind=skill",

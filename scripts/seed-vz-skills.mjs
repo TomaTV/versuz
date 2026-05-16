@@ -14,7 +14,7 @@ import "./_env.mjs";
  * (re-run = re-upsert).
  *
  * Usage :
- *   node scripts/seed-vz-skills.mjs                # upsert all 4
+ *   node scripts/seed-vz-skills.mjs                # upsert all
  *   node scripts/seed-vz-skills.mjs --dry-run      # just print what would land
  *
  * Env required :
@@ -31,7 +31,9 @@ import matter from "gray-matter";
 import { contentHash } from "./_hash.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const VZ_SKILLS_DIR = path.resolve(__dirname, "..", "vz-skills");
+// Source lives under .private/vz-skills/ (git-ignored). Customers buy the
+// markdown via Stripe, the file itself never ships to the public repo.
+const VZ_SKILLS_DIR = path.resolve(__dirname, "..", ".private", "vz-skills");
 
 const SKILLS = [
   {
@@ -57,6 +59,24 @@ const SKILLS = [
     category: "code",
     price_usd: 2.99,
     description: "Wire Stripe Connect Express + destination charges + webhooks into Next.js + Supabase, with all the gotchas (raw body, signature verification, idempotency, RLS, refund + dispute handling).",
+  },
+  {
+    folder: "vz-readme-gen",
+    category: "document",
+    price_usd: 3.99,
+    description: "Generate an opinionated, accurate README.md by reading package.json + git log + LICENSE + folder layout. Detects framework, infers commands, derives pitch from recent commits. Output ships as-is.",
+  },
+  {
+    folder: "vz-vercel-deploy",
+    category: "devops",
+    price_usd: 5.99,
+    description: "Take a Next.js / Vite / Astro / SvelteKit / Remix project from local-only to live on Vercel in one pass. Framework detection, env var sync, GitHub auto-deploys, domain setup with the Cloudflare proxy-off warning.",
+  },
+  {
+    folder: "vz-supabase-migration",
+    category: "sql",
+    price_usd: 4.99,
+    description: "Author and apply a Postgres migration on Supabase the production-safe way. Footgun checklist (unsafe defaults, RLS drift, missing FK indexes), atomic apply via CLI or MCP, TypeScript types regenerated automatically.",
   },
 ];
 

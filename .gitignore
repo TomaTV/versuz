@@ -165,3 +165,14 @@ docs/ads-voiceover/
 
 # Sentry Config File
 .env.sentry-build-plugin
+
+# Paid first-party content (vz-* skills + claude_md). Source files live
+# under .private/ on the maintainer's machine, seeded into Supabase via
+# scripts/seed-vz-*.mjs. Customers buy via Stripe Connect, the markdown
+# itself never leaks to the public repo.
+.private/
+
+# Legacy locations — pre-move, kept ignored so accidental git add doesn't
+# re-leak the source.
+vz-skills/
+vz-claude-md/

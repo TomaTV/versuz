@@ -36,7 +36,10 @@ const jetbrains = JetBrains_Mono({
 });
 
 export const metadata = {
-  metadataBase: new URL("https://versuz.dev"),
+  // www. canonical — Vercel redirects apex → www (307), and Discord / some
+  // OG bots don't follow redirects on og:image URLs → silent unfurl fail.
+  // Anchoring metadataBase on www. emits direct URLs that bypass the redirect.
+  metadataBase: new URL("https://www.versuz.dev"),
   title: {
     default: "Versuz — Skills go in. Only one wins.",
     template: "%s · Versuz",
@@ -69,17 +72,11 @@ export const metadata = {
     siteName: "Versuz",
     type: "website",
     locale: "en_US",
-    // Static fallback first (always works) — dynamic opengraph-image.js still
-    // overrides on the homepage. If dynamic ever fails, Facebook/LinkedIn fall
-    // back to this static one. Keep file in /public.
-    images: [
-      {
-        url: "/og-images.png",
-        width: 1200,
-        height: 630,
-        alt: "Versuz — Skills go in. Only one wins.",
-      },
-    ],
+    // No explicit `images` here — let Next.js file-based opengraph-image.js
+    // populate og:image (and per-route opengraph-image.js for /skills/[slug],
+    // /blog/[slug], /claude-md/[category]/[slug] override on those pages).
+    // Setting `images` explicitly here would force the static PNG everywhere
+    // and bypass the dynamic generator.
   },
   twitter: {
     card: "summary_large_image",
@@ -88,7 +85,9 @@ export const metadata = {
       "Skills go in. Only one wins. Three frontier judges, thirty held-out tasks, Bayesian Elo. Updated every 24h.",
     site: "@versuzdev",
     creator: "@versuzdev",
-    images: ["/og-images.png"],
+    // No explicit `images` — Twitter falls back to og:image when twitter:image
+    // is absent, which is the standard documented behavior. This routes Twitter
+    // through the same dynamic generator as the other socials.
   },
   alternates: {
     canonical: "/",
