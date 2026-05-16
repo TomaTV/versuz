@@ -107,6 +107,9 @@ export function VzFooter() {
             <Link href="/feed" className="vz-link">
               RSS feeds
             </Link>
+            <Link href="/badges" className="vz-link">
+              Embed badges
+            </Link>
             <Link href="/api-docs" className="vz-link">
               API docs
             </Link>

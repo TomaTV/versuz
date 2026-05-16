@@ -1,0 +1,58 @@
+name: Weekly digest
+
+# Sends a branded HTML email to active newsletter subscribers every Friday
+# at 16:00 UTC (afternoon EU, morning US west). Pulls last 7 days of
+# achievements + upsets + Featured + freshly-indexed high-quality items
+# and renders via scripts/social/send-weekly-digest.mjs.
+#
+# Idempotency : no "already sent this week" check — the workflow only
+# fires once per week by schedule. Manual triggers respect --dry-run.
+
+on:
+  schedule:
+    # Friday 16:00 UTC. Cron is UTC.
+    - cron: "0 16 * * 5"
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "Dry run (preview only, no sends)"
+        required: false
+        default: "false"
+        type: choice
+        options:
+          - "false"
+          - "true"
+      single_to:
+        description: "Test send to one email address (optional)"
+        required: false
+        default: ""
+
+jobs:
+  digest:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+
+      - name: Send digest
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
+          RESEND_FROM: ${{ secrets.RESEND_FROM }}
+          RESEND_REPLY_TO: ${{ secrets.RESEND_REPLY_TO }}
+          NEXT_PUBLIC_SITE_URL: ${{ secrets.NEXT_PUBLIC_SITE_URL }}
+        run: |
+          ARGS=""
+          if [ "${{ inputs.dry_run }}" = "true" ]; then
+            ARGS="$ARGS --dry-run"
+          fi
+          if [ -n "${{ inputs.single_to }}" ]; then
+            ARGS="$ARGS --to=${{ inputs.single_to }}"
+          fi
+          node scripts/social/send-weekly-digest.mjs $ARGS
