@@ -14,6 +14,7 @@ const ADMIN_LINKS = [
   { href: "/admin/skills", label: "Skills" },
   { href: "/admin/claude-md", label: "CLAUDE.md" },
   { href: "/admin/subscribers", label: "Subscribers" },
+  { href: "/admin/enterprise-leads", label: "Enterprise" },
   { href: "/admin/content-drafts", label: "Content drafts" },
   // Task proposals route kept accessible directly at /admin/task-proposals
   // (not in V0 nav — 14 categories × 7 built-in tasks already cover the suite,

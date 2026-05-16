@@ -39,7 +39,7 @@ async function api(pathStr, params = {}) {
     if (v != null && v !== "") url.searchParams.set(k, String(v));
   }
   const res = await fetch(url, {
-    headers: { Accept: "application/json", "User-Agent": "versuz-mcp/0.1.0" },
+    headers: { Accept: "application/json", "User-Agent": "versuz-mcp/0.2.0" },
   });
   if (!res.ok) {
     let body = null;
@@ -120,6 +120,45 @@ const TOOLS = [
         overwrite: { type: "boolean", description: "Overwrite existing file without prompting (default false)" },
       },
       required: ["slug"],
+    },
+  },
+  {
+    name: "versuz_battle",
+    description:
+      "Head-to-head comparison of two skills or CLAUDE.md files. Returns rank, bench score, prior, stars, tier, and a verdict (winner + delta). Use when the user asks to compare two items, pick a winner, or decide between options. Examples : 'compare pdf-generator vs anthropic-pdf', 'which is better : nextjs-supabase or nextjs-prisma'.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        a: { type: "string", description: "First item slug" },
+        b: { type: "string", description: "Second item slug" },
+        kind: {
+          type: "string",
+          enum: ["skill", "claude_md"],
+          description: "Default: skill. Both items must be the same kind.",
+        },
+      },
+      required: ["a", "b"],
+    },
+  },
+  {
+    name: "versuz_submit",
+    description:
+      "Submit a SKILL.md or CLAUDE.md from a public GitHub repo to the Versuz registry. Requires a GitHub Personal Access Token (PAT) configured via VERSUZ_GITHUB_TOKEN env var — the same token format as `npx versuz login`. Only the repo owner or a verified org member can submit. Free tier only via MCP ; premium submissions go through the web at versuz.dev/submit. Use when the user asks to publish their skill on Versuz, share a SKILL.md they wrote, or list their repo.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        url: {
+          type: "string",
+          description:
+            "Public GitHub URL of the SKILL.md or CLAUDE.md (e.g. 'https://github.com/owner/repo' or with /blob/main/SKILL.md). Owner-or-org-member only.",
+        },
+        kind: {
+          type: "string",
+          enum: ["skill", "claude_md"],
+          description: "Default: skill. Use claude_md for CLAUDE.md files.",
+        },
+      },
+      required: ["url"],
     },
   },
 ];
@@ -206,9 +245,146 @@ async function handleInstall({ slug, kind, cwd, overwrite }) {
   return `✓ Wrote ${target} (${payload.content.length} chars)${bundleNote}\nSource: ${payload.github_url || "—"}`;
 }
 
+async function handleSubmit({ url, kind }) {
+  if (!url) throw new Error("Missing `url` — pass a public GitHub URL");
+  const token = process.env.VERSUZ_GITHUB_TOKEN || process.env.GITHUB_TOKEN;
+  if (!token) {
+    return [
+      "**Submission requires a GitHub PAT.**",
+      "",
+      "Configure the MCP server with `VERSUZ_GITHUB_TOKEN=ghp_...` in your `.mcp.json` env block, then retry. The token needs the `read:user` scope minimum (we don't write to your repos).",
+      "",
+      "Create one at https://github.com/settings/tokens/new — same format as `npx versuz login`.",
+    ].join("\n");
+  }
+
+  const k = kind === "claude_md" ? "claude_md" : "skill";
+  const res = await fetch(`${API_BASE}/api/v1/submit`, {
+    method: "POST",
+    headers: {
+      "content-type": "application/json",
+      authorization: `Bearer ${token}`,
+      "User-Agent": "versuz-mcp/0.2.0",
+    },
+    body: JSON.stringify({ kind: k, url }),
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    const reason = data?.error || `${res.status} ${res.statusText}`;
+    return `**Submission failed.** ${reason}\n\nCommon causes : (1) you don't own the repo or aren't an org member, (2) rate-limited (5 submits/hour), (3) URL already submitted in the last 24h, (4) malformed SKILL.md.`;
+  }
+
+  const slug = data?.item?.slug || data?.slug;
+  const detailUrl = slug
+    ? `${API_BASE}/${k === "claude_md" ? "claude-md" : "skills"}/${slug}`
+    : null;
+  const badgeMd = slug
+    ? `[![Versuz](${API_BASE}/badge/${k === "claude_md" ? "claude-md" : "skill"}/${slug})](${detailUrl})`
+    : null;
+
+  return [
+    `**✓ Submitted to Versuz.**`,
+    "",
+    slug ? `Slug : \`${slug}\`` : "",
+    detailUrl ? `Detail page : ${detailUrl}` : "",
+    "",
+    "**Next 4 hours :** the quality judge will score it (5-axis rubric).",
+    "**Next 24 hours :** it enters the bench rotation — ELO ranking starts.",
+    "",
+    badgeMd
+      ? `**Badge for your README :**\n\`\`\`markdown\n${badgeMd}\n\`\`\``
+      : "",
+    "",
+    "Reply with feedback at contact@flukxstudio.fr — every message reaches a real human.",
+  ]
+    .filter(Boolean)
+    .join("\n");
+}
+
+async function handleBattle({ a, b, kind }) {
+  if (!a || !b) throw new Error("Both a and b slugs are required");
+  const k = kind === "claude_md" ? "claude_md" : "skill";
+  const base = k === "claude_md" ? "/api/v1/claude-md" : "/api/v1/skills";
+  const [resA, resB] = await Promise.all([api(`${base}/${a}`), api(`${base}/${b}`)]);
+  const itemA = resA.item;
+  const itemB = resB.item;
+  if (!itemA || !itemB) {
+    throw new Error(`Not found: ${!itemA ? a : ""}${!itemA && !itemB ? " and " : ""}${!itemB ? b : ""}`);
+  }
+
+  // Composite score for comparison — prefer Elo (benched), else quality
+  // prior. Items at the same tier of signal compare cleanly ; mixed
+  // signals are flagged so the model doesn't pretend they're equivalent.
+  const score = (it) =>
+    it.elo != null
+      ? { value: Number(it.elo), kind: "elo" }
+      : it.prior != null
+        ? { value: Number(it.prior), kind: "prior" }
+        : { value: null, kind: "—" };
+
+  const sA = score(itemA);
+  const sB = score(itemB);
+
+  let verdict;
+  if (sA.value == null && sB.value == null) {
+    verdict = "Neither item has been scored yet. No verdict.";
+  } else if (sA.value == null) {
+    verdict = `**${itemB.slug}** wins by default — only one has a score (${sB.value.toFixed(1)} ${sB.kind}).`;
+  } else if (sB.value == null) {
+    verdict = `**${itemA.slug}** wins by default — only one has a score (${sA.value.toFixed(1)} ${sA.kind}).`;
+  } else if (sA.kind !== sB.kind) {
+    verdict = `Mixed signals : **${itemA.slug}** has ${sA.kind} ${sA.value.toFixed(1)}, **${itemB.slug}** has ${sB.kind} ${sB.value.toFixed(1)}. Not directly comparable — the benched item is more trustworthy.`;
+  } else {
+    const delta = sA.value - sB.value;
+    const winner = delta > 0 ? itemA : itemB;
+    const loser = delta > 0 ? itemB : itemA;
+    const margin = Math.abs(delta);
+    const magnitude =
+      margin < 2
+        ? "marginal"
+        : margin < 8
+          ? "clear"
+          : margin < 20
+            ? "decisive"
+            : "dominant";
+    verdict = `**${winner.slug}** wins (${magnitude} — Δ ${margin.toFixed(1)} ${sA.kind}). ${winner.slug} = ${winner === itemA ? sA.value.toFixed(1) : sB.value.toFixed(1)}, ${loser.slug} = ${winner === itemA ? sB.value.toFixed(1) : sA.value.toFixed(1)}.`;
+  }
+
+  const detailPath = (it) =>
+    k === "claude_md"
+      ? `${API_BASE}/claude-md/${it.project_category || "generic"}/${it.slug}`
+      : `${API_BASE}/skills/${it.slug}`;
+
+  const fmtItem = (it, s) => {
+    const lines = [
+      `**${it.slug}**`,
+      `  category : ${it.category || it.project_category || "—"}`,
+      `  tier : ${it.tier}${it.price_usd != null ? ` · \$${it.price_usd}` : ""}`,
+      `  ${s.kind} : ${s.value != null ? s.value.toFixed(1) : "—"}${s.kind === "elo" ? " (benched)" : s.kind === "prior" ? " (quality prior, not benched yet)" : ""}`,
+      `  ★ ${it.stars ?? 0}`,
+      `  ${detailPath(it)}`,
+    ];
+    return lines.join("\n");
+  };
+
+  return [
+    `# Versuz battle : ${itemA.slug} vs ${itemB.slug}`,
+    "",
+    fmtItem(itemA, sA),
+    "",
+    fmtItem(itemB, sB),
+    "",
+    "---",
+    "",
+    `**Verdict :** ${verdict}`,
+    "",
+    `Install the winner : \`npx versuz install ${(sA.value ?? -Infinity) > (sB.value ?? -Infinity) ? itemA.slug : itemB.slug}\``,
+  ].join("\n");
+}
+
 export async function startServer() {
   const server = new Server(
-    { name: "versuz", version: "0.1.1" },
+    { name: "versuz", version: "0.2.0" },
     { capabilities: { tools: {} } }
   );
 
@@ -223,6 +399,8 @@ export async function startServer() {
       else if (name === "versuz_list_claude_md") text = await handleList({ ...args, kind: "claude_md" });
       else if (name === "versuz_get") text = await handleGet(args);
       else if (name === "versuz_install") text = await handleInstall(args);
+      else if (name === "versuz_battle") text = await handleBattle(args);
+      else if (name === "versuz_submit") text = await handleSubmit(args);
       else throw new Error(`Unknown tool: ${name}`);
       return { content: [{ type: "text", text }] };
     } catch (err) {

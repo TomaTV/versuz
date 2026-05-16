@@ -37,6 +37,8 @@
     "ads:export": "node scripts/export-ads.mjs",
     "ads:export:list": "node scripts/export-ads.mjs --list",
     "ads:audio": "node scripts/generate-manifesto-audio.mjs",
+    "digest:weekly": "node scripts/social/send-weekly-digest.mjs",
+    "digest:weekly:dry": "node scripts/social/send-weekly-digest.mjs --dry-run",
     "backup": "node scripts/backup-incremental.mjs",
     "backup:emergency": "node scripts/emergency-dump.mjs",
     "backup:r2": "node scripts/backup-r2.mjs",

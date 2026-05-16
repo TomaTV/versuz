@@ -76,11 +76,20 @@ export function VzFooter() {
             <Link href="/leaderboard" className="vz-link">
               Leaderboard
             </Link>
+            <Link href="/achievements" className="vz-link">
+              Achievements
+            </Link>
+            <Link href="/blog" className="vz-link">
+              Blog
+            </Link>
             <Link href="/methodology" className="vz-link">
               Methodology
             </Link>
             <Link href="/pricing" className="vz-link">
               Pricing
+            </Link>
+            <Link href="/enterprise" className="vz-link">
+              Enterprise
             </Link>
             <Link href="/about" className="vz-link">
               About
@@ -100,6 +109,9 @@ export function VzFooter() {
             <Eyebrow>Open data</Eyebrow>
             <Link href="/feed" className="vz-link">
               RSS feeds
+            </Link>
+            <Link href="/badges" className="vz-link">
+              Embed badges
             </Link>
             <Link href="/api-docs" className="vz-link">
               API docs

@@ -1,5 +1,6 @@
 import { PageHero } from "@/components/section";
-import { Reveal, RevealStagger, RevealItem } from "@/components/motion/reveal";
+import { Reveal } from "@/components/motion/reveal";
+import { ChangelogList } from "@/components/changelog/changelog-list";
 
 export const metadata = {
   title: "Changelog — Versuz",
@@ -150,105 +151,7 @@ export default function ChangelogPage() {
           padding: "32px clamp(16px, 4.5vw, 64px) clamp(80px, 12vw, 160px)",
         }}
       >
-        <RevealStagger
-          stagger={0.08}
-          style={{ display: "flex", flexDirection: "column", gap: 64 }}
-        >
-          {ENTRIES.map((entry) => (
-            <RevealItem key={entry.date}>
-              <article
-                style={{
-                  display: "flex",
-                  flexDirection: "column",
-                  gap: 16,
-                  paddingBottom: 32,
-                  borderBottom: "1px solid var(--rule)",
-                }}
-              >
-                <header style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-                  <span
-                    style={{
-                      fontFamily: "var(--font-mono)",
-                      fontSize: 10,
-                      color: "var(--fg-muted)",
-                      letterSpacing: "0.18em",
-                      textTransform: "uppercase",
-                    }}
-                  >
-                    {entry.date}
-                  </span>
-                  <h2
-                    className="vz-changelog-title"
-                    style={{
-                      margin: 0,
-                      fontFamily: "var(--font-display)",
-                      fontSize: "clamp(20px, 2.6vw, 30px)",
-                      fontWeight: 400,
-                      letterSpacing: "-0.02em",
-                      lineHeight: 1.15,
-                      color: "var(--fg)",
-                    }}
-                  >
-                    {entry.title}
-                  </h2>
-                </header>
-                <ul
-                  style={{
-                    listStyle: "none",
-                    padding: 0,
-                    margin: 0,
-                    display: "flex",
-                    flexDirection: "column",
-                    gap: 12,
-                  }}
-                >
-                  {entry.items.map((item, idx) => {
-                    const style = TYPE_STYLES[item.type] || TYPE_STYLES.feat;
-                    return (
-                      <li
-                        key={idx}
-                        style={{
-                          display: "grid",
-                          gridTemplateColumns: "auto 1fr",
-                          gap: 16,
-                          alignItems: "baseline",
-                        }}
-                      >
-                        <span
-                          style={{
-                            fontFamily: "var(--font-mono)",
-                            fontSize: 9,
-                            letterSpacing: "0.18em",
-                            textTransform: "uppercase",
-                            padding: "2px 6px",
-                            color: style.color,
-                            border: `1px solid ${style.color}`,
-                            background: "color-mix(in oklab, " + style.color + " 5%, transparent)",
-                            minWidth: 52,
-                            textAlign: "center",
-                            display: "inline-block",
-                          }}
-                        >
-                          {style.label}
-                        </span>
-                        <span
-                          className="vz-changelog-body"
-                          style={{
-                            fontSize: 14,
-                            lineHeight: 1.6,
-                            color: "var(--fg)",
-                          }}
-                        >
-                          {item.body}
-                        </span>
-                      </li>
-                    );
-                  })}
-                </ul>
-              </article>
-            </RevealItem>
-          ))}
-        </RevealStagger>
+        <ChangelogList entries={ENTRIES} typeStyles={TYPE_STYLES} />
 
         <Reveal>
           <div

@@ -5,6 +5,7 @@ import { HeroHeadline } from "@/components/motion/hero-headline";
 import { HeroShapes } from "@/components/hero-shapes";
 import { CliDemo } from "@/components/cli-demo";
 import { HeroSearch } from "@/components/hero-search";
+import { HeroInstallStrip } from "@/components/landing/hero-install-strip";
 import { UtcClock } from "@/components/utc-clock";
 import { JUDGES } from "@/lib/judges";
 
@@ -57,7 +58,7 @@ export function LandingHero({ counts }) {
               marginBottom: 48,
             }}
           >
-            <Eyebrow>An open arena for AI agent skills</Eyebrow>
+            <Eyebrow>The LMArena for AI agent skills</Eyebrow>
             <span className="vz-hide-mobile">
               <UtcClock />
             </span>
@@ -105,6 +106,11 @@ export function LandingHero({ counts }) {
             <Reveal delay={0.3} duration={0.5}>
               <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
                 <HeroSearch totalItems={counts.skills + counts.claudeMds} />
+                {/* Install command — pinned above the fold on every viewport
+                    so mobile visitors (51% of traffic) see `npx versuz`
+                    before they bounce. The desktop CliDemo terminal on the
+                    right adds animation context for those who scroll. */}
+                <HeroInstallStrip />
                 <div
                   style={{
                     display: "flex",

@@ -268,6 +268,64 @@ function InstallSection({
       )}
 
       <div style={{ marginTop: 32 }}>
+        <div
+          style={{
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "baseline",
+            gap: 16,
+            flexWrap: "wrap",
+            marginBottom: 14,
+            paddingBottom: 14,
+            borderBottom: "1px solid var(--rule)",
+          }}
+        >
+          <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+            <span
+              style={{
+                fontFamily: "var(--font-mono)",
+                fontSize: 10,
+                color: "var(--accent)",
+                letterSpacing: "0.18em",
+                textTransform: "uppercase",
+              }}
+            >
+              {isAuthored ? "Show this rank — your skill" : "Show this rank"}
+            </span>
+            <span
+              style={{
+                fontFamily: "var(--font-display)",
+                fontSize: "clamp(20px, 2.4vw, 26px)",
+                letterSpacing: "-0.01em",
+                color: "var(--fg)",
+              }}
+            >
+              {isAuthored ? (
+                <>
+                  Add this badge to your <em style={{ color: "var(--accent)" }}>README</em>.
+                </>
+              ) : (
+                <>
+                  Embed this skill&apos;s rank{" "}
+                  <em style={{ color: "var(--accent)" }}>anywhere</em>.
+                </>
+              )}
+            </span>
+            <span
+              style={{
+                fontFamily: "var(--font-geist)",
+                fontSize: 13,
+                lineHeight: 1.6,
+                color: "var(--fg-muted)",
+                maxWidth: 540,
+              }}
+            >
+              {isAuthored
+                ? "Authors who add the Versuz badge to their README get 3-5x more clicks on their skill page. Markdown for GitHub, HTML for blogs, or just the SVG URL for Notion / Linear / Discord."
+                : "Paste the snippet into a README, Notion page, Linear ticket, blog post — anywhere. Updates live as the rank changes."}
+            </span>
+          </div>
+        </div>
         <EmbedBadgeBlock kind="skill" slug={detail.slug} name={detail.name} />
       </div>
 

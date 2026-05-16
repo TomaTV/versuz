@@ -94,6 +94,174 @@ export function reengagementEmail({ githubLogin, daysInactive, email }) {
   };
 }
 
+/**
+ * Weekly digest — sent by scripts/social/send-weekly-digest.mjs every
+ * Friday-ish. Surfaces recent achievements + upsets + freshly indexed
+ * high-quality items + featured picks. Keeps subscribers engaged without
+ * any manual editorial work.
+ *
+ * Args :
+ *   weekLabel        — "May 12 → May 18" string for the header
+ *   achievements[]   — { type, name, href, category, days? } recent unlocks
+ *   upsets[]         — { name, href, category, currentRank, prevRank, delta }
+ *   featured[]       — { name, href, description, priceUsd } Versuz Featured
+ *   freshHighQuality[] — { name, href, category, qualityScore } newly-indexed
+ *   email            — recipient (for List-Unsubscribe header)
+ */
+export function weeklyDigestEmail({
+  weekLabel,
+  achievements = [],
+  upsets = [],
+  featured = [],
+  freshHighQuality = [],
+  email,
+}) {
+  const has = {
+    achievements: achievements.length > 0,
+    upsets: upsets.length > 0,
+    featured: featured.length > 0,
+    fresh: freshHighQuality.length > 0,
+  };
+
+  const achievementMeta = {
+    triple_crown: { icon: "♛", color: "#d69e2e", label: "Triple Crown" },
+    category_winner: { icon: "★", color: "#3f7d4f", label: "Category winner" },
+    first_blood: { icon: "◆", color: "#2a5fa8", label: "First blood" },
+    streak_milestone: { icon: "🔥", color: "#c2410c", label: "Streak milestone" },
+  };
+
+  const achievementsHtml = has.achievements
+    ? `
+      <h2 style="margin:24px 0 12px;font-family:'Georgia',serif;font-size:22px;letter-spacing:-0.01em;color:#14120e">
+        <em style="color:#c2410c">Unlocked this week</em>
+      </h2>
+      <ul style="list-style:none;padding:0;margin:0 0 16px">
+        ${achievements
+          .slice(0, 6)
+          .map((a) => {
+            const m = achievementMeta[a.type] || { icon: "◇", color: "#6b6557", label: a.type };
+            const sub = a.type === "streak_milestone" && a.days
+              ? `${a.days}-day streak`
+              : a.category
+                ? `Category : ${a.category}`
+                : "";
+            return `
+              <li style="padding:10px 12px;margin-bottom:6px;border-left:3px solid ${m.color};background:#ece7dd">
+                <span style="font-family:'SF Mono',Menlo,monospace;font-size:10px;color:${m.color};letter-spacing:0.16em;text-transform:uppercase">${m.icon} ${m.label}</span><br>
+                <a href="${SITE}${a.href}" style="color:#14120e;text-decoration:none;font-size:16px;font-weight:500">${escapeHtml(a.name)}</a>
+                ${sub ? `<br><span style="font-family:'SF Mono',Menlo,monospace;font-size:11px;color:#6b6557">${sub}</span>` : ""}
+              </li>
+            `;
+          })
+          .join("")}
+      </ul>
+    `
+    : "";
+
+  const upsetsHtml = has.upsets
+    ? `
+      <h2 style="margin:24px 0 12px;font-family:'Georgia',serif;font-size:22px;letter-spacing:-0.01em;color:#14120e">
+        <em style="color:#c2410c">Climbers</em>
+      </h2>
+      <ul style="list-style:none;padding:0;margin:0 0 16px">
+        ${upsets
+          .slice(0, 5)
+          .map((u) => {
+            const climbed = (u.delta || 0) > 0;
+            const color = climbed ? "#3f7d4f" : "#b23a3a";
+            const arrow = climbed ? "↑" : "↓";
+            return `
+              <li style="padding:8px 0;border-bottom:1px solid rgba(20,18,14,0.08)">
+                <a href="${SITE}${u.href}" style="color:#14120e;text-decoration:none;font-size:15px">${escapeHtml(u.name)}</a>
+                <span style="font-family:'SF Mono',Menlo,monospace;font-size:11px;color:#6b6557;float:right">
+                  <span style="color:${color}">${arrow} ${Math.abs(u.delta)}</span> · ${u.category}
+                </span>
+              </li>
+            `;
+          })
+          .join("")}
+      </ul>
+    `
+    : "";
+
+  const featuredHtml = has.featured
+    ? `
+      <h2 style="margin:24px 0 12px;font-family:'Georgia',serif;font-size:22px;letter-spacing:-0.01em;color:#14120e">
+        <em style="color:#c2410c">Featured picks</em>
+      </h2>
+      <ul style="list-style:none;padding:0;margin:0 0 16px">
+        ${featured
+          .slice(0, 3)
+          .map(
+            (f) => `
+            <li style="padding:12px;margin-bottom:8px;border:1px solid rgba(20,18,14,0.08);background:#fafaf6">
+              <a href="${SITE}${f.href}" style="color:#14120e;text-decoration:none;font-size:16px;font-weight:500">${escapeHtml(f.name)}</a>
+              ${f.priceUsd != null ? ` <span style="font-family:'SF Mono',Menlo,monospace;font-size:11px;color:#c2410c">$${f.priceUsd}</span>` : ""}
+              ${f.description ? `<p style="margin:6px 0 0;font-size:13px;line-height:1.5;color:#6b6557">${escapeHtml(f.description).slice(0, 140)}</p>` : ""}
+            </li>
+          `
+          )
+          .join("")}
+      </ul>
+    `
+    : "";
+
+  const freshHtml = has.fresh
+    ? `
+      <h2 style="margin:24px 0 12px;font-family:'Georgia',serif;font-size:22px;letter-spacing:-0.01em;color:#14120e">
+        <em style="color:#c2410c">Fresh in the registry</em>
+      </h2>
+      <ul style="list-style:none;padding:0;margin:0 0 16px">
+        ${freshHighQuality
+          .slice(0, 5)
+          .map(
+            (f) => `
+            <li style="padding:6px 0">
+              <a href="${SITE}${f.href}" style="color:#14120e;text-decoration:none;font-size:14px">${escapeHtml(f.name)}</a>
+              <span style="font-family:'SF Mono',Menlo,monospace;font-size:10px;color:#6b6557;margin-left:6px">${f.category}${f.qualityScore != null ? ` · ${Math.round(f.qualityScore)}/100` : ""}</span>
+            </li>
+          `
+          )
+          .join("")}
+      </ul>
+    `
+    : "";
+
+  const emptyHtml =
+    !has.achievements && !has.upsets && !has.featured && !has.fresh
+      ? `<p style="margin:0 0 16px;color:#6b6557;font-style:italic">Quiet week — no rank changes worth flagging. The scrape engine added a handful of new items though; browse the registry to see what landed.</p>`
+      : "";
+
+  return {
+    subject: `Versuz weekly · ${weekLabel || "what shipped"}`,
+    html: brandedEmail({
+      title: `<em style="color:#c2410c;font-style:italic">Weekly</em> digest`,
+      preheader: weekLabel
+        ? `What climbed, what shipped, what's new — ${weekLabel}`
+        : "What climbed, what shipped, what's new on Versuz",
+      body: `
+        <p style="margin:0 0 16px;color:#6b6557;font-family:'SF Mono',Menlo,monospace;font-size:11px;letter-spacing:0.16em;text-transform:uppercase">${weekLabel || "This week"}</p>
+        ${emptyHtml}
+        ${achievementsHtml}
+        ${upsetsHtml}
+        ${featuredHtml}
+        ${freshHtml}
+        <p style="margin:24px 0 0;color:#6b6557;font-size:13px">Reply to this email if you want to flag a skill we missed — it reaches a real human.</p>
+      `,
+      cta: { label: "See the full leaderboard", href: `${SITE}/leaderboard` },
+      unsubscribeUrl: email ? unsubLink(SITE, email) : null,
+    }),
+  };
+}
+
+function escapeHtml(s) {
+  return String(s ?? "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
+}
+
 export function purchaseConfirmationEmail({ name, slug, kind, priceUsd, installCommand }) {
   const kindLabel = kind === "claude_md" ? "CLAUDE.md" : "SKILL.md";
   const url = kind === "claude_md"

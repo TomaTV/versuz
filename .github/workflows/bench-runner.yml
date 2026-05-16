@@ -142,3 +142,10 @@ jobs:
               return sb.rpc('refresh_rankings');
             }).then(r => console.log('rankings refreshed', r));
           "
+
+      - name: Post-cycle hooks (achievements + streaks + rank_history)
+        if: success() && steps.budget_check.outputs.skip != 'true'
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+        run: node scripts/bench/post-cycle-hooks.mjs

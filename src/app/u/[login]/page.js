@@ -5,6 +5,8 @@ import { TierBadge } from "@/components/marketplace/tier-badge";
 import { VerificationBadge } from "@/components/marketplace/verification-badge";
 import { StatGrid } from "@/components/dashboard/stat-grid";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
+import { getAuthorStats } from "@/lib/queries/rankings";
+import { computeAuthorTier } from "@/lib/author-tier";
 
 // ISR 10min. Profil public — change rarement (counts/items). Pas de
 // generateStaticParams : pre-render à la demande, puis cache. Bots SEO
@@ -57,7 +59,10 @@ export default async function PublicProfilePage({ params }) {
   const profile = await loadProfileByLogin(login);
   if (!profile) notFound();
 
-  const { skills, claudeMds } = await loadContributions(profile.id);
+  const [{ skills, claudeMds }, authorStats] = await Promise.all([
+    loadContributions(profile.id),
+    getAuthorStats(login),
+  ]);
   const totalContributions = skills.length + claudeMds.length;
   const verifiedCount =
     skills.filter((s) => (s.verification_level || 0) >= 1).length +
@@ -72,19 +77,92 @@ export default async function PublicProfilePage({ params }) {
     (it) => it.promoted_until && new Date(it.promoted_until) > new Date()
   ).length;
 
+  // Author tier — uses the scrape-based stats (GitHub URL prefix match),
+  // which is the same data source as the public author badge SVG. So an
+  // author who never logs in but has 10 scraped contributions still
+  // shows the Contender tier here. Falls back to a profile-derived
+  // estimate if scrape stats are empty (new sign-up with claimed items).
+  const statsForTier = authorStats.total > 0
+    ? authorStats
+    : { total: totalContributions, benched: 0 };
+  const tier = computeAuthorTier(statsForTier);
+
   return (
     <div>
       <PageHero
-        eyebrow="Profile"
+        eyebrow={tier ? `${tier.label} · author` : "Profile"}
         title={
           <>
             <em style={{ color: "var(--accent)" }}>@{login}</em>
           </>
         }
-        subtitle={`${profile.display_name ? profile.display_name + " · " : ""}${totalContributions} contribution${totalContributions === 1 ? "" : "s"} on the Versuz registry.`}
+        subtitle={`${profile.display_name ? profile.display_name + " · " : ""}${totalContributions} contribution${totalContributions === 1 ? "" : "s"} on the Versuz registry.${tier ? ` ${tier.tone}` : ""}`}
       />
 
       <Section eyebrow="§ 01 — At a glance" markerColor="var(--accent)">
+        {tier && (
+          <div
+            style={{
+              display: "inline-flex",
+              alignItems: "center",
+              gap: 14,
+              padding: "12px 18px",
+              border: `1px solid ${tier.color}`,
+              background: `color-mix(in oklab, ${tier.color} 8%, transparent)`,
+              marginBottom: 28,
+            }}
+          >
+            <span
+              aria-hidden
+              style={{
+                width: 10,
+                height: 10,
+                background: tier.color,
+                flexShrink: 0,
+              }}
+            />
+            <span
+              style={{
+                fontFamily: "var(--font-mono)",
+                fontSize: 10,
+                color: tier.color,
+                letterSpacing: "0.18em",
+                textTransform: "uppercase",
+              }}
+            >
+              {tier.label}
+            </span>
+            <span
+              style={{
+                fontFamily: "var(--font-mono)",
+                fontSize: 11,
+                color: "var(--fg-muted)",
+                letterSpacing: "0.04em",
+              }}
+            >
+              {authorStats.total > 0
+                ? `${authorStats.total} indexed · ${authorStats.benched} benched`
+                : `${totalContributions} indexed`}
+            </span>
+            <Link
+              href={`/badge/author/${login}`}
+              target="_blank"
+              rel="noreferrer"
+              style={{
+                fontFamily: "var(--font-mono)",
+                fontSize: 10,
+                color: "var(--fg-muted)",
+                letterSpacing: "0.16em",
+                textTransform: "uppercase",
+                textDecoration: "underline",
+                textUnderlineOffset: 4,
+              }}
+              title="Get an embeddable SVG badge for this profile"
+            >
+              Badge ↗
+            </Link>
+          </div>
+        )}
         <StatGrid
           stats={[
             { label: "Contributions", value: totalContributions },
