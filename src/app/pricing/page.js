@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { PageHero } from "@/components/section";
 import { Reveal, RevealStagger, RevealItem } from "@/components/motion/reveal";
+import { ProAuthorWaitlist } from "./pro-author-waitlist";
 
 export const metadata = {
   title: "Pricing — Versuz",
@@ -406,6 +407,152 @@ export default function PricingPage() {
           </div>
         </Reveal>
 
+        {/* Pro Author tier — waitlist (intent validation before
+            Stripe Subscriptions build). Sits between Boost and FAQ
+            so it's visible to anyone who scrolled past pricing. */}
+        <Reveal>
+          <div
+            id="pro-author"
+            style={{
+              marginTop: 32,
+              padding: "32px 32px",
+              border: "1px dashed var(--accent)",
+              background: "color-mix(in oklab, var(--accent) 4%, var(--bg))",
+              display: "grid",
+              gridTemplateColumns: "1.2fr 1fr",
+              gap: 40,
+              alignItems: "start",
+              scrollMarginTop: 96,
+            }}
+            className="vz-pricing-boost"
+          >
+            <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+              <span
+                style={{
+                  fontFamily: "var(--font-mono)",
+                  fontSize: 10,
+                  letterSpacing: "0.18em",
+                  textTransform: "uppercase",
+                  color: "var(--accent)",
+                }}
+              >
+                Coming Q3 — author add-on
+              </span>
+              <h2
+                style={{
+                  margin: 0,
+                  fontFamily: "var(--font-display)",
+                  fontSize: 32,
+                  fontWeight: 400,
+                  letterSpacing: "-0.02em",
+                  lineHeight: 1.1,
+                  color: "var(--fg)",
+                }}
+              >
+                Pro Author —{" "}
+                <em style={{ color: "var(--accent)" }}>stack your wins</em>.
+              </h2>
+              <div style={{ display: "flex", alignItems: "baseline", gap: 8 }}>
+                <span
+                  style={{
+                    fontFamily: "var(--font-display)",
+                    fontSize: 40,
+                    fontWeight: 400,
+                    color: "var(--accent)",
+                    letterSpacing: "-0.02em",
+                  }}
+                >
+                  $9
+                </span>
+                <span
+                  style={{
+                    fontFamily: "var(--font-mono)",
+                    fontSize: 12,
+                    color: "var(--fg-muted)",
+                    letterSpacing: "0.04em",
+                  }}
+                >
+                  / month
+                </span>
+              </div>
+              <p
+                style={{
+                  margin: 0,
+                  fontSize: 14,
+                  lineHeight: 1.65,
+                  color: "var(--fg-muted)",
+                }}
+              >
+                Recurring tier for authors who ship more than one skill. Analytics
+                dashboard with views / installs / source attribution, one Boost
+                slot always active ($4.99 value baked in), priority bench queue
+                so your submits jump the line, custom badge styles (animated,
+                gradient, dark mode), 25% off every additional Boost.
+              </p>
+              <p
+                style={{
+                  margin: 0,
+                  fontSize: 13,
+                  lineHeight: 1.6,
+                  color: "var(--fg-muted)",
+                  fontStyle: "italic",
+                }}
+              >
+                We&apos;re validating demand before we build Stripe Subscriptions
+                + the analytics surface. Drop your email and you&apos;ll be the
+                first 50 invited at $4.50/mo for 3 months.
+              </p>
+            </div>
+            <ul
+              style={{
+                listStyle: "none",
+                padding: 0,
+                margin: 0,
+                display: "flex",
+                flexDirection: "column",
+                gap: 14,
+              }}
+            >
+              {[
+                "Analytics dashboard — views, installs, source attribution per skill",
+                "1 permanent Boost slot active ($4.99 value baked in)",
+                "Priority bench queue — your submits jump the line",
+                "Custom badge styles : animated, gradient, dark mode",
+                "Bulk discount — 25% off every additional Boost",
+                "Featured candidate flag — Versuz auto-reviews your skills",
+              ].map((body, idx) => (
+                <li
+                  key={idx}
+                  style={{
+                    display: "grid",
+                    gridTemplateColumns: "16px 1fr",
+                    gap: 12,
+                    alignItems: "baseline",
+                    fontSize: 14,
+                    lineHeight: 1.55,
+                    color: "var(--fg)",
+                  }}
+                >
+                  <span
+                    aria-hidden
+                    style={{
+                      color: "var(--accent)",
+                      fontFamily: "var(--font-mono)",
+                      fontWeight: 600,
+                    }}
+                  >
+                    ✓
+                  </span>
+                  <span>{body}</span>
+                </li>
+              ))}
+              <li style={{ marginTop: 14 }}>
+                <ProAuthorWaitlist />
+              </li>
+            </ul>
+          </div>
+        </Reveal>
+
         {/* FAQ teasers */}
         <Reveal>
           <div
@@ -491,12 +638,12 @@ export default function PricingPage() {
                 Enterprise / private bench ?
               </h3>
               <p style={{ margin: 0, fontSize: 13, lineHeight: 1.6, color: "var(--fg-muted)" }}>
-                Custom benchmarks for private skill catalogs, internal
-                tooling, or research are on the roadmap. Email{" "}
-                <a href="mailto:contact@flukxstudio.fr" className="vz-link">
-                  contact@flukxstudio.fr
-                </a>{" "}
-                if you have a use case — happy to scope.
+                Yes — Starter $99/mo (5 skills, weekly), Team $299/mo (25
+                skills, daily), Custom on request. Full pricing + form on{" "}
+                <Link href="/enterprise" className="vz-link">
+                  /enterprise
+                </Link>
+                .
               </p>
             </div>
           </div>
