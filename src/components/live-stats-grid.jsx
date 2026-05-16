@@ -4,12 +4,11 @@ import { useEffect, useRef, useState } from "react";
 import { motion, useInView, useMotionValue, animate } from "framer-motion";
 import { RevealStagger, RevealItem } from "@/components/motion/reveal";
 
-// Polling /api/stats. Mai 2026 : monté de 4s → 30s parce que Supabase free
-// tier saturait (4s × 21600 polls/jour/user × bots = milliers de hits DB).
-// Le scrape pousse 1-5 items/sec mais l'user ne va pas regarder le compteur
-// défiler en temps réel — 30s suffit pour voir bouger. Le tab caché coupe
-// le polling (cf isHidden ci-dessous).
-const POLL_MS = 30000;
+// Polling /api/stats. Mai 2026 v2 : 30s → 90s. /api/stats est maintenant
+// edge-cached 60s (s-maxage=60). Poll < 60s = doublon edge hit pour rien.
+// 90s laisse une marge au-dessus de la TTL cache + soulage Edge Requests
+// (Vercel cap 1M/mois, on est à 80%). Le tab caché coupe le polling.
+const POLL_MS = 90000;
 
 /**
  * Format plain : nombre complet avec narrow-no-break-space (U+202F) comme

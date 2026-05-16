@@ -150,6 +150,14 @@ export default async function Image({ params }) {
         </div>
       </div>
     ),
-    size
+    {
+      ...size,
+      headers: {
+        // Edge cache 24h + 7j SWR. Twitter/LinkedIn re-fetchent les OG
+        // images en boucle — sans cache, chaque share = ImageResponse
+        // (fonts + JSX) re-render.
+        "Cache-Control": "public, max-age=86400, s-maxage=86400, stale-while-revalidate=604800",
+      },
+    }
   );
 }

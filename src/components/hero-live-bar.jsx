@@ -2,9 +2,10 @@
 
 import { useEffect, useRef, useState } from "react";
 
-// Polling /api/stats. Mai 2026 : 8s → 60s pour soulager Supabase free tier
-// (cf. commentaire dans live-stats-grid.jsx).
-const POLL_MS = 60000;
+// Polling /api/stats. Mai 2026 v2 : 60s → 120s. /api/stats edge-cached 60s
+// (s-maxage=60) — 120s = 2 cycles cache, garantit qu'on hit toujours un
+// frame mis-à-jour. Soulage Edge Requests (cap 1M/mois, à 80%).
+const POLL_MS = 120000;
 
 function fmt(n) {
   return Math.round(n).toLocaleString("en-US");

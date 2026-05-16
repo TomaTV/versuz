@@ -184,6 +184,12 @@ export default async function Image() {
         { name: "Instrument Serif", data: serifItalic, weight: 400, style: "italic" },
         { name: "JetBrains Mono", data: mono, weight: 500, style: "normal" },
       ],
+      headers: {
+        // Hit par chaque preview Twitter/LinkedIn/Discord/Slack. Image
+        // statique (pas de data dynamique), donc cacheable 24h edge + 7j
+        // SWR. Tue les re-renders ImageResponse (fonts + JSX = lourd).
+        "Cache-Control": "public, immutable, max-age=86400, s-maxage=86400, stale-while-revalidate=604800",
+      },
     }
   );
 }

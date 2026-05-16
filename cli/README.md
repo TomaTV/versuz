@@ -65,6 +65,18 @@ versuz submit <github-url> --kind=claude-md
 versuz logout                     # clear local auth
 ```
 
+### Battle (v0.2)
+
+Head-to-head terminal viz of two benched skills (or CLAUDE.md). Used in the
+20-second social videos that ship on each cycle's "Today's Upset" — rank,
+avg score, judge consensus, animated reveal of the winner.
+
+```bash
+versuz battle pdf-extract-anthropic vs pdf-pro
+versuz battle nextjs-supabase nextjs-prisma                    # `vs` is optional
+versuz battle anthropics-cc-best simonw-cc-best --kind=claude-md
+```
+
 ### Misc
 
 ```bash
@@ -103,11 +115,11 @@ Result table example :
 
 The CLI creates intermediate directories. Existing files trigger a confirm prompt (skip with `--overwrite`).
 
-## Bundle support (v0.2)
+## Bundle support
 
-Some skills are bundled (SKILL.md + scripts/refs/assets). The current v0.1 CLI downloads only the SKILL.md and prints the GitHub URL for the full bundle — `git clone` it manually for now.
+Some skills are bundled (SKILL.md + scripts/refs/assets). The current CLI downloads only the SKILL.md and prints the GitHub URL for the full bundle — `git clone` it manually for now.
 
-A `versuz install --bundle` flag is on the roadmap (v0.2) once `/api/v1/skills/<slug>/bundle.zip` ships.
+A `versuz install --bundle` flag is on the roadmap (v0.3) once `/api/v1/skills/<slug>/bundle.zip` ships.
 
 ## Publishing : how it works
 

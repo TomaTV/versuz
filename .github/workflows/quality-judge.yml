@@ -1,8 +1,20 @@
 name: Quality judge
 
 # Run the LLM-rated quality judge across the catalog. Each item gets a
-# 5-axis score (clarity / specificity / completeness / structure / usefulness)
-# via Groq Llama free → 14400 RPD per token, effectively unlimited budget.
+# 5-axis score (clarity / specificity / completeness / structure / usefulness).
+#
+# Provider chain (mai 2026 v2) :
+#   primary   : openrouter-free (4 models, separate per-model RPD)
+#               gemini-2.0-flash-exp:free + deepseek-chat-v3:free +
+#               llama-3.3-70b:free + qwen-2.5-72b:free
+#   fallback  : groq (4 models : gpt-oss-120b/20b, llama-3.3-70b,
+#               llama-4-scout)
+#
+# Pourquoi le switch : Groq seul plafonnait à ~150-500 items/jour
+# malgré le `--limit=50000` (rate-limit TPM agressif + retry overhead).
+# OpenRouter-free a 4 modèles avec quotas séparés, total ~4k RPD à $0.
+# Combiné avec Groq en fallback → ~8k effective RPD daily. Vise drain
+# du backlog 91k unjudged en ~2 semaines au lieu d'un an.
 #
 # Strategy : drain as many unjudged items as the timeout allows per run,
 # multiple runs per day to chip away at the backlog quickly.
@@ -10,7 +22,7 @@ name: Quality judge
 on:
   schedule:
     # Every 4 hours → 6 runs/day. Combined with --limit=50000 per run, we
-    # blast through any backlog. Groq free is generous, no $ cost.
+    # blast through any backlog. Free tier (OR + Groq), zero $ cost.
     - cron: "5 */4 * * *"
   workflow_dispatch:
     inputs:
@@ -43,20 +55,22 @@ jobs:
         env:
           NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          # Primary : OpenRouter free chain (4 models, separate quotas).
+          OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
+          # Fallback : Groq free chain quand l'OR free TPD est exhausted.
           GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
-          # Quality judge uses Groq free tier — pad the rate-limit handling
-          # since we're going wide.
           QUALITY_CONCURRENCY: "8"
         run: |
           LIMIT="${{ inputs.limit || '50000' }}"
           KIND="${{ inputs.kind || 'both' }}"
-          echo "Quality judge · limit=$LIMIT kind=$KIND"
+          echo "Quality judge · limit=$LIMIT kind=$KIND · provider=openrouter-free → groq"
+          COMMON="--limit=$LIMIT --provider=openrouter-free --fallback-provider=groq"
           if [ "$KIND" = "skill" ]; then
-            node scripts/bench/quality-judge.mjs --limit=$LIMIT --kind=skill
+            node scripts/bench/quality-judge.mjs $COMMON --kind=skill
           elif [ "$KIND" = "claude_md" ]; then
-            node scripts/bench/quality-judge.mjs --limit=$LIMIT --kind=claude_md
+            node scripts/bench/quality-judge.mjs $COMMON --kind=claude_md
           else
-            node scripts/bench/quality-judge.mjs --limit=$LIMIT
+            node scripts/bench/quality-judge.mjs $COMMON
           fi
       - name: Summary
         if: always()

@@ -51,19 +51,20 @@ It's LMArena, but for agent skills.
 
 [**versuz.dev/marketplace**](https://versuz.dev/marketplace) — full registry with filters (kind, category, tier, trust level, quality, tokens, official, topic).
 
-### CLI (beta)
+### CLI (v0.2 — beta)
 
 ```bash
-npx versuz                          # interactive mode
-npx versuz search pdf               # cross-kind full-text search
-npx versuz install <slug>           # download to .claude/skills/<slug>/
-npx versuz login                    # auth with GitHub PAT
-npx versuz submit <github-url>      # share your skill (own repo only)
+npx versuz                              # interactive mode
+npx versuz search pdf                   # cross-kind full-text search
+npx versuz install <slug>               # download to .claude/skills/<slug>/
+npx versuz battle <a> vs <b>            # head-to-head terminal viz (v0.2)
+npx versuz login                        # auth with GitHub PAT
+npx versuz submit <github-url>          # share your skill (own repo only)
 ```
 
 → [Full CLI docs](./cli/README.md)
 
-### MCP server (beta)
+### MCP server (v0.1 — beta)
 
 ```bash
 claude mcp add versuz npx -y @versuz/mcp
@@ -194,8 +195,9 @@ Mode `or-v1` (default) : **Haiku 4.5 + DeepSeek V4 Flash + GPT-5 mini** via Open
 
 - ✅ **V0** — public marketplace, scraping pipeline, quality judge, CLI v0.1, MCP v0.1
 - ✅ **V0.5** — bench engine live (or-v1 with prompt cache), first cycles completed
-- ⏳ **V1** — domain launch, Stripe live mode, full catalog bench
-- 🔮 **V2** — real-time battles (LMArena-style), dark theme, API plans for companies
+- ✅ **V1** — domain launch, Stripe live mode, full catalog bench
+- ✅ **V1.6** — Cloudflare R2 migration, gamification (achievements + streaks), Today's Upset content automation, 5 monetization surfaces, CLI v0.2 (`battle` command), bench-tier filter
+- 🔮 **V2** — real-time battles (LMArena-style live judging), dark theme, API plans for companies
 
 → Full plan in [TODO.md](./TODO.md).
 

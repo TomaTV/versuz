@@ -124,6 +124,12 @@ export default async function Image({ params }) {
         </div>
       </div>
     ),
-    size
+    {
+      ...size,
+      headers: {
+        // Edge cache 24h + 7j SWR. Cf /skills/[slug]/opengraph-image.js.
+        "Cache-Control": "public, max-age=86400, s-maxage=86400, stale-while-revalidate=604800",
+      },
+    }
   );
 }

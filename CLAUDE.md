@@ -301,8 +301,3 @@ jamais hardcode.
     - `scrape-daily.yml` — daily 02:00 UTC, SCRAPE_MAX_NEW=1000 cap
     - `quality-judge.yml` — every 4h, Groq free, $0 cost
     - `bench-runner.yml` — daily 03:00 UTC, BENCH_BUDGET_USD=1 per-run, monthly cap $25 via `cycles.actual_cost_usd` (mig 0049). Bench engine writes cost à cycle completion.
-
- # A FAIRE
-- mettre à jour le readme, cli et mcp (v0.2 pour certains etc..)
-- Vérifier si le scrape/quality/bench fonctionne car dans admin/automation c'est vide maintenant ?
-- verifier si les modifs fonctionne bien pour vercel pour optimiser

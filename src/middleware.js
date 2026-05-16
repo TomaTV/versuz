@@ -137,12 +137,18 @@ export function middleware(request) {
   return NextResponse.next();
 }
 
-// Matcher : exclure les assets statiques pour ne pas burner du quota
-// middleware sur des PNG/CSS/JS bundles (qui sont déjà servis depuis le
-// CDN Vercel sans toucher la fonction).
+// Matcher : exclure les assets statiques + endpoints programmatiques pour
+// ne pas burner du quota middleware. Sortir aussi :
+//   - /api/v1/*    → endpoints SDK (CLI Versuz, MCP server, devs tiers)
+//                    qui hit l'API. Leurs UAs sont volontairement non
+//                    filtrés (cf BLOCKED_UAS comment). Skip = -CPU.
+//   - /api/webhooks/*, /api/cron/*, /api/auth/* : déjà bypass via
+//     SKIP_PATHS, mais sortir du matcher économise l'execution complète.
+//   - /badge/*     → SVG embed dans README/Notion. Ne JAMAIS bloquer.
+//   - /feed/*      → RSS, lus par des bots feed-readers légitimes.
+//   - /sitemap.xml, /robots.txt → SEO crawlers légitimes.
 export const config = {
   matcher: [
-    // Tout sauf les assets statiques
-    "/((?!_next/static|_next/image|favicon.ico|apple-icon.png|icon0.svg|icon1.png|icon.svg|manifest.json|.*\\.(?:png|jpg|jpeg|gif|webp|svg|ico|css|js|woff|woff2|ttf|otf|eot|map)$).*)",
+    "/((?!_next/static|_next/image|favicon.ico|apple-icon.png|icon0.svg|icon1.png|icon.svg|manifest.json|api/v1|api/webhooks|api/cron|api/auth|badge|feed|sitemap.xml|robots.txt|.*\\.(?:png|jpg|jpeg|gif|webp|svg|ico|css|js|woff|woff2|ttf|otf|eot|map)$).*)",
   ],
 };

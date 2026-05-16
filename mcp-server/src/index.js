@@ -208,7 +208,7 @@ async function handleInstall({ slug, kind, cwd, overwrite }) {
 
 export async function startServer() {
   const server = new Server(
-    { name: "versuz", version: "0.1.0" },
+    { name: "versuz", version: "0.1.1" },
     { capabilities: { tools: {} } }
   );
 

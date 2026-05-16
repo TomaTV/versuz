@@ -6,20 +6,19 @@ import { useEffect, useState } from "react";
  * Sticky banner en haut de page qui détecte une panne Supabase (free tier
  * saturé, Cloudflare 522, etc.) et l'indique clairement à l'utilisateur.
  *
- * Heuristique : ping `/api/stats` au mount. Si fail (timeout, error, 5xx)
- * → on affiche le banner. Si OK mais counts à 0 partout (impossible en
- * temps normal vu 100k items) → idem.
+ * Heuristique : ping `/api/stats` au mount sauf si sessionStorage a un OK
+ * récent. Si fail (timeout, error, 5xx) → on affiche le banner et on poll
+ * jusqu'au rétablissement.
  *
- * Le banner est dismissable (sessionStorage) — au refresh suivant on
- * re-check Supabase, mais pas dans la même session si l'user a click "x".
- *
- * Mai 2026 : ajouté après que Supabase free tier soit saturé pendant
- * plusieurs heures, donnant l'impression que le site était cassé alors
- * qu'on servait juste du cache vide.
+ * Mai 2026 (v2) : ne ping plus à chaque pageload. Cache "healthy" en
+ * sessionStorage pendant 1h pour les sessions multi-pages. Polling
+ * 60s → 120s, et UNIQUEMENT pendant un état unhealthy. Healthy = silence.
  */
 
 const DISMISS_KEY = "vz-db-banner-dismissed";
-const CHECK_INTERVAL = 60_000; // recheck toutes les 60s tant que down
+const HEALTH_KEY = "vz-db-health-ok";
+const HEALTH_TTL_MS = 60 * 60 * 1000; // 1h — re-verify max 1×/heure
+const RECOVERY_POLL_MS = 120_000; // 2min entre tentatives quand down
 
 export function DbStatusBanner() {
   const [state, setState] = useState({ checked: false, healthy: true });
@@ -35,30 +34,47 @@ export function DbStatusBanner() {
     let cancelled = false;
     let timer = null;
 
+    // Skip le ping si on a un OK récent en sessionStorage. Coupe ~80%
+    // des hits /api/stats pour les sessions multi-pages.
+    try {
+      const cached = sessionStorage.getItem(HEALTH_KEY);
+      if (cached) {
+        const ts = Number(cached);
+        if (Number.isFinite(ts) && Date.now() - ts < HEALTH_TTL_MS) {
+          setState({ checked: true, healthy: true });
+          return;
+        }
+      }
+    } catch {}
+
     async function check() {
       try {
         const ctrl = new AbortController();
         const t = setTimeout(() => ctrl.abort(), 6000);
-        const res = await fetch("/api/stats", {
-          cache: "no-store",
-          signal: ctrl.signal,
-        });
+        const res = await fetch("/api/stats", { signal: ctrl.signal });
         clearTimeout(t);
         if (cancelled) return;
         if (!res.ok) {
           setState({ checked: true, healthy: false });
+          // Retry-poll seulement quand down — silence quand UP.
+          timer = setTimeout(check, RECOVERY_POLL_MS);
+          return;
+        }
+        const data = await res.json();
+        const healthy = (data.skills || 0) > 0 || (data.claudeMds || 0) > 0;
+        setState({ checked: true, healthy });
+        if (healthy) {
+          try {
+            sessionStorage.setItem(HEALTH_KEY, String(Date.now()));
+          } catch {}
         } else {
-          const data = await res.json();
-          // Counts à 0 partout = signal probable d'un fetch failed silencieusement
-          // (les caches retournent les fallbacks []). En temps normal Versuz a
-          // ~100k items, donc 0 = anormal.
-          const healthy = (data.skills || 0) > 0 || (data.claudeMds || 0) > 0;
-          setState({ checked: true, healthy });
+          timer = setTimeout(check, RECOVERY_POLL_MS);
         }
       } catch {
-        if (!cancelled) setState({ checked: true, healthy: false });
-      } finally {
-        if (!cancelled) timer = setTimeout(check, CHECK_INTERVAL);
+        if (!cancelled) {
+          setState({ checked: true, healthy: false });
+          timer = setTimeout(check, RECOVERY_POLL_MS);
+        }
       }
     }
 
