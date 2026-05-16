@@ -6,6 +6,7 @@ import { Reveal, RevealStagger, RevealItem } from "@/components/motion/reveal";
 import { ScrollReveal, ScrollRevealStagger } from "@/components/motion/scroll-reveal";
 import { LiveStatsGrid } from "@/components/live-stats-grid";
 import { LandingHero } from "@/components/landing/landing-hero";
+import { WhatsNewBanner } from "@/components/landing/whats-new-banner";
 import { Section, SectionHeader } from "@/components/section";
 import { judgesLabel } from "@/lib/judges";
 import {
@@ -17,6 +18,7 @@ import {
   getIndexCounts,
   getCurrentCycle,
   getFeaturedItems,
+  getRecentItemAchievements,
 } from "@/lib/queries/rankings";
 
 // ISR 5min. `cacheComponents` n'est pas activé (cf next.config.mjs) donc
@@ -30,7 +32,7 @@ export default async function LandingPage() {
   // Fetch first wave — incl. the list of categories with ranked content
   // so we can pick the headline category dynamically (was hardcoded to
   // "document", which has no benched items in prod yet → empty block).
-  const [battle, categories, rankedSkills, rankedClaudeMd, skillTopics, claudeTopics, counts, cycle, featured] = await Promise.all([
+  const [battle, categories, rankedSkills, rankedClaudeMd, skillTopics, claudeTopics, counts, cycle, featured, recentAchievements] = await Promise.all([
     getFeaturedBattle(),
     getRankableCategories(),
     getLeaderboardCategories("skill"),
@@ -40,7 +42,43 @@ export default async function LandingPage() {
     getIndexCounts(),
     getCurrentCycle(),
     getFeaturedItems("skill", 3),
+    getRecentItemAchievements(1),
   ]);
+
+  // What's-new event — the most recent item achievement (Triple Crown,
+  // category winner, etc.). Falls back to nothing if no achievement in
+  // the last 7 days. Powers the bottom-left sticky banner that surfaces
+  // the freshest signal to returning visitors during the social wave.
+  const ACHIEVEMENT_META = {
+    triple_crown: { icon: "♛", label: "Triple Crown unlocked", color: "#d69e2e" },
+    category_winner: { icon: "★", label: "New category #1", color: "#3f7d4f" },
+    first_blood: { icon: "◆", label: "First blood — first ranking", color: "#2a5fa8" },
+    streak_milestone: { icon: "🔥", label: "Streak milestone", color: "#c2410c" },
+  };
+  // The query is already cached 10min and ordered by unlocked_at DESC,
+  // so the row we get is always the freshest. We don't time-filter
+  // here (React purity rule disallows Date.now() in render) — the
+  // banner is dismissed via sessionStorage on the client anyway, and
+  // the ISR window guarantees this re-fetches every 5 min.
+  let whatsNew = null;
+  if (recentAchievements[0]) {
+    const a = recentAchievements[0];
+    const meta = ACHIEVEMENT_META[a.type] || { icon: "◇", label: a.type, color: "var(--accent)" };
+    const sub = a.type === "streak_milestone" && a.metadata?.days
+      ? `${a.metadata.days}-day streak`
+      : a.category
+        ? `Category : ${a.category}`
+        : "";
+    whatsNew = {
+      slug: a.slug,
+      name: a.name,
+      href: a.href,
+      label: meta.label,
+      icon: meta.icon,
+      color: meta.color,
+      sub,
+    };
+  }
 
   // Headline category — prefer "sql" since it's well-represented in the
   // current bench data (3 benched items as of May 2026) and reads better
@@ -185,6 +223,7 @@ export default async function LandingPage() {
   return (
     <div style={{ position: "relative" }}>
       <LandingHero counts={counts} />
+      {whatsNew && <WhatsNewBanner event={whatsNew} />}
 
       {/* ============================================================== */}
       {/* §01 WHAT — c'est quoi Versuz. Promu en premier (mai 2026) :       */}
@@ -886,7 +925,7 @@ $ npx versuz install pdf-generator
                   <code style={{ fontFamily: "var(--font-mono)", fontSize: 22 }}>@versuz/mcp</code>
                 </h3>
                 <p style={{ margin: 0, fontSize: 14, lineHeight: 1.6, color: "var(--fg-muted)" }}>
-                  Plug Versuz into Claude Code as native tools. Ask Claude <em>"find me a SQL migration skill and install it"</em> — it searches, inspects, downloads, all inline. 5 tools : search, list, get, install (skills + CLAUDE.md).
+                  Plug Versuz into Claude Code as native tools. Ask Claude <em>&ldquo;find me a SQL migration skill and install it&rdquo;</em> — it searches, inspects, downloads, all inline. 5 tools : search, list, get, install (skills + CLAUDE.md).
                 </p>
                 <pre
                   style={{

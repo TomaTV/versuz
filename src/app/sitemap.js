@@ -4,6 +4,7 @@ import {
   getRankableCategories,
   getProjectCategories,
 } from "@/lib/queries/rankings";
+import { getAllPosts } from "@/lib/blog";
 
 const BASE = process.env.NEXT_PUBLIC_SITE_URL || "https://versuz.dev";
 
@@ -12,6 +13,7 @@ const STATIC_ROUTES = [
   { path: "/marketplace", priority: 0.9, changeFrequency: "daily" },
   { path: "/leaderboard", priority: 0.9, changeFrequency: "daily" },
   { path: "/methodology", priority: 0.6, changeFrequency: "monthly" },
+  { path: "/blog", priority: 0.7, changeFrequency: "weekly" },
   { path: "/achievements", priority: 0.7, changeFrequency: "daily" },
   { path: "/badges", priority: 0.6, changeFrequency: "monthly" },
   { path: "/pricing", priority: 0.6, changeFrequency: "monthly" },
@@ -115,6 +117,16 @@ export default async function sitemap() {
         priority: itemPriority(i, rankedClaudeMds.length),
       });
     });
+
+    // Blog posts — small list, all surfaced at high priority
+    for (const post of getAllPosts()) {
+      entries.push({
+        url: `${BASE}/blog/${post.slug}`,
+        lastModified: post.dateISO ? new Date(post.dateISO) : now,
+        changeFrequency: "monthly",
+        priority: 0.7,
+      });
+    }
   } catch {
     // Static routes are still emitted even if Supabase is offline.
   }

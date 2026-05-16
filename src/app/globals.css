@@ -823,6 +823,18 @@ html[data-auth="anon"] .vz-auth-slot__anon {
   color: var(--fg) !important;
 }
 
+/* WhatsNewBanner — slide in from bottom-left, low fanfare. */
+@keyframes vz-whats-new-in {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
 /* Reveal animation — CSS-driven, instant SSR visibility */
 @keyframes vz-reveal-in {
   from {
