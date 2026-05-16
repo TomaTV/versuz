@@ -1824,6 +1824,286 @@ export async function getItemAchievements(kind, subjectId) {
   return _getItemAchievementsCached(kind, subjectId);
 }
 
+/**
+ * Author stats — counts an author's contributions across both kinds and
+ * how many of them have ranked in any cycle. Used to derive the author
+ * tier (Newcomer → Veteran) on /u/[login] and /achievements.
+ *
+ * Same shape as /badge/author/[login]'s loadAuthorStats (identical logic
+ * for tier parity). Cache 10min — change at most once per cycle (24h).
+ */
+const _getAuthorStatsCached = unstable_cache(
+  async (loginRaw) => {
+    const login = String(loginRaw || "").replace(/[^A-Za-z0-9-]/g, "");
+    if (!login || !HAS_SUPABASE) return { total: 0, benched: 0 };
+    const sb = createSupabasePublicClient();
+    if (!sb) return { total: 0, benched: 0 };
+
+    const prefix = `https://github.com/${login}/%`;
+    const [{ data: skills }, { data: claudeMds }] = await Promise.all([
+      sb.from("skills").select("id").ilike("github_url", prefix).limit(500),
+      sb.from("claude_md_files").select("id").ilike("github_url", prefix).limit(500),
+    ]);
+
+    const skillIds = (skills || []).map((s) => s.id);
+    const claudeIds = (claudeMds || []).map((c) => c.id);
+    const total = skillIds.length + claudeIds.length;
+    if (total === 0) return { total: 0, benched: 0 };
+
+    let benched = 0;
+    if (skillIds.length > 0) {
+      const { count } = await sb
+        .from("rankings")
+        .select("*", { count: "exact", head: true })
+        .eq("subject_kind", "skill")
+        .in("skill_id", skillIds)
+        .not("avg_score", "is", null);
+      benched += count || 0;
+    }
+    if (claudeIds.length > 0) {
+      const { count } = await sb
+        .from("rankings")
+        .select("*", { count: "exact", head: true })
+        .eq("subject_kind", "claude_md")
+        .in("claude_md_id", claudeIds)
+        .not("avg_score", "is", null);
+      benched += count || 0;
+    }
+    return { total, benched };
+  },
+  ["author-stats"],
+  { revalidate: CACHE_TTL_LONG, tags: ["rankings"] }
+);
+
+export async function getAuthorStats(login) {
+  return _getAuthorStatsCached(login);
+}
+
+/**
+ * Top authors leaderboard — orders by `total` contributions, then by
+ * `benched` count. Powers the /achievements wall-of-fame. We fetch a
+ * wide window (top 200 distinct GitHub logins by item count) and let
+ * the page filter / paginate. Cache 30min — change ~daily as new
+ * scrapes land.
+ */
+const _getTopAuthorsCached = unstable_cache(
+  async (limit = 50) => {
+    if (!HAS_SUPABASE) return [];
+    const sb = createSupabasePublicClient();
+    if (!sb) return [];
+
+    // We don't have a denormalized "github_login → counts" view, so we
+    // pull a representative window of items and aggregate in JS. 5k
+    // recent items is enough to surface the top 50 authors — the rare
+    // long-tail authors with 1-2 ancient items are not interesting here.
+    const FETCH_LIMIT = 5000;
+    const [{ data: skills }, { data: claudeMds }] = await Promise.all([
+      sb
+        .from("skills")
+        .select("id, github_url")
+        .not("github_url", "is", null)
+        .order("github_stars", { ascending: false, nullsFirst: false })
+        .limit(FETCH_LIMIT),
+      sb
+        .from("claude_md_files")
+        .select("id, github_url")
+        .not("github_url", "is", null)
+        .order("github_stars", { ascending: false, nullsFirst: false })
+        .limit(FETCH_LIMIT),
+    ]);
+
+    const authorMap = new Map();
+    const recordOwner = (url, id, kind) => {
+      const match = /github\.com\/([^/]+)\//.exec(url || "");
+      if (!match) return;
+      const login = match[1];
+      // Skip enterprise/anonymous patterns
+      if (!/^[A-Za-z0-9][A-Za-z0-9-]{0,38}$/.test(login)) return;
+      if (!authorMap.has(login)) {
+        authorMap.set(login, { login, total: 0, benched: 0, skillIds: [], claudeIds: [] });
+      }
+      const entry = authorMap.get(login);
+      entry.total += 1;
+      if (kind === "skill") entry.skillIds.push(id);
+      else entry.claudeIds.push(id);
+    };
+
+    for (const s of skills || []) recordOwner(s.github_url, s.id, "skill");
+    for (const c of claudeMds || []) recordOwner(c.github_url, c.id, "claude_md");
+
+    // Compute benched in one batched RPC-style scan. We can't easily join
+    // here in supabase-js without a custom RPC, so we fetch all ranked
+    // ids in one shot and intersect with each author's id list.
+    const [{ data: rankedSkills }, { data: rankedClaude }] = await Promise.all([
+      sb
+        .from("rankings")
+        .select("skill_id")
+        .eq("subject_kind", "skill")
+        .not("avg_score", "is", null)
+        .limit(5000),
+      sb
+        .from("rankings")
+        .select("claude_md_id")
+        .eq("subject_kind", "claude_md")
+        .not("avg_score", "is", null)
+        .limit(5000),
+    ]);
+    const rankedSkillSet = new Set((rankedSkills || []).map((r) => r.skill_id));
+    const rankedClaudeSet = new Set((rankedClaude || []).map((r) => r.claude_md_id));
+
+    for (const entry of authorMap.values()) {
+      for (const id of entry.skillIds) if (rankedSkillSet.has(id)) entry.benched += 1;
+      for (const id of entry.claudeIds) if (rankedClaudeSet.has(id)) entry.benched += 1;
+    }
+
+    const ranked = [...authorMap.values()]
+      .map((a) => ({ login: a.login, total: a.total, benched: a.benched }))
+      .sort((a, b) => {
+        if (b.total !== a.total) return b.total - a.total;
+        return b.benched - a.benched;
+      })
+      .slice(0, limit);
+
+    return ranked;
+  },
+  ["top-authors"],
+  { revalidate: 1800, tags: ["rankings"] }
+);
+
+export async function getTopAuthors(limit = 50) {
+  return _getTopAuthorsCached(limit);
+}
+
+/**
+ * Recent item achievements — feed for /achievements wall of fame.
+ * Returns the latest N entries joined with subject metadata so we can
+ * link directly to the skill / claude_md page.
+ */
+const _getRecentItemAchievementsCached = unstable_cache(
+  async (limit = 40) => {
+    if (!HAS_SUPABASE) return [];
+    const sb = createSupabasePublicClient();
+    if (!sb) return [];
+    const { data, error } = await sb
+      .from("item_achievements")
+      .select(
+        "id, subject_kind, skill_id, claude_md_id, type, category, cycle_id, metadata, unlocked_at"
+      )
+      .order("unlocked_at", { ascending: false })
+      .limit(limit);
+    if (error) {
+      console.warn(`[rankings] getRecentItemAchievements failed: ${error.message}`);
+      return [];
+    }
+    const rows = data || [];
+    if (rows.length === 0) return [];
+
+    const skillIds = rows.filter((r) => r.skill_id).map((r) => r.skill_id);
+    const claudeIds = rows.filter((r) => r.claude_md_id).map((r) => r.claude_md_id);
+    const [{ data: skills }, { data: claudeMds }] = await Promise.all([
+      skillIds.length > 0
+        ? sb.from("skills").select("id, slug, name, category").in("id", skillIds)
+        : Promise.resolve({ data: [] }),
+      claudeIds.length > 0
+        ? sb
+            .from("claude_md_files")
+            .select("id, slug, project_category, metadata")
+            .in("id", claudeIds)
+        : Promise.resolve({ data: [] }),
+    ]);
+    const skillById = new Map((skills || []).map((s) => [s.id, s]));
+    const claudeById = new Map((claudeMds || []).map((c) => [c.id, c]));
+
+    return rows
+      .map((r) => {
+        if (r.subject_kind === "skill") {
+          const s = skillById.get(r.skill_id);
+          if (!s) return null;
+          return {
+            ...r,
+            slug: s.slug,
+            name: s.name,
+            itemCategory: s.category,
+            href: `/skills/${s.slug}`,
+          };
+        }
+        const c = claudeById.get(r.claude_md_id);
+        if (!c) return null;
+        const cat = c.project_category || "generic";
+        return {
+          ...r,
+          slug: c.slug,
+          name: c.metadata?.repo ? `${c.metadata.author}/${c.metadata.repo}` : c.slug,
+          itemCategory: cat,
+          href: `/claude-md/${cat}/${c.slug}`,
+        };
+      })
+      .filter(Boolean);
+  },
+  ["recent-item-achievements"],
+  { revalidate: 600, tags: ["rankings"] }
+);
+
+export async function getRecentItemAchievements(limit = 40) {
+  return _getRecentItemAchievementsCached(limit);
+}
+
+/**
+ * Items with active streaks — fuels the /achievements "On a streak"
+ * section. Reads from skills + claude_md_files where streak > 0,
+ * unioned and sorted desc.
+ */
+const _getStreakLeadersCached = unstable_cache(
+  async (limit = 20) => {
+    if (!HAS_SUPABASE) return [];
+    const sb = createSupabasePublicClient();
+    if (!sb) return [];
+
+    const [{ data: skills }, { data: claudeMds }] = await Promise.all([
+      sb
+        .from("skills")
+        .select("slug, name, category, top_rank_streak_days, top_rank_streak_category, top_rank_streak_started_at")
+        .gt("top_rank_streak_days", 0)
+        .order("top_rank_streak_days", { ascending: false })
+        .limit(limit),
+      sb
+        .from("claude_md_files")
+        .select("slug, project_category, metadata, top_rank_streak_days, top_rank_streak_category, top_rank_streak_started_at")
+        .gt("top_rank_streak_days", 0)
+        .order("top_rank_streak_days", { ascending: false })
+        .limit(limit),
+    ]);
+
+    const skillsMapped = (skills || []).map((s) => ({
+      kind: "skill",
+      slug: s.slug,
+      name: s.name,
+      streakDays: s.top_rank_streak_days,
+      streakCategory: s.top_rank_streak_category,
+      itemCategory: s.category,
+      href: `/skills/${s.slug}`,
+    }));
+    const claudeMapped = (claudeMds || []).map((c) => ({
+      kind: "claude_md",
+      slug: c.slug,
+      name: c.metadata?.repo ? `${c.metadata.author}/${c.metadata.repo}` : c.slug,
+      streakDays: c.top_rank_streak_days,
+      streakCategory: c.top_rank_streak_category,
+      itemCategory: c.project_category || "generic",
+      href: `/claude-md/${c.project_category || "generic"}/${c.slug}`,
+    }));
+    return [...skillsMapped, ...claudeMapped]
+      .sort((a, b) => b.streakDays - a.streakDays)
+      .slice(0, limit);
+  },
+  ["streak-leaders"],
+  { revalidate: 1800, tags: ["rankings"] }
+);
+
+export async function getStreakLeaders(limit = 20) {
+  return _getStreakLeadersCached(limit);
+}
+
 export async function getBenchmarkMatrix() {
   if (HAS_SUPABASE) return { skills: [], suites: [] };
   return { skills: BENCHMARK_MATRIX, suites: TASK_SUITES };

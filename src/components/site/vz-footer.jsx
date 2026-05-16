@@ -76,6 +76,9 @@ export function VzFooter() {
             <Link href="/leaderboard" className="vz-link">
               Leaderboard
             </Link>
+            <Link href="/achievements" className="vz-link">
+              Achievements
+            </Link>
             <Link href="/methodology" className="vz-link">
               Methodology
             </Link>
