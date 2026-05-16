@@ -139,11 +139,10 @@ export function DbStatusBanner() {
             animation: "pulse 1.5s ease-in-out infinite",
           }}
         />
-        <strong style={{ fontWeight: 600 }}>Heavy traffic right now.</strong>
+        <strong style={{ fontWeight: 600 }}>Live data delayed.</strong>
       </span>
       <span style={{ opacity: 0.85 }}>
-        More people are hitting Versuz than our infra is sized for. Rankings
-        will be back in a minute — hang tight.
+        Rankings are refreshing — counts and scores may lag for a minute.
       </span>
       <button
         type="button"

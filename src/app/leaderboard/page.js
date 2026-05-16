@@ -267,7 +267,7 @@ export default async function LeaderboardPage({ searchParams }) {
                   textTransform: "uppercase",
                 }}
               >
-                {totalCount === 0 ? "Heavy traffic" : "Bench engine · waiting"}
+                Bench engine · waiting
               </span>
               <h2
                 style={{
@@ -280,11 +280,7 @@ export default async function LeaderboardPage({ searchParams }) {
                   color: "var(--fg)",
                 }}
               >
-                {totalCount === 0 ? (
-                  <>Too many people <em style={{ color: "var(--accent)" }}>at the same time</em>.</>
-                ) : (
-                  <>Bench is <em style={{ color: "var(--accent)" }}>warming up</em>.</>
-                )}
+                Bench is <em style={{ color: "var(--accent)" }}>warming up</em>.
               </h2>
               <p
                 style={{
@@ -296,11 +292,9 @@ export default async function LeaderboardPage({ searchParams }) {
                   maxWidth: 600,
                 }}
               >
-                {totalCount === 0
-                  ? "Versuz is getting more traffic than our current infra can handle. The 100,000+ items in the registry will reload in a minute — hang tight or refresh."
-                  : selectedCategory
+                {selectedCategory
                   ? `No skills ranked in ${selectedCategory} yet. Pick another category or browse the marketplace.`
-                  : "No cycles have completed yet. The bench engine pits each item against a held-out task suite, judges with 3 LLM frontiers, and aggregates Elo."}
+                  : "No cycles have completed yet for this view. The bench engine pits each item against a held-out task suite, judges with 3 LLM frontiers, and aggregates a composite score. Refresh in a minute if rankings just shipped."}
               </p>
               <div style={{ display: "flex", gap: 12, flexWrap: "wrap", marginTop: 8 }}>
                 <Link

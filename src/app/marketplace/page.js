@@ -59,24 +59,26 @@ export default async function MarketplacePage({ searchParams }) {
       <section style={{ maxWidth: 1440, margin: "0 auto", padding: "32px clamp(16px, 4.5vw, 64px) clamp(80px, 12vw, 160px)" }}>
         <PromoteSlot />
 
-        {result.total === 0 ? (
-          <DbUnavailableEmptyState />
-        ) : (
-          <MarketplaceGrid
-            items={items}
-            totalCount={result.total}
-            currentPage={result.page}
-            totalPages={result.totalPages}
-            skillCategories={skillCats}
-            projectCategories={claudeCats}
-            availableSources={availableSources}
-            ownedSkillSlugs={Array.from(owned.skills)}
-            ownedClaudeMdSlugs={Array.from(owned.claudeMds)}
-            authoredSkillSlugs={Array.from(authored.skills)}
-            authoredClaudeMdSlugs={Array.from(authored.claudeMds)}
-            initial={params}
-          />
-        )}
+        <MarketplaceGrid
+          items={items}
+          totalCount={result.total}
+          currentPage={result.page}
+          totalPages={result.totalPages}
+          skillCategories={skillCats}
+          projectCategories={claudeCats}
+          availableSources={availableSources}
+          ownedSkillSlugs={Array.from(owned.skills)}
+          ownedClaudeMdSlugs={Array.from(owned.claudeMds)}
+          authoredSkillSlugs={Array.from(authored.skills)}
+          authoredClaudeMdSlugs={Array.from(authored.claudeMds)}
+          initial={params}
+        />
+        {/* Note : on supprime l'empty state alarmiste "Heavy traffic". Le
+            <DbStatusBanner> en haut de page (2-strike, 12s timeout) couvre
+            déjà le cas DB-down. Si le grid est vide à cause d'un timeout
+            ponctuel, MarketplaceGrid affiche son propre empty state neutre
+            et l'user peut juste refresh — pas besoin de bloquer la moitié
+            de la page avec un message qui crie "infra cassée". */}
 
         <p
           style={{
@@ -181,92 +183,6 @@ function PromoteSlot() {
           Submit yours →
         </Link>
       </div>
-    </div>
-  );
-}
-
-/**
- * Empty state pour la marketplace quand totalCount=0. En temps normal
- * Versuz a 100k+ items, donc 0 = signal d'un fetch failed silencieusement
- * (Supabase free tier saturé / Cloudflare 522, mai 2026).
- *
- * Le banner global <DbStatusBanner> apparait aussi côté client, mais ce
- * composant remplit l'espace de la grid pour que la page ait l'air en
- * "maintenance" plutôt qu'en "rien à montrer".
- */
-function DbUnavailableEmptyState() {
-  return (
-    <div
-      style={{
-        marginTop: 24,
-        padding: "clamp(48px, 10vw, 96px) clamp(24px, 6vw, 64px)",
-        border: "1px solid var(--rule)",
-        background: "var(--surface)",
-        display: "flex",
-        flexDirection: "column",
-        gap: 18,
-        alignItems: "flex-start",
-        maxWidth: 720,
-      }}
-    >
-      <span
-        style={{
-          fontFamily: "var(--font-mono)",
-          fontSize: 10,
-          color: "var(--accent)",
-          letterSpacing: "0.18em",
-          textTransform: "uppercase",
-          fontWeight: 600,
-          display: "inline-flex",
-          alignItems: "center",
-          gap: 8,
-        }}
-      >
-        <span aria-hidden style={{ width: 8, height: 8, background: "var(--accent)" }} />
-        Heavy traffic
-      </span>
-      <h2
-        style={{
-          margin: 0,
-          fontFamily: "var(--font-display)",
-          fontSize: "clamp(28px, 4vw, 44px)",
-          fontWeight: 400,
-          letterSpacing: "-0.02em",
-          lineHeight: 1.1,
-          color: "var(--fg)",
-        }}
-      >
-        Too many people <em style={{ color: "var(--accent)" }}>at the same time</em>.
-      </h2>
-      <p
-        style={{
-          margin: 0,
-          fontFamily: "var(--font-display)",
-          fontSize: 16,
-          color: "var(--fg-muted)",
-          lineHeight: 1.55,
-          maxWidth: 540,
-        }}
-      >
-        Versuz is getting more traffic than our current infra can handle. The
-        100,000+ items in the registry will reload in a minute — hang tight or
-        refresh.
-      </p>
-      <Link
-        href="/"
-        style={{
-          padding: "10px 18px",
-          fontFamily: "var(--font-mono)",
-          fontSize: 11,
-          letterSpacing: "0.08em",
-          textTransform: "uppercase",
-          color: "var(--fg)",
-          border: "1px solid var(--rule-strong)",
-          textDecoration: "none",
-        }}
-      >
-        Back to home →
-      </Link>
     </div>
   );
 }
