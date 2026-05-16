@@ -2,6 +2,7 @@ import Link from "next/link";
 import { PageHero, Section, SectionHeader } from "@/components/section";
 import { Reveal, RevealStagger, RevealItem } from "@/components/motion/reveal";
 import { NewsletterInline } from "@/components/newsletter-inline";
+import { TrackPage } from "@/components/track-page";
 import {
   getRecentItemAchievements,
   getStreakLeaders,
@@ -97,6 +98,7 @@ export default async function AchievementsPage() {
 
   return (
     <div>
+      <TrackPage event="achievements_view" />
       <PageHero
         eyebrow="Wall of fame"
         title={

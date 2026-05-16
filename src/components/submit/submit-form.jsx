@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useTransition, useRef } from "react";
+import { useState, useTransition, useRef, useEffect } from "react";
+import { track } from "@/lib/track";
 
 /**
  * Two-tab submit form:
@@ -31,6 +32,17 @@ export function SubmitForm({
       setResult(r);
     });
   }
+
+  useEffect(() => {
+    if (result?.ok && result.meta?.slug) {
+      track("submit_complete", {
+        kind: result.meta.kind || "skill",
+        tier: result.meta.tier || tier,
+        slug: result.meta.slug,
+        tab,
+      });
+    }
+  }, [result?.ok, result?.meta?.slug]);
 
   return (
     <div

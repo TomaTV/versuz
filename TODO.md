@@ -7,23 +7,43 @@ Dernière mise à jour : **2026-05-16 (V1.7 — audit P1 batch + /best 404 fix +
 
 ---
 
-## 🎯 V1.7 — Audit P0 restant (à faire dans la semaine)
+## 🎯 V1.7 — Sprint actualisé post-enterprise (semaine 16-18 mai)
 
-V1.7 a shippé : PostHog provider, `/best/[kind]` index, `.vz-blog-body` typographie,
-hero install strip retiré, changelog stats bar retirée, fix /best/skill/* 404
-(fixture fallback quand RPC `get_category_counts` 500), CLI v0.2.1 bumpé.
+V1.7 shippé : PostHog provider + 10 events + 5 funnels prêts pour dashboard,
+`/best/[kind]` index, `.vz-blog-body` typographie, hero install strip retiré,
+fix /best/skill/* 404, CLI v0.2.1 + MCP v0.2.0 publiés, enterprise tier retiré
+entièrement (page + admin + DB table + docs).
 
-Reste à exécuter (humain / ops) :
+Stack monétisation consolidé : Premium 30/70 + Boost $4.99/30j + Featured 100%
++ **Pro Author $9/mo** (schéma DB ready via mig 0054, code checkout livré, env
+`STRIPE_PRO_AUTHOR_PRICE_ID` gate /pricing entre waitlist et live).
 
-- [ ] **Publier CLI v0.2.1** : `cd cli && npm publish --access public`
-- [ ] **Publier MCP v0.2.0** : `cd mcp-server && npm publish --access public`
-- [ ] **PostHog dashboard EU** : créer 5 funnels prio (landing→marketplace→checkout, hero CTA, boost CTA, search→install, submit conversion)
-- [ ] **PostHog feature flags** : setup A/B sur les 5 surfaces de monétisation (P1 #10 audit)
-- [ ] **Pipeline Featured doc** (`docs/featured-skill-sop.md`) — SOP pour produire 1 vz-* / semaine
-- [ ] **Ship 5 nouveaux vz-** Featured (cf vz-skills/, actuellement 7, target 12)
-- [ ] **Outreach Anthropic / Vercel / Stripe** — pitch Featured tier sur leurs skills officiels
-- [ ] **Pro author abo $9/mo** — analytics + boost gratuit mensuel + badges custom (P1 #6 audit)
-- [ ] **Brancher `post-cycle-hooks.mjs`** dans `.github/workflows/bench-runner.yml` (P1 #8 audit)
+Plafond cible : **$1200-1950/mo @ steady-state**.
+
+### P0 — cette semaine (must-ship avant Wave 1 samedi 18 mai)
+
+- [ ] **Ship 5 nouveaux vz-* Featured** — actuel 7, target 12. Cadence 2-3/jour mercredi-jeudi. SOP : pick depuis PostHog top searches × gap-categories, write SKILL.md < 1500 mots, test live Claude Code, quality-judge ≥ 80, seed + push
+- [ ] **A/B Boost CTA copy** via PostHog feature flags — 3 variants ("Boost $4.99/30d" vs "Surface yours $4.99" vs "Pin to top $4.99") sur les surfaces home / marketplace / leaderboard / detail
+- [ ] **Newsletter capture sur `/skills/[slug]`** — `<NewsletterInline>` en fin de page detail pour capter le viral Wave 1
+- [ ] **PostHog dashboard EU — créer les 5 funnels** : (1) Hero→CLI activation, (2) Browse→Buy, (3) Author conversion, (4) Submit funnel, (5) Newsletter capture. Cibles dans `AUDIT.md` §4
+- [ ] **Wave 1 social drop samedi 18 mai** — humain (Twitter thread + LinkedIn + TikTok terminal demo)
+
+### P1 — ce mois-ci (Wave 2-3)
+
+- [ ] **Pro Author live activation** — attendre 20-30 waitlist signups via /pricing, créer Stripe Product+Price récurrent ($9/mo), push `STRIPE_PRO_AUTHOR_PRICE_ID` dans Vercel env, redeploy
+- [ ] **Author analytics dashboard** — views/installs par skill + 30j sparkline + source attribution (npm CLI / MCP / web copy / GitHub badge). Defend $9/mo perceived value. À shipper en même temps que Pro Author live
+- [ ] **Pro Author boost permanent gratuit** — `bench_pending` priorité dans `loadSubjects` quand `is_pro_author=true` + 1 boost auto-renew gratuit chaque mois
+- [ ] **Bluesky auto-post** depuis `post-cycle-hooks.mjs` — Bluesky API gratuite, post le top mover par cycle
+- [ ] **Outreach Anthropic + Vercel** — pitch Featured partnership (5 skills `anthropics/skills/*` en Featured Versuz 100%, leur exposition vs notre data publique). Stripe retiré du pitch
+- [ ] **Top movers email weekly** — subset du digest, test la cadence retention
+- [ ] **Brancher `post-cycle-hooks.mjs`** dans `.github/workflows/bench-runner.yml`
+
+### P2 — parqué (après V1.7)
+
+- [ ] Multi-compare 4 items
+- [ ] Onboarding tour `/marketplace`
+- [ ] MCP `versuz_battle` demo video (vu que MCP shippé)
+- [ ] Pro Author nice-to-have : custom badge styles, bulk discount, Featured candidate flag
 
 ---
 

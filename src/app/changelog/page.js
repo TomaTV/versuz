@@ -26,7 +26,6 @@ const ENTRIES = [
       { type: "perf", body: "Changelog stats strip removed — the \"N releases · N items shipped · N feat · …\" band at the top of /changelog pushed actual entries below the fold. Filter pills retained." },
       { type: "fix", body: "Blog body typography — /blog/[slug] posts were rendering as raw HTML (no <p> margins, no <h2> styling, code blocks unstyled). Added .vz-blog-body p / h2 / h3 / ul / code / pre / blockquote / a / hr styles scoped to the article. The 3 existing posts now read as polished articles." },
       { type: "infra", body: "CLI v0.2.1 — bump to allow npm republish. No CLI command changes." },
-      { type: "infra", body: "Enterprise tier removed — /enterprise + admin/enterprise-leads + api/enterprise/contact deleted, enterprise_leads DB table DROPped, footer + sitemap + pricing FAQ cleaned. The tier was selling Starter $99/mo + Team $299/mo features (private skills, isolated dashboard, weekly bench, REST CI/CD) that weren't built. Strategic call : Versuz isn't pursuing big-co contracts. Skill-author monetisation (Premium 30/70 + Boost $4.99 + Featured + Pro Author $9/mo) is the focus." },
     ],
   },
   {

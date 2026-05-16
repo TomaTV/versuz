@@ -30,7 +30,7 @@ Ce doc est un playbook séquencé pour transformer Versuz d'un side project en u
 | **Skill creator** | GitHub, Twitter, indie hackers | distribution + revenue |
 | **AI agent builder / startup** | HN, r/LocalLLaMA, dev.to | reliable building blocks |
 | **Tech writer / influencer** | Twitter, dev.to, YouTube | scoop / story angle |
-| **Researcher / enterprise** | Bluesky, mailing lists | benchmarking methodology |
+| **Researcher / academic** | Bluesky, mailing lists | benchmarking methodology |
 
 ---
 

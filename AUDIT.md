@@ -135,22 +135,6 @@ personnes ; le market est large (1.2M+ skills sur skillsmp).
 `subscriptions` (Stripe Subscriptions, distinct des Connect destination
 charges actuels). Migration 0053.
 
-## 1.6 — **Tier proposé : Bench-as-a-Service / API enterprise**
-
-Mentionné en V2 "API enterprise plans" mais zero scaffolding. Pourtant :
-- Ton bench engine peut accepter des inputs privés (juste bypasser le scrape
-  + run isolé)
-- Coût marginal par cycle privé : <$1
-- Pricing market : Vellum, BrainTrust, Patronus AI facturent $99-499/mois
-
-**Tier proposé** :
-- **Starter $99/mo** : 5 skills privés benchés 1×/semaine
-- **Team $299/mo** : 25 skills, 1×/jour, Slack/email digest
-- **Custom** : on-prem ou private cloud, contact
-
-Surface : nouvelle page `/enterprise` + formulaire qualifié. Even 2 clients
-Starter = $200/mo recurring net.
-
 ## 1.7 — Outreach partnerships : **plan d'attaque**
 
 Mentionné en TODO mais 0 contact démarré. Trois cibles avec angles spécifiques :
@@ -190,9 +174,8 @@ distribution change game.
 | Custom domain badges ($5/mo pour badge.tonsite.com) | 1 jour | $50/mo |
 | Sponsored category card (top de /standings/sql, $19/mo) | 4h | $100-200/mo |
 
-**Total potentiel sans Pro tier ni Enterprise** : ~$600-1100/mo de
-**recurring add-ons** à partir d'un produit existant — sans changer ta stack
-fondamentale.
+**Total potentiel sans Pro tier** : ~$600-1100/mo de **recurring add-ons** à
+partir d'un produit existant — sans changer ta stack fondamentale.
 
 ## 1.9 — Friction conversion actuelle
 
@@ -511,8 +494,7 @@ manuel.
 - [ ] Blog setup + 2 premiers posts (3j)
 - [ ] Ads campaign launch — drop le 1 mois préparé, avec funnels mesurés
 
-## Mois 2 (enterprise + partnerships)
-- [ ] Tier Enterprise $99-299/mo + page `/enterprise` (3j)
+## Mois 2 (partnerships)
 - [ ] Auto-post X API (1j)
 - [ ] Email weekly digest aux subscribers (2j)
 - [ ] Closing 1ʳᵉ partnership Anthropic ou Vercel (variable)

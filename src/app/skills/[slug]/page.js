@@ -26,6 +26,8 @@ import {
 } from "@/components/skills/skill-user-gate";
 import { SkillInstallBundle } from "@/components/skills/install-bundle";
 import { PromoteSkillSlot } from "@/components/skills/promote-skill-slot";
+import { TrackPage } from "@/components/track-page";
+import { NewsletterInline } from "@/components/newsletter-inline";
 
 function formatCount(n) {
   if (n == null) return "—";
@@ -510,6 +512,16 @@ export default async function SkillDetailPage({ params }) {
 
   return (
     <div style={{ position: "relative" }}>
+      <TrackPage
+        event="item_detail_view"
+        props={{
+          kind: "skill",
+          slug,
+          tier: detail.tier || "free",
+          is_premium: detail.tier === "premium" || detail.tier === "featured",
+          rank: detail.rank ?? null,
+        }}
+      />
       {/* HERO with rank-aware composition */}
       <section
         style={{
@@ -1260,6 +1272,18 @@ export default async function SkillDetailPage({ params }) {
 
       {/* Native promo slot — author-aware. Authors see Boost, visitors see Submit. */}
       <PromoteSkillSlot slug={slug} kind="skill" skillName={detail.name} />
+
+      {/* Newsletter capture — pinned on the most-shared destination pages
+          (skill detail) to convert viral Wave 1 traffic before bounce. */}
+      <Section eyebrow="§ Stay close" markerColor="var(--accent)" paddingY={48}>
+        <div style={{ maxWidth: 560 }}>
+          <NewsletterInline
+            source={`skill-detail-${detail.category || "other"}`}
+            title="Weekly digest"
+            body={`Top movers, new entries, and ranking shifts. One email per week, no other noise.`}
+          />
+        </div>
+      </Section>
 
       {/* Challenge CTA */}
       <Section eyebrow="§ 05 — Challenge" markerColor="var(--amber)">

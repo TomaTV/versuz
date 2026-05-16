@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { PageHero } from "@/components/section";
+import { TrackPage } from "@/components/track-page";
 
 export const metadata = {
   title: "Subscribed",
@@ -17,6 +18,7 @@ export default async function SubscribeSuccessPage({ searchParams }) {
 
   return (
     <div>
+      <TrackPage event="newsletter_signup" props={{ source: typeof params.source === "string" ? params.source : "unknown" }} />
       <PageHero
         eyebrow="§ Subscribed"
         title={

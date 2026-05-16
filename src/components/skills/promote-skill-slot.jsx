@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useSkillContext } from "./skill-user-gate";
+import { track } from "@/lib/track";
 
 /**
  * Native promo slot user-aware. Anciennement Server Component dans
@@ -69,6 +70,7 @@ export function PromoteSkillSlot({ slug, kind = "skill", skillName }) {
           </div>
           <Link
             href={`/promote/${promoteKind}/${encodeURIComponent(slug)}`}
+            onClick={() => track("cta_boost_click", { placement: "detail", slug, kind })}
             style={{
               padding: "12px 20px",
               fontFamily: "var(--font-mono)",
@@ -140,6 +142,7 @@ export function PromoteSkillSlot({ slug, kind = "skill", skillName }) {
         </div>
         <Link
           href="/submit"
+          onClick={() => track("cta_submit_click", { placement: "detail-visitor", slug, kind })}
           style={{
             padding: "12px 20px",
             fontFamily: "var(--font-mono)",
