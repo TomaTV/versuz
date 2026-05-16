@@ -8,11 +8,37 @@
  *   4 featured    — star in amber
  */
 const LEVELS = {
-  0: { label: "Unverified", color: "var(--fg-muted)", icon: "—", show: false },
-  1: { label: "Claimed", color: "var(--azure)", icon: "·" },
-  2: { label: "Verified", color: "var(--azure)", icon: "✓" },
-  3: { label: "Reviewed", color: "var(--sage)", icon: "✓" },
-  4: { label: "Featured", color: "var(--amber)", icon: "★" },
+  0: {
+    label: "Unverified",
+    tooltip: "Unverified — scraped from GitHub, no owner has claimed it yet.",
+    color: "var(--fg-muted)",
+    icon: "—",
+    show: false,
+  },
+  1: {
+    label: "Claimed",
+    tooltip: "Claimed — the GitHub owner of this repo has linked it to their Versuz profile.",
+    color: "var(--azure)",
+    icon: "·",
+  },
+  2: {
+    label: "Verified",
+    tooltip: "Verified — author identity confirmed and metadata cross-checked.",
+    color: "var(--azure)",
+    icon: "✓",
+  },
+  3: {
+    label: "Reviewed",
+    tooltip: "Reviewed — Versuz editorial team has tested this skill end-to-end.",
+    color: "var(--sage)",
+    icon: "✓",
+  },
+  4: {
+    label: "Featured",
+    tooltip: "Featured — Versuz first-party pick, hand-curated.",
+    color: "var(--amber)",
+    icon: "★",
+  },
 };
 
 export function VerificationBadge({ level = 0, showLabel = false, hideUnverified = true }) {
@@ -21,7 +47,7 @@ export function VerificationBadge({ level = 0, showLabel = false, hideUnverified
 
   return (
     <span
-      title={cfg.label}
+      title={cfg.tooltip || cfg.label}
       style={{
         display: "inline-flex",
         alignItems: "center",
@@ -30,6 +56,7 @@ export function VerificationBadge({ level = 0, showLabel = false, hideUnverified
         fontSize: 11,
         color: cfg.color,
         letterSpacing: "0.06em",
+        cursor: "help",
       }}
     >
       <span
