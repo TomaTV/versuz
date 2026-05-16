@@ -8,7 +8,7 @@ export const metadata = {
     "How Versuz benchmarks AI agent skills. 30 held-out tasks, 3 frontier judges, Bayesian Elo, updated every 24 hours.",
 };
 
-export const dynamic = "force-dynamic"; // voir /about/page.js
+export const revalidate = 3600; // ISR 1h — contenu statique, voir /about/page.js
 
 const STEPS = [
   {

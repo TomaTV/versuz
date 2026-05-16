@@ -8,11 +8,11 @@ export const metadata = {
     "Versuz is a public adversarial leaderboard for AI agent skills. Built in public by FlukX Studio.",
 };
 
-// Force-dynamic defensive : la page ne fetch rien elle-même mais le layout
-// global wrap VzTicker (async Server Component qui appelle Supabase). Si
-// Supabase est down au build, le pré-render timeoutait à 60s × 3 retries.
-// Cette directive skip le pré-render pour cette page.
-export const dynamic = "force-dynamic";
+// Contenu 100% statique. ISR 1h — pré-rendu au build, regénéré max 1×/h en
+// arrière-plan. Le VzTicker du layout partage `getCurrentCycle()` qui est
+// déjà cached 60s avec timeout 5s, donc le build ne stall pas si Supabase
+// est down. Plus de force-dynamic ⇒ zéro Function Invocation par visiteur.
+export const revalidate = 3600;
 
 export default function AboutPage() {
   return (

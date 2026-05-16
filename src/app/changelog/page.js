@@ -6,7 +6,7 @@ export const metadata = {
   description: "What we've shipped on Versuz, newest first. Bugs, features, infrastructure, all in public.",
 };
 
-export const dynamic = "force-dynamic"; // voir /about/page.js
+export const revalidate = 3600; // ISR 1h — contenu statique, voir /about/page.js
 
 // Static changelog. Edit this array when you ship. Each entry can have any
 // number of bullets — keep them terse, "what changed + why" not "how".

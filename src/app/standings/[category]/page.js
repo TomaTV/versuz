@@ -9,6 +9,9 @@ import {
   getCategoryRankings,
 } from "@/lib/queries/rankings";
 
+// ISR 5min. Listing par category, pas de cookies.
+export const revalidate = 300;
+
 export async function generateMetadata({ params }) {
   const { category } = await params;
   const cats = await getRankableCategories();

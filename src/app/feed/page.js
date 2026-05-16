@@ -11,7 +11,10 @@ export const metadata = {
     "RSS feeds for the Versuz registry. Subscribe to skill or CLAUDE.md updates per category — fresh items land in your reader as soon as they hit the index.",
 };
 
-export const dynamic = "force-dynamic"; // voir /about/page.js
+// RSS readers pollent typiquement 1-2h. ISR 10min absorbe ces hits sans
+// invocation. Si Supabase down au build, la page tombe sur fixture via
+// getRankableCategories/getProjectCategories (HAS_SUPABASE fallback).
+export const revalidate = 600;
 
 const BASE = process.env.NEXT_PUBLIC_SITE_URL || "https://versuz.dev";
 

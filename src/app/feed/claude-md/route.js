@@ -81,7 +81,7 @@ ${items
   return new Response(xml, {
     headers: {
       "content-type": "application/rss+xml; charset=utf-8",
-      "cache-control": "public, max-age=600, s-maxage=1800",
+      "cache-control": "public, max-age=600, s-maxage=1800, stale-while-revalidate=86400",
     },
   });
 }

@@ -966,7 +966,13 @@ export const getCurrentCycle = unstable_cache(async () => {
   }
 
   return null;
-}, ["current-cycle"], { revalidate: CACHE_TTL_HOT, tags: ["current-cycle"] });
+}, ["current-cycle"], { revalidate: CACHE_TTL_STABLE, tags: ["current-cycle"] });
+// CACHE_TTL_STABLE (300s) au lieu de HOT (60s) : VzTicker tape ce helper
+// depuis le layout global. Sa TTL propage vers TOUTES les pages en ISR
+// — `/`, `/about`, `/faq`, `/changelog`, `/methodology`, `/pricing`,
+// `/api-docs`, `/feed`, `/status`... Bumping à 5min ⇒ 5× moins
+// d'invocations de revalidation background sur ces pages. Le ticker tolère
+// 5 min de staleness (transitions de cycle rares, 1×/jour à 06:00 UTC).
 
 /**
  * Skills list, optionally filtered by category. Quand category fournie,

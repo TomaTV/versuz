@@ -291,6 +291,12 @@ export async function GET(request) {
         { name: "Instrument Serif", data: serifItalic, weight: 400, style: "italic" },
         { name: "JetBrains Mono", data: mono, weight: 500, style: "normal" },
       ],
+      headers: {
+        // Cache 24h sur edge + 7j SWR. L'image change quotidiennement
+        // (cycle 06:00 UTC). Twitter/LinkedIn re-fetch peu fréquemment et
+        // ImageResponse fait du heavy font + JSX → tuer l'invocation/share.
+        "Cache-Control": "public, immutable, max-age=86400, s-maxage=86400, stale-while-revalidate=604800",
+      },
     }
   );
 }

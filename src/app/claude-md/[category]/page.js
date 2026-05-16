@@ -10,6 +10,10 @@ import {
 } from "@/lib/queries/rankings";
 import { judgesLabel } from "@/lib/judges";
 
+// ISR 5min. Listing par category — rankings changent au cycle daily (06:00
+// UTC), 5 min de staleness invisible. Pas de cookies dans cette page.
+export const revalidate = 300;
+
 export async function generateMetadata({ params }) {
   const { category } = await params;
   const cats = await getProjectCategories();

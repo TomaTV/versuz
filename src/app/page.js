@@ -19,11 +19,12 @@ import {
   getFeaturedItems,
 } from "@/lib/queries/rankings";
 
-// Avant : `export const revalidate = 600;` — incompatible avec
-// cacheComponents:true (Next 16.2). Le caching est maintenant déclaré
-// localement via `'use cache'` dans les helpers de `src/lib/queries/rankings.js`
-// avec `cacheLife()`. Le top-level page reste auto-cacheable tant qu'aucun
-// descendant ne lit cookies/headers directement.
+// ISR 5min. `cacheComponents` n'est pas activé (cf next.config.mjs) donc
+// le `revalidate` classique s'applique. Page la plus visitée — passer en
+// ISR shave la majorité des invocations Function. Les KPI dynamiques
+// (ranked count, ticker) sont rafraîchis par polling client côté
+// LiveStatsGrid/HeroLiveBar (déjà cached via /api/stats edge 60s).
+export const revalidate = 300;
 
 export default async function LandingPage() {
   // Fetch first wave — incl. the list of categories with ranked content

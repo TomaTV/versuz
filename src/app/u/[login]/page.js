@@ -6,7 +6,10 @@ import { VerificationBadge } from "@/components/marketplace/verification-badge";
 import { StatGrid } from "@/components/dashboard/stat-grid";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 
-export const dynamic = "force-dynamic";
+// ISR 10min. Profil public — change rarement (counts/items). Pas de
+// generateStaticParams : pre-render à la demande, puis cache. Bots SEO
+// crawlent à fond sans déclencher d'invocation après le 1er hit.
+export const revalidate = 600;
 
 export async function generateMetadata({ params }) {
   const { login } = await params;

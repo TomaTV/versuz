@@ -8,7 +8,9 @@ export const metadata = {
   description: "Live system status — bench cycle health, judge availability, scraping pipeline, registry size.",
 };
 
-export const dynamic = "force-dynamic";
+// Status page : ISR 60s. Données critiques (cycle live, providers) — 60s
+// staleness OK et bots crawlers ne peuvent plus déclencher d'invocation.
+export const revalidate = 60;
 
 const PROVIDER_KEY_VARS = {
   google: "GOOGLE_AI_STUDIO_KEY",

@@ -5,7 +5,9 @@ import { getRegistryByRepo, getAllRanksBySlug } from "@/lib/queries/rankings";
 import { BackButton } from "@/components/site/back-button";
 import { RepoSkillCard } from "@/components/repo/repo-skill-card";
 
-export const dynamic = "force-dynamic";
+// ISR 10min. Repo bundle pages — listing rarement updated entre 2 cycles
+// de scrape (daily). Cible massive de bots crawlers GitHub-pattern.
+export const revalidate = 600;
 
 export async function generateMetadata({ params }) {
   const { owner, repo } = await params;

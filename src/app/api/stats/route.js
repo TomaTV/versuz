@@ -1,12 +1,18 @@
 import { NextResponse } from "next/server";
-import { connection } from "next/server";
 import { getIndexCounts, getLeaderboardCategories } from "@/lib/queries/rankings";
 
+// Cache edge 60s + SWR 5min. Cette route est hit par DbStatusBanner (1×/page)
+// + LiveStatsGrid polling 30s + HeroLiveBar polling 60s. Sans cache, chaque
+// visiteur = N invocations/min. Avec `s-maxage=60`, ~1 invocation/min global
+// indépendamment du nb d'users → win massif Fluid Active CPU.
+//
+// Les helpers internes (getIndexCounts, getLeaderboardCategories) sont déjà
+// wrapped dans unstable_cache 300s, donc même sur cache miss edge la DB
+// hit est rare. Compte des items change de quelques unités/jour pendant le
+// scrape — 60s staleness invisible pour l'user.
+export const revalidate = 60;
+
 export async function GET() {
-  // No cache : chaque poll re-fetch la DB. `connection()` est l'API
-  // Next 16 qui remplace `export const dynamic = "force-dynamic"` sous
-  // cacheComponents — marque explicitement la route comme dynamic.
-  await connection();
   const [counts, rankedSkills, rankedClaudeMd] = await Promise.all([
     getIndexCounts(),
     getLeaderboardCategories("skill"),
@@ -25,7 +31,8 @@ export async function GET() {
     },
     {
       headers: {
-        "Cache-Control": "no-store, max-age=0",
+        // Edge cache 60s + serve-stale 5min pendant revalidation background.
+        "Cache-Control": "public, s-maxage=60, stale-while-revalidate=300",
       },
     }
   );
