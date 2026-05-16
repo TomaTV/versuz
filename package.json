@@ -48,6 +48,7 @@
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1047.0",
     "@octokit/rest": "^22.0.1",
+    "@sentry/nextjs": "^10.53.1",
     "@supabase/ssr": "^0.10.3",
     "@supabase/supabase-js": "^2.105.4",
     "@vercel/analytics": "^2.0.1",
