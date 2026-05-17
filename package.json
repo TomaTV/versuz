@@ -30,6 +30,7 @@
     "bench:seed-tasks": "node scripts/bench/seed-tasks.mjs",
     "bench:enqueue": "node scripts/bench/enqueue-cycle.mjs",
     "bench:quality": "node scripts/bench/quality-judge.mjs",
+    "bench:backfill": "node scripts/bench/backfill-judges.mjs",
     "bench:tiered": "node scripts/bench/tiered.mjs",
     "bench:full": "node scripts/bench/full.mjs",
     "pipeline:full": "node scripts/pipeline-full.mjs",

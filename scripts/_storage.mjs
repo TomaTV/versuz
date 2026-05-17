@@ -129,7 +129,18 @@ export async function fetchContentByPath(path, { timeoutMs = 8000, maxTries = 3 
         return { text, error: null };
       }
       lastErr = `storage HTTP ${res.status}`;
-      if (res.status >= 400 && res.status < 500 && res.status !== 429) break;
+      // On 4xx, peek at the response body for the real reason — Cloudflare /
+      // R2 typically embed a useful message (WAF block, bucket misconfig,
+      // rate-limit, missing key) that "storage HTTP 400" alone hides.
+      if (res.status >= 400 && res.status < 500 && res.status !== 429) {
+        try {
+          const body = (await res.text()).replace(/\s+/g, " ").slice(0, 160);
+          if (body) lastErr = `storage HTTP ${res.status} (${body})`;
+        } catch {
+          /* body unreadable — keep generic msg */
+        }
+        break;
+      }
     } catch (err) {
       clearTimeout(timer);
       lastErr = `storage fetch: ${err.code || err.name || err.message || "unknown"}`;

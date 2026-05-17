@@ -537,6 +537,11 @@ async function processKind(kind) {
   let ok = 0;
   let fail = 0;
   const localFailed = [];
+  // Storage circuit breaker : after N consecutive storage HTTP errors,
+  // bail out — the bucket / CDN is down or rate-limiting our IP. Burning
+  // 1000 lookups for 0 quality scores wastes time + Groq quota.
+  let storageFailStreak = 0;
+  const STORAGE_FAIL_THRESHOLD = Number(process.env.QUALITY_STORAGE_FAIL_THRESHOLD || 20);
 
   for (let i = 0; i < candidates.length; i++) {
     const item = candidates[i];
@@ -554,8 +559,26 @@ async function processKind(kind) {
       console.log(`SKIP (${r.error})`);
       fail += 1;
       localFailed.push({ kind, id: item.id, slug: item.slug, error: r.error });
+      // Track consecutive storage errors. A non-storage error (parse fail,
+      // model TPD, etc.) resets the streak — we only bail when the storage
+      // itself is consistently broken.
+      if (typeof r.error === "string" && r.error.startsWith("storage HTTP")) {
+        storageFailStreak += 1;
+        if (storageFailStreak >= STORAGE_FAIL_THRESHOLD) {
+          console.log(
+            `[quality-judge] storage circuit-breaker tripped — ${storageFailStreak} consecutive storage errors, aborting kind=${kind}. ` +
+              `Override with QUALITY_STORAGE_FAIL_THRESHOLD=<n> if intentional.`
+          );
+          saveCheckpoint(checkpoint.done, checkpoint.failed);
+          return { ok, fail, exhausted: false };
+        }
+      } else {
+        storageFailStreak = 0;
+      }
       continue;
     }
+    // Successful judge → reset storage streak too.
+    storageFailStreak = 0;
     try {
       await persist({ kind, item, parsed: r });
       console.log(`${r.score}`);

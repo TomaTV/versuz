@@ -34,7 +34,7 @@ import "../_env.mjs";
 import { makeSupabase, createCycle, setCycleStatus, claimJobs, markJobRunning, markJobCompleted, markJobError } from "./queue.mjs";
 import { runJob } from "./runner.mjs";
 import { loadSubject, loadTask } from "./load.mjs";
-import { pendingScoreRequests, runJudgesForOutput } from "./judge.mjs";
+import { pendingScoreRequests, pendingOrphanOutputs, runJudgesForOutput } from "./judge.mjs";
 import { ALL_FREE, JUDGE_MODE } from "../../src/lib/judges.js";
 
 function assertCostGuardrail() {
@@ -263,6 +263,48 @@ async function main() {
     console.log(
       `[bench] persisted ${totalJudged} judge scores · spent $${totalCostUsd.toFixed(4)}${budgetUsd > 0 ? ` of $${budgetUsd}` : ""}`
     );
+
+    // 5b. Orphan backfill — sweep outputs from previous cycles that have
+    // fewer than N judges (typically a judge tripped its circuit breaker
+    // mid-run and never got rerun). Bounded by remaining budget so the
+    // cycle's primary work always wins the budget. Skip when explicitly
+    // disabled or when we already blew the budget.
+    const orphansEnabled = process.env.BENCH_BACKFILL_ORPHANS !== "0";
+    const budgetLeft = budgetUsd > 0 ? budgetUsd - totalCostUsd : Infinity;
+    if (orphansEnabled && !budgetExhausted && budgetLeft > 0.0001) {
+      const orphanLimit = Number(process.env.BENCH_BACKFILL_ORPHANS_LIMIT || 200);
+      const orphans = await pendingOrphanOutputs(sb, { limit: orphanLimit });
+      if (orphans.length) {
+        console.log(
+          `[bench] orphan sweep : ${orphans.length} outputs missing ≥1 judge (limit=${orphanLimit}, budget left=$${budgetLeft.toFixed(4)})`
+        );
+        let orphanProcessed = 0;
+        let orphanJudged = 0;
+        let orphanCost = 0;
+        for (const { output_id } of orphans) {
+          if (orphanCost >= budgetLeft) {
+            console.warn(`[bench] orphan sweep budget exhausted at $${orphanCost.toFixed(4)}`);
+            break;
+          }
+          const ctx = await loadJudgeContext(sb, output_id);
+          if (!ctx) continue;
+          const r = await runJudgesForOutput(sb, output_id, ctx);
+          orphanJudged += r.judged;
+          orphanCost += Number(r.costUsd || 0);
+          orphanProcessed += 1;
+          if (orphanProcessed % 25 === 0) {
+            console.log(
+              `[bench] orphan sweep : ${orphanProcessed}/${orphans.length} · +${orphanJudged} scores · $${orphanCost.toFixed(4)}`
+            );
+          }
+        }
+        totalJudged += orphanJudged;
+        totalCostUsd += orphanCost;
+        console.log(
+          `[bench] orphan sweep done : ${orphanProcessed}/${orphans.length} outputs · +${orphanJudged} scores · $${orphanCost.toFixed(4)}`
+        );
+      }
+    }
     if (totalInputTokens > 0) {
       const hitRate = ((totalCacheRead / totalInputTokens) * 100).toFixed(1);
       // Estimate what we WOULD have paid without cache.

@@ -98,6 +98,14 @@ jobs:
           # If unset, agent auto-falls-back to Groq Llama free at runtime
           # below — never hard-fails on missing secret.
           GOOGLE_AI_STUDIO_KEY: ${{ secrets.GOOGLE_AI_STUDIO_KEY }}
+          # Cloudflare R2 — read SKILL.md / CLAUDE.md content via CDN
+          # (scripts/bench/load.mjs uses fetchContentByPath). Without these,
+          # the agent gets empty subject content → useless outputs.
+          R2_ACCOUNT_ID: ${{ secrets.R2_ACCOUNT_ID }}
+          R2_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          R2_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+          R2_BUCKET: ${{ secrets.R2_BUCKET }}
+          R2_PUBLIC_URL: ${{ secrets.R2_PUBLIC_URL }}
           BENCH_MODE: ${{ inputs.mode || 'or-v1' }}
           BENCH_BUDGET_USD: ${{ inputs.budget_usd || '1' }}
           BENCH_JUDGE_COUNT: ${{ inputs.mode == 'or-v1' && '3' || '1' }}

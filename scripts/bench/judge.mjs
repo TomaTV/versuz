@@ -52,6 +52,57 @@ export async function pendingScoreRequests(sb, cycleId) {
   return pending;
 }
 
+/**
+ * Find outputs from ANY cycle that have < N judge scores (where N is the
+ * active ensemble size). Used by the end-of-cycle backfill pass in
+ * index.mjs : when a judge tripped its circuit-breaker mid-run on a previous
+ * cycle, the orphaned (output, missing-judge) pairs accumulate. This
+ * function exposes them so the next clean cycle can pick them up.
+ *
+ *   Returns: Array<{ output_id }> (unique). Capped by `limit` to bound a
+ *   single run's blast radius (default 200 — enough to chip away at a
+ *   backlog without ballooning cost).
+ */
+export async function pendingOrphanOutputs(sb, { limit = 200 } = {}) {
+  const targetModelIds = JUDGES.map((j) => j.modelId);
+  const N = targetModelIds.length;
+
+  // Page through judge_scores (Supabase caps at ~1000 rows / response).
+  const byOutput = new Map();
+  let from = 0;
+  const PAGE = 1000;
+  while (true) {
+    const { data, error } = await sb
+      .from("judge_scores")
+      .select("output_id,judge_model")
+      .range(from, from + PAGE - 1);
+    if (error) throw error;
+    if (!data?.length) break;
+    for (const r of data) {
+      let set = byOutput.get(r.output_id);
+      if (!set) {
+        set = new Set();
+        byOutput.set(r.output_id, set);
+      }
+      set.add(r.judge_model);
+    }
+    if (data.length < PAGE) break;
+    from += PAGE;
+  }
+
+  const orphans = [];
+  for (const [output_id, judgeSet] of byOutput) {
+    // Skip outputs where every active judge already scored, OR where the
+    // existing scores are entirely from JUDGES NOT in the current ensemble
+    // (mode switched — those are legacy, leave them alone).
+    const present = targetModelIds.filter((m) => judgeSet.has(m));
+    if (present.length === 0) continue;
+    if (present.length < N) orphans.push({ output_id });
+    if (orphans.length >= limit) break;
+  }
+  return orphans;
+}
+
 function buildRubricPrompt({ subjectKind, subjectName, taskTitle, taskDescription, expectedSignal, outputText }) {
   const kind = subjectKind === "claude_md" ? "CLAUDE.md project context" : "SKILL.md agent prompt";
   // ─────────────────────────────────────────────────────────────────────────

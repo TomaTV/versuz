@@ -438,7 +438,9 @@
     "skill:6599bcf4-686d-4890-a522-fa2fb587bb39",
     "skill:65b2838b-c66c-4b09-8640-7399e7d1d14a",
     "skill:65bcb0e5-ad03-464c-b375-9f86afdfb69b",
-    "skill:65cbe075-3d59-4870-934d-b2ec08d67081"
+    "skill:65cbe075-3d59-4870-934d-b2ec08d67081",
+    "skill:c13d54ac-d23f-48bb-bb79-e78d6f7e96fb",
+    "skill:da6d2d94-cd76-46eb-89ce-100674caee9a"
   ],
   "failed": [
     {
@@ -454,6 +456,13 @@
       "slug": "ares-23247-aresweb-agents-skills-aresweb-database-management",
       "error": "ALL_MODELS_EXHAUSTED",
       "at": "2026-05-16T20:16:09.259Z"
+    },
+    {
+      "kind": "skill",
+      "id": "b4a4f3bd-0d27-4a57-a2cd-263753a968b6",
+      "slug": "freedomintelligence-openclaw-medical-skills-skills-bio-expression-matrix-counts-ingest",
+      "error": "could not parse JSON",
+      "at": "2026-05-17T18:50:51.602Z"
     }
   ]
 }

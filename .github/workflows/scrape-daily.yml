@@ -36,6 +36,15 @@ jobs:
           NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
           GITHUB_TOKENS: ${{ secrets.SCRAPE_GITHUB_TOKENS }}
+          # Cloudflare R2 — content storage (writes via S3 SDK + read URLs).
+          # Without these, uploadContentMd() falls back to Supabase Storage,
+          # which has been wiped post-migration — newly scraped items would
+          # be unreadable. ALL 5 are required for the write path.
+          R2_ACCOUNT_ID: ${{ secrets.R2_ACCOUNT_ID }}
+          R2_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          R2_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+          R2_BUCKET: ${{ secrets.R2_BUCKET }}
+          R2_PUBLIC_URL: ${{ secrets.R2_PUBLIC_URL }}
           SCRAPE_BATCH_SIZE: "10"          # flushe DB tous les 10 items
           SCRAPE_CONCURRENCY: "2"
           SCRAPE_USE_STORAGE: "1"          # write to Storage bucket directly
