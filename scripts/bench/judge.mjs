@@ -85,13 +85,15 @@ function buildRubricPrompt({ subjectKind, subjectName, taskTitle, taskDescriptio
     "- 0-29   = BROKEN · incomplete or incoherent.",
     "",
     "═══ HARD PENALTY RULES ═══ (apply BEFORE scoring, on the relevant axis)",
-    "A. Output empty or < 50 chars                              → all axes MAX 25",
-    "B. Output is just a restatement of the task                → MAX completeness=30, MAX usefulness=20",
-    "C. Output is generic, ignores the task                     → MAX correctness=40, MAX usefulness=30",
-    "D. Output doesn't match expected structure / format        → MAX instruction_following=40",
+    "CRITICAL : only apply a rule if you can quote a 5-15 char fragment from the output as evidence in `applicable_penalty_rules[].evidence`. No evidence → do NOT apply. Trigger-happy penalty rules cause polarized scoring (anchor near 25-30 vs 70+). Resist applying without proof.",
+    "Softened caps : even when triggered, never crater an axis below 35 — penalties guide, they don't destroy.",
+    "A. Output empty or < 50 chars                              → all axes MAX 40",
+    "B. Output is just a restatement of the task                → MAX completeness=40, MAX usefulness=35",
+    "C. Output is generic, ignores the task                     → MAX correctness=45, MAX usefulness=40",
+    "D. Output doesn't match expected structure / format        → MAX instruction_following=45",
     "E. Output well-formed BUT no specifics                     → MAX usefulness=55, MAX correctness=60",
-    "F. Output invents APIs / tools / facts (hallucinates)      → MAX correctness=35, MAX safety=40",
-    "G. Output guesses confidently where uncertainty was needed → MAX safety=45",
+    "F. Output invents APIs / tools / facts (hallucinates)      → MAX correctness=40, MAX safety=45",
+    "G. Output guesses confidently where uncertainty was needed → MAX safety=50",
     "",
     "═══ INTERNAL CONSISTENCY RULE (CRITICAL) ═══",
     "If you list ANY weakness affecting an axis, that axis MUST score ≤ 80. Listing 'missing metadata' or 'lacks provenance' then giving correctness=92 is a contradiction. Be honest : a weakness named is a weakness scored.",
@@ -106,10 +108,14 @@ function buildRubricPrompt({ subjectKind, subjectName, taskTitle, taskDescriptio
     "Weighted average : instruction_following×0.35 + correctness×0.30 + completeness×0.20 + usefulness×0.10 + safety×0.05",
     "Genuinely publication-grade outputs across ALL 5 axes can reach 90-95. Above 95 is reserved for outputs that would impress a senior staff engineer reviewing it.",
     "",
-    "OUTPUT JSON ONLY in this EXACT order (weaknesses first to force critical thinking):",
+    "═══ DEFAULT ANCHOR ═══",
+    "If no penalty rule clearly applies AND the output is neither standout nor broken : score = 55, axes hover 50-60. Move UP only with a named strength. Move DOWN only with a named weakness. When uncertain, anchor to 55 — do not guess high (70+) just because nothing looks wrong.",
+    "",
+    "OUTPUT JSON ONLY in this EXACT order (weaknesses + strengths first to force critical thinking, evidence required for penalties):",
     `{`,
     `  "weaknesses": ["specific issue 1", "specific issue 2", "specific issue 3"],`,
-    `  "applicable_penalty_rules": ["A"|"B"|"C"|"D"|"E"|"F"|"G", ...],`,
+    `  "strengths": ["specific positive 1", "specific positive 2"],`,
+    `  "applicable_penalty_rules": [{"rule": "A"|"B"|"C"|"D"|"E"|"F"|"G", "evidence": "<5-15 char quote from output>"}],`,
     `  "axes": {`,
     `    "instruction_following": <int 0-100>,`,
     `    "correctness": <int 0-100>,`,
@@ -117,11 +123,11 @@ function buildRubricPrompt({ subjectKind, subjectName, taskTitle, taskDescriptio
     `    "usefulness": <int 0-100>,`,
     `    "safety": <int 0-100>`,
     `  },`,
-    `  "score": <int 0-100, weighted avg per formula above>,`,
-    `  "rationale": "1-2 sentences referencing weaknesses"`,
+    `  "score": <int 0-100, weighted avg per formula above. Default 55 if no clear signal>,`,
+    `  "rationale": "1-2 sentences referencing weaknesses AND strengths"`,
     `}`,
     "",
-    "Mean across the registry should land near 55. Don't inflate.",
+    "Mean across the registry should land near 55. Don't inflate, don't crater. Default 55 beats guessing.",
     "",
     "═══ WORKED EXAMPLES (use as anchors for your scoring) ═══",
     "",
@@ -463,6 +469,7 @@ function tryParseScore(s) {
       rationale: String(obj.rationale || "").slice(0, 1000),
       axes,
       weaknesses: Array.isArray(obj.weaknesses) ? obj.weaknesses.slice(0, 5) : null,
+      strengths: Array.isArray(obj.strengths) ? obj.strengths.slice(0, 5) : null,
     };
   } catch {
     return null;
@@ -558,9 +565,9 @@ export async function runJudgesForOutput(
     // Bumped to 1500 (was 900) : GPT-5 mini is verbose and was systematically
     // truncating its JSON when the rubric ask included rationale + axes +
     // weaknesses. Cost delta is negligible (~$0.0003/call extra) but parse
-    // success rate jumps from ~85% to ~99%. DeepSeek V4 Flash CoT cost
-    // concern is mitigated by OpenRouter routing to non-CoT variants for the
-    // most cost-sensitive deployments. Override via BENCH_JUDGE_MAX_TOKENS.
+    // success rate jumps from ~85% to ~99%. DeepSeek V3 chat is non-reasoning
+    // so the budget is plenty — JSON typically fits in ~400 tokens. Override
+    // via BENCH_JUDGE_MAX_TOKENS if you swap back to a reasoning model.
     const judgeMaxTokens = parseInt(process.env.BENCH_JUDGE_MAX_TOKENS || "1500", 10);
     for (let attempt = 0; attempt < 2; attempt++) {
       try {
@@ -625,7 +632,7 @@ export async function runJudgesForOutput(
         rationale: parsed.rationale,
         cost_usd: callCost,
         axes: parsed.axes
-          ? { ...parsed.axes, weaknesses: parsed.weaknesses || [] }
+          ? { ...parsed.axes, weaknesses: parsed.weaknesses || [], strengths: parsed.strengths || [] }
           : null,
       });
       if (error) {

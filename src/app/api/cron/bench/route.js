@@ -131,11 +131,15 @@ function parseScope(scope) {
 }
 
 async function loadSubjects(sb, kind, category, limit) {
+  // bench_pending=true items get judged FIRST so user submissions don't sit
+  // for days. After that : verification_level → github_stars (tie-break).
+  // Matches the "priority queue" callout in /admin/cycles.
   if (kind === "skill") {
     const { data } = await sb
       .from("skills")
       .select("id")
       .eq("category", category)
+      .order("bench_pending", { ascending: false, nullsFirst: false })
       .order("verification_level", { ascending: false })
       .order("github_stars", { ascending: false, nullsFirst: false })
       .limit(limit);
@@ -145,6 +149,7 @@ async function loadSubjects(sb, kind, category, limit) {
     .from("claude_md_files")
     .select("id")
     .eq("project_category", category)
+    .order("bench_pending", { ascending: false, nullsFirst: false })
     .order("verification_level", { ascending: false })
     .order("github_stars", { ascending: false, nullsFirst: false })
     .limit(limit);

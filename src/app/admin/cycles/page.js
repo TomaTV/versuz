@@ -187,7 +187,7 @@ async function loadRunningCycleProgress() {
   // Pull from src/lib/judges.js PRESETS to stay in sync with the actual ensemble.
   const expectedJudgeModels = [
     "anthropic/claude-haiku-4-5",
-    "deepseek/deepseek-v4-flash",
+    "deepseek/deepseek-chat",
     "openai/gpt-5-mini",
   ];
   for (const m of expectedJudgeModels) {

@@ -44,6 +44,7 @@ function Mono({ children }) {
 // Judge model labels for display
 const JUDGE_LABELS = {
   "anthropic/claude-haiku-4-5": "Haiku 4.5",
+  "deepseek/deepseek-chat": "DeepSeek V3",
   "deepseek/deepseek-v4-flash": "DeepSeek V4 Flash",
   "openai/gpt-5-mini": "GPT-5 mini",
 };

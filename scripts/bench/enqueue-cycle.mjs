@@ -68,11 +68,14 @@ function makeSupabase() {
 }
 
 async function loadSubjects(sb, kind, category, limit) {
+  // bench_pending=true first — user submissions get judged at the next cycle
+  // instead of waiting their turn behind the verified inventory.
   if (kind === "skill") {
     let q = sb
       .from("skills")
       .select("id, slug")
       .eq("category", category)
+      .order("bench_pending", { ascending: false, nullsFirst: false })
       .order("verification_level", { ascending: false })
       .order("github_stars", { ascending: false, nullsFirst: false });
     if (limit !== "all") q = q.limit(limit);
@@ -84,6 +87,7 @@ async function loadSubjects(sb, kind, category, limit) {
     .from("claude_md_files")
     .select("id, slug")
     .eq("project_category", category)
+    .order("bench_pending", { ascending: false, nullsFirst: false })
     .order("verification_level", { ascending: false })
     .order("github_stars", { ascending: false, nullsFirst: false });
   if (limit !== "all") q = q.limit(limit);

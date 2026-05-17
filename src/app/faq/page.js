@@ -46,7 +46,7 @@ const CATEGORIES = [
         q: "How are skills ranked ?",
         a: (
           <>
-            Each skill in a category runs through the same 30-task suite (a held-out evaluation set we maintain). An agent LLM executes each task using the skill. Then 3 judge LLMs (Claude Haiku 4.5, DeepSeek V4 Flash, GPT-5 mini, configurable) independently grade each output on 5 axes : instruction-following, correctness, completeness, usefulness, safety. Weighted composite gives the final score. Full methodology at{" "}
+            Each skill in a category runs through the same 30-task suite (a held-out evaluation set we maintain). An agent LLM executes each task using the skill. Then 3 judge LLMs (Claude Haiku 4.5, DeepSeek V3, GPT-5 mini, configurable) independently grade each output on 5 axes : instruction-following, correctness, completeness, usefulness, safety. Weighted composite gives the final score. Full methodology at{" "}
             <Link href="/methodology" className="vz-link">/methodology</Link>.
           </>
         ),

@@ -71,9 +71,9 @@ On est l'équivalent **LMArena pour les skills** : transparent, indépendant, di
 - **LLM Providers** (7 modes dans [src/lib/judges.js](./src/lib/judges.js)) :
   - `dev` : 3 Groq Llama (3.3 70B + 4 Scout + 4 Maverick) — gratuit, 3000 RPD plafond
   - `v1-thrift` : DeepSeek V4 Flash agent + GPT-5 nano judge — **0.81 €/jour** (1 judge, direct keys)
-  - `v1` : DeepSeek V4 Flash agent + Haiku 4.5 + DeepSeek V4 Flash + GPT-5 mini judges — **2.50 €/jour** (3 judges, direct keys, prompt cache)
+  - `v1` : DeepSeek V4 Flash agent + Haiku 4.5 + DeepSeek V3 + GPT-5 mini judges — **2.80 €/jour** (3 judges, direct keys, prompt cache)
   - `or-thrift` : GPT-5 nano via OpenRouter — **0.86 €/jour** (1 OPENROUTER_API_KEY only)
-  - `or-v1` : Haiku 4.5 + DeepSeek V4 Flash + GPT-5 mini via OpenRouter — **2.60 €/jour** (1 OR key, DeepSeek-direct routing + prompt cache)
+  - `or-v1` : Haiku 4.5 + DeepSeek V3 + GPT-5 mini via OpenRouter — **2.90 €/jour** (1 OR key, prompt cache Anthropic only — V3 chat sans DeepSeek-direct sur OR)
   - `prod` : Opus 4.7 + Gemini 2.5 Pro free + Mistral free
   - `gold` : Opus 4.7 + GPT-5 + Gemini 2.5 Pro
 - **OpenRouter** ([scripts/bench/providers/openrouter.mjs](./scripts/bench/providers/openrouter.mjs)) — recommandé pour solo dev. Une seule key, accès à 200+ modèles, prompt caching transparent, ~5-15% markup vs direct.
@@ -384,9 +384,10 @@ Solo build par Toma (FlukX Studio). 21 ans, basé en France, expertise design + 
   content paywallé : teaser 500-char + masque gradient + CTA Buy $X pour
   `tier=premium && !owned && !authored`. Plus de fuite du contenu.
 - **Judge mode default flipped** to `or-v1` — landing page affiche
-  Haiku 4.5 + DeepSeek V4 Flash + GPT-5 mini partout. DeepSeek-direct routing
-  confirmed (provider used : DeepSeek), prompt cache hit from call 2.
-  Set `BENCH_MODE=dev` en env pour fallback Groq Llama gratuit.
+  Haiku 4.5 + DeepSeek V3 + GPT-5 mini partout. Revert V4 Flash → V3 chat
+  (mai 2026) : V4 Flash reasoning-only + reasoning désactivé pour économie tokens
+  donnait calibration polarisée (stddev 27, 46% sub-30). V3 chat = stddev 14,
+  calibration prouvée. Set `BENCH_MODE=dev` en env pour fallback Groq Llama.
 - **Marketplace UX overhaul** :
   - Filters compactés sous bouton **Refine ▾** collapsible (Tier/Trust/
     Quality/Tokens/Sort tous inside, Categories pills toujours visibles)

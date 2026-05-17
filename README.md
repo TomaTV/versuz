@@ -35,7 +35,7 @@ It's LMArena, but for agent skills.
 | **SKILL.md** files | ~2,590 | GitHub Code Search · Sourcegraph · 14 awesome-* lists · 26 GitHub Topics |
 | **CLAUDE.md** files | ~3,474 | Same pipeline |
 | **Quality-judged** | ~714 (and growing) | LLM 5-axis judge (Groq Llama / Gemini / OpenRouter) |
-| **Bench-judged Elo** | Active (cycle #21 live) | Haiku 4.5 + DeepSeek V4 Flash + GPT-5 mini via OpenRouter |
+| **Bench-judged Elo** | Active (cycle #21 live) | Haiku 4.5 + DeepSeek V3 + GPT-5 mini via OpenRouter |
 | **Categories** | 6 skill + 8 CLAUDE.md | document · sql · data · web · shell · code · nextjs · react · python-data · backend-api · mobile · devops · ml-training · generic |
 | **Official orgs flagged** | ~30 | anthropics, openai, google, vercel, stripe, supabase, etc. |
 
@@ -174,16 +174,16 @@ versuz/
 
 ## Bench cost calculator
 
-Mode `or-v1` (default) : **Haiku 4.5 + DeepSeek V4 Flash + GPT-5 mini** via OpenRouter. One key, one dashboard.
+Mode `or-v1` (default) : **Haiku 4.5 + DeepSeek V3 + GPT-5 mini** via OpenRouter. One key, one dashboard.
 
-| Scale | Outputs | Judge scores | Cost (with ~82% cache hit) |
+| Scale | Outputs | Judge scores | Cost (with ~50% cache hit on Haiku only) |
 |---|---|---|---|
-| 100 skills × 5 tasks | 500 | 1,500 | **~$1.60** |
-| 1,000 skills × 5 tasks | 5,000 | 15,000 | **~$16** |
-| **5,000 skills × 5 tasks** | 25,000 | 75,000 | **~$80** |
-| Full catalog (~5,200) | 26,000 | 78,000 | **~$83** |
+| 100 skills × 5 tasks | 500 | 1,500 | **~$1.80** |
+| 1,000 skills × 5 tasks | 5,000 | 15,000 | **~$18** |
+| **5,000 skills × 5 tasks** | 25,000 | 75,000 | **~$90** |
+| Full catalog (~5,200) | 26,000 | 78,000 | **~$94** |
 
-**Why some judges cost more** : DeepSeek V4 Flash emits internal *reasoning tokens* (Chain-of-Thought) before the JSON score. These invisible tokens are billed but not shown. A cap of 900 output tokens keeps reasoning concise without truncating the JSON. Override via `BENCH_JUDGE_MAX_TOKENS`.
+**Why DeepSeek V3 over V4 Flash** : V4 Flash is reasoning-only and we disable reasoning to save tokens, which polarized its scoring (stddev 27, 46% sub-30). V3 chat is non-reasoning by design — stable calibration (avg 57, stddev 14) for a small cost bump (~$0.20/day at 100 skills).
 
 **Optimisations available** :
 - `BENCH_JUDGE_COUNT=2` → cut judge calls by 33%, save ~$27 on 5k skills

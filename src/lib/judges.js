@@ -104,11 +104,13 @@ const PRESETS = {
       free: false,
     },
     {
-      id: "deepseek-v4-flash",
-      label: "DeepSeek V4 Flash",
-      shortLabel: "DeepSeek V4",
+      id: "deepseek-chat",
+      label: "DeepSeek V3",
+      shortLabel: "DeepSeek V3",
       provider: "deepseek",
-      modelId: "deepseek-v4-flash",
+      // Revert from V4 Flash : V4 = reasoning-only, on coupe le reasoning →
+      // calibration polarisée. V3 chat = calibration stable (avg 57, stddev 14).
+      modelId: "deepseek-chat",
       color: "var(--azure)",
       weight: 0.3,
       free: false,
@@ -159,13 +161,16 @@ const PRESETS = {
       free: false,
     },
     {
-      id: "or-deepseek-v4-flash",
-      label: "DeepSeek V4 Flash",
-      shortLabel: "DeepSeek V4",
+      id: "or-deepseek-chat",
+      label: "DeepSeek V3",
+      shortLabel: "DeepSeek V3",
       provider: "openrouter",
-      // V4 Flash = $0.14/M input (vs V3 chat $0.32/M) + cache_read at $0.0028/M
-      // (50× cheaper). V3 chat had no DeepSeek-direct routing on OR → no cache.
-      modelId: "deepseek/deepseek-v4-flash",
+      // Revert from V4 Flash (mai 2026) : V4 Flash est reasoning-only, et on
+      // coupe le reasoning pour économiser tokens → calibration polarisée
+      // (stddev 27, 46% sub-30 + 17% sup-70). V3 chat : avg 57, stddev 14,
+      // calibration prouvée sur 49 scores. Delta coût marginal ($5/mois) vs
+      // un judge stable. Cache moins agressif sur OR mais on est à 1% du cap.
+      modelId: "deepseek/deepseek-chat",
       color: "var(--azure)",
       weight: 0.3,
       free: false,

@@ -14,8 +14,8 @@ Tailwind v4 dans `src/app/globals.css` via `@theme inline`.
 Marketplace-first, judging-second. Versuz est une marketplace de SKILL.md et
 CLAUDE.md, avec vérification progressive (5 niveaux), modèle commercial
 3 tiers (free / premium / featured), et bench engine 3-judge (Haiku 4.5 +
-DeepSeek V4 Flash + GPT-5 mini via OpenRouter, `BENCH_MODE=or-v1`,
-~2.60 €/jour @ 100 skills).
+DeepSeek V3 + GPT-5 mini via OpenRouter, `BENCH_MODE=or-v1`,
+~2.90 €/jour @ 100 skills).
 
 DB scale : ~100k items au launch (skills + claude_md). Marketplace paginé
 server-side via `getPaginatedItems(kind, params)` ([src/lib/queries/rankings.js](./src/lib/queries/rankings.js))
@@ -141,9 +141,9 @@ Single source of truth : `src/lib/judges.js`. UI copy lit `JUDGES`/`judgesLabel(
 jamais hardcode.
 
 - `dev` — 3 Groq Llama free (3000 RPD). Défaut local.
-- `or-v1` — Haiku 4.5 + DeepSeek V4 Flash + GPT-5 mini via OpenRouter,
-  ~$2.85/jour. **Recommandé V1**.
-- `v1` — direct keys, mêmes 3 judges, ~$2.72/jour.
+- `or-v1` — Haiku 4.5 + DeepSeek V3 + GPT-5 mini via OpenRouter,
+  ~$2.90/jour. **Recommandé V1**.
+- `v1` — direct keys, mêmes 3 judges, ~$2.80/jour.
 - `or-thrift` / `v1-thrift` — single judge ~$0.86/jour.
 - `prod` — Opus + Gemini Pro free + Mistral free, ~$3/jour.
 - `gold` — Opus + GPT-5 + Gemini Pro, ~$10/jour. Championship cycles.
