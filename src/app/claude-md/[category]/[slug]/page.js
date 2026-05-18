@@ -9,9 +9,21 @@ import { getClaudeMdBySlug, getRegistryByRepo } from "@/lib/queries/rankings";
 import { approximateTokens, formatTokenCount } from "@/lib/utils";
 import { EmbedBadgeBlock } from "@/components/embed-badge-block";
 import { CopyContentButton } from "@/components/copy-content-button";
-import { getCurrentUser } from "@/lib/auth/server";
-import { getOwnedSlugs, getAuthoredSlugs } from "@/lib/purchases/server";
 import { RepoBundleCallout } from "@/components/site/repo-bundle-callout";
+import {
+  ClaudeMdFreeContentBlock,
+  ClaudeMdPremiumContentBlock,
+} from "@/components/claude-md/premium-content-block";
+
+// ISR 1h. La page ne lit plus de cookies au top-level (mai 2026 refactor,
+// suit le même pattern que /skills/[slug]) : le bloc paywalled / download
+// signed URL est un Client Component (<ClaudeMdPremiumContentBlock>) qui
+// fetch /api/v1/me/skill-context?kind=claude_md après hydratation. Du coup
+// `revalidate` reprend du sens et le shell peut être pre-rendered + cached.
+//
+// Avant : Vercel Speed Insights score 35 (Poor) car chaque request était
+// dynamic (cookies au top-level). Après : shell statique servi via ISR.
+export const revalidate = 3600;
 
 export async function generateMetadata({ params }) {
   const { slug } = await params;
@@ -54,10 +66,12 @@ export default async function ClaudeMdDetailPage({ params }) {
   const license = meta.license;
   const language = meta.language;
 
-  const [user, repoRegistry] = await Promise.all([
-    getCurrentUser(),
-    meta.owner && meta.repo ? getRegistryByRepo(meta.owner, meta.repo) : Promise.resolve(null),
-  ]);
+  // Top-level fetches : pas de lecture cookies pour préserver l'ISR. Les
+  // données user-conditional (owned/authored/premium signed URL) sont
+  // récupérées côté client via /api/v1/me/skill-context?kind=claude_md,
+  // voir <ClaudeMdPremiumContentBlock>.
+  const repoRegistry =
+    meta.owner && meta.repo ? await getRegistryByRepo(meta.owner, meta.repo) : null;
   const repoBundleHref =
     repoRegistry &&
     repoRegistry.skills.length + repoRegistry.claudeMds.length > 1 &&
@@ -66,18 +80,7 @@ export default async function ClaudeMdDetailPage({ params }) {
       ? `/repo/${encodeURIComponent(meta.owner)}/${encodeURIComponent(meta.repo)}`
       : null;
 
-  // Premium gating : check ownership / authorship before exposing full content
   const isPremium = detail.tier && detail.tier !== "free";
-  let isOwned = false;
-  let isAuthored = false;
-  if (user) {
-    const [owned, authored] = await Promise.all([
-      getOwnedSlugs(user.id),
-      getAuthoredSlugs(user.id),
-    ]);
-    isOwned = owned.claudeMds.has(slug);
-    isAuthored = authored.claudeMds.has(slug);
-  }
 
   const statCells = [];
   if (detail.stars != null && Number(detail.stars) > 0) {
@@ -487,103 +490,20 @@ export default async function ClaudeMdDetailPage({ params }) {
           />
         </div>
 
-        {detail.content && (
-          isPremium && !isOwned && !isAuthored ? (
-            // Paywalled preview : 500-char teaser with mask gradient
-            <div
-              style={{
-                marginTop: 32,
-                border: "1px dashed var(--accent)",
-                background: "var(--accent-soft)",
-                padding: "20px 24px",
-              }}
-            >
-              <div
-                style={{
-                  fontFamily: "var(--font-mono)",
-                  fontSize: 11,
-                  color: "var(--accent)",
-                  letterSpacing: "0.18em",
-                  textTransform: "uppercase",
-                  marginBottom: 12,
-                }}
-              >
-                🔒 Preview · paywalled
-              </div>
-              <pre
-                style={{
-                  margin: 0,
-                  fontFamily: "var(--font-mono)",
-                  fontSize: 12,
-                  lineHeight: 1.55,
-                  color: "var(--fg)",
-                  whiteSpace: "pre-wrap",
-                  wordBreak: "break-word",
-                  maxHeight: 200,
-                  overflow: "hidden",
-                  maskImage: "linear-gradient(to bottom, black 60%, transparent 100%)",
-                  WebkitMaskImage: "linear-gradient(to bottom, black 60%, transparent 100%)",
-                }}
-              >
-                {(detail.content || "").slice(0, 500)}
-              </pre>
-              <p
-                style={{
-                  margin: "16px 0 0",
-                  fontFamily: "var(--font-sans)",
-                  fontSize: 13,
-                  color: "var(--fg-muted)",
-                  lineHeight: 1.5,
-                }}
-              >
-                The full CLAUDE.md ({formatTokenCount(approximateTokens(detail.content))} tokens) unlocks after purchase.
-                Use <strong style={{ color: "var(--accent)" }}>Buy ${detail.priceUsd}</strong> on the order page to checkout via Stripe.
-              </p>
-            </div>
+        {detail.content &&
+          (isPremium ? (
+            <ClaudeMdPremiumContentBlock
+              slug={detail.slug}
+              teaser={(detail.content || "").slice(0, 500)}
+              tokenCount={formatTokenCount(approximateTokens(detail.content))}
+              priceUsd={detail.priceUsd}
+            />
           ) : (
-            <details
-              style={{
-                marginTop: 32,
-                border: "1px solid var(--rule)",
-                background: "var(--surface)",
-              }}
-            >
-              <summary
-                style={{
-                  padding: "16px 24px",
-                  cursor: "pointer",
-                  fontFamily: "var(--font-mono)",
-                  fontSize: 12,
-                  color: "var(--fg-muted)",
-                  letterSpacing: "0.06em",
-                  userSelect: "none",
-                }}
-              >
-                Show CLAUDE.md content (~{formatTokenCount(approximateTokens(detail.content))} tokens)
-              </summary>
-              <div style={{ position: "relative" }}>
-                <CopyContentButton text={detail.content} label="Copy CLAUDE.md" />
-                <pre
-                  style={{
-                    margin: 0,
-                    padding: 24,
-                    borderTop: "1px solid var(--rule)",
-                    maxHeight: 600,
-                    overflow: "auto",
-                    fontFamily: "var(--font-mono)",
-                    fontSize: 12,
-                    lineHeight: 1.55,
-                    color: "var(--fg)",
-                    whiteSpace: "pre-wrap",
-                    wordBreak: "break-word",
-                  }}
-                >
-                  {detail.content}
-                </pre>
-              </div>
-            </details>
-          )
-        )}
+            <ClaudeMdFreeContentBlock
+              content={detail.content}
+              tokenCount={formatTokenCount(approximateTokens(detail.content))}
+            />
+          ))}
       </Section>
     </div>
   );
