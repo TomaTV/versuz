@@ -13,10 +13,15 @@ name: Bench runner
 
 on:
   schedule:
-    # Drain toutes les 4h (mai 2026) au lieu de 1×/jour. Cycles créés par
-    # /api/cron/bench à 04:00 UTC sont picked up dans <4h max (vs 23h avant).
-    # Reste largement sous le BENCH_BUDGET_USD cap mensuel grâce au $1/run.
-    - cron: "0 */4 * * *"
+    # 04:30 UTC daily — 30 min après le Vercel cron `/api/cron/bench`
+    # (04:00 UTC) qui enqueue les 14 scopes. Aligner les 2 cadences évite
+    # 5 runs/jour qui tournaient à vide ("no queued cycle found").
+    #
+    # Pour manual dispatch / catch-up : workflow_dispatch en bas reste
+    # disponible. Latence max pour un enqueue manuel = 24h (acceptable —
+    # l'utilisateur peut aussi déclencher ce workflow manuellement après
+    # son enqueue).
+    - cron: "30 4 * * *"
   workflow_dispatch:
     inputs:
       mode:
