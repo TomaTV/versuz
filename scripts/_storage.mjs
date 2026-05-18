@@ -11,7 +11,7 @@
  * same path shape.
  */
 
-import { S3Client, PutObjectCommand } from "@aws-sdk/client-s3";
+import { S3Client, PutObjectCommand, GetObjectCommand } from "@aws-sdk/client-s3";
 
 const SUPABASE_BUCKET = "content";
 const R2_BUCKET = process.env.R2_BUCKET || "versuz-content";
@@ -108,12 +108,46 @@ export function publicContentUrl(path) {
 }
 
 /**
- * Fetch markdown content from the active storage backend (R2 or Supabase).
+ * Fetch markdown content from the active storage backend.
+ *
+ * When R2 credentials are present, reads via the S3 API directly
+ * (`*.r2.cloudflarestorage.com`) instead of the public CDN. This bypasses
+ * Cloudflare Bot Fight Mode / WAF challenges that block GitHub Actions
+ * runner IPs (datacenter AWS) — those return HTTP 403 with a "Just a
+ * moment..." JS challenge page that no Node script can solve.
+ *
+ * Falls back to public URL fetch when no R2 creds (e.g. Supabase Storage
+ * backend or pure read-only env).
+ *
  * Returns `{ text, error }`. Retries up to 3× with exponential backoff for
  * transient 5xx/network errors. Permanent 4xx (except 429) breaks the chain.
  */
 export async function fetchContentByPath(path, { timeoutMs = 8000, maxTries = 3 } = {}) {
   if (!path) return { text: null, error: "no content_path" };
+
+  // Preferred path : signed S3 GET when R2 creds are present. No CDN, no WAF.
+  if (r2Enabled()) {
+    let lastErr = null;
+    for (let attempt = 1; attempt <= maxTries; attempt++) {
+      try {
+        const res = await getR2().send(
+          new GetObjectCommand({ Bucket: R2_BUCKET, Key: path }),
+          { abortSignal: AbortSignal.timeout(timeoutMs) }
+        );
+        const text = await res.Body.transformToString("utf-8");
+        return { text, error: null };
+      } catch (err) {
+        const code = err?.$metadata?.httpStatusCode;
+        const name = err?.name || err?.Code || "unknown";
+        lastErr = `r2 s3 ${name}${code ? ` (${code})` : ""}: ${(err?.message || "").slice(0, 120)}`;
+        if (code === 404 || name === "NoSuchKey") break; // permanent miss
+        if (attempt < maxTries) await new Promise((r) => setTimeout(r, 800 * attempt));
+      }
+    }
+    return { text: null, error: lastErr };
+  }
+
+  // Fallback : public CDN fetch (Supabase Storage path, or R2 read-only env).
   const url = publicContentUrl(path);
   if (!url) return { text: null, error: "no storage backend configured" };
 
@@ -129,9 +163,6 @@ export async function fetchContentByPath(path, { timeoutMs = 8000, maxTries = 3 
         return { text, error: null };
       }
       lastErr = `storage HTTP ${res.status}`;
-      // On 4xx, peek at the response body for the real reason — Cloudflare /
-      // R2 typically embed a useful message (WAF block, bucket misconfig,
-      // rate-limit, missing key) that "storage HTTP 400" alone hides.
       if (res.status >= 400 && res.status < 500 && res.status !== 429) {
         try {
           const body = (await res.text()).replace(/\s+/g, " ").slice(0, 160);

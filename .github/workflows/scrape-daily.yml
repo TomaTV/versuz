@@ -52,11 +52,15 @@ jobs:
         run: |
           MODE="${{ inputs.mode || 'all' }}"
           echo "Running scrape mode=$MODE with SCRAPE_MAX_NEW=$SCRAPE_MAX_NEW"
+          # Daily default = `max` (40 sub-queries × 2 kinds via scrape:max).
+          # Le mode `all` plafonnait à ~80 nouveaux items/jour parce que les
+          # queries GitHub renvoyaient majoritairement du dédup. `max` tient
+          # dans le timeout 50min et 3-5× la coverage.
           case "$MODE" in
             max)        npm run scrape:max ;;
-            all)        npm run scrape ;;             # unified scraper, all sources serial — default
+            all)        npm run scrape:max ;;         # default daily = max (was: scrape)
             codesearch) npm run scrape:codesearch ;;
-            *)          npm run scrape ;;
+            *)          npm run scrape:max ;;
           esac
 
       - name: Backfill byte counts

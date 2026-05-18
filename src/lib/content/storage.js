@@ -62,7 +62,12 @@ export async function fetchContentByPath(path) {
   const ctrl = new AbortController();
   const timer = setTimeout(() => ctrl.abort(), 5000);
   try {
-    const res = await fetch(url, { cache: "no-store", signal: ctrl.signal });
+    // R2 objects are uploaded with `Cache-Control: public, max-age=31536000,
+    // immutable`. Letting Next.js Data Cache hold the body means a hot detail
+    // page (ISR) doesn't burn a Function-side fetch on every render — Vercel
+    // serves the cached body. Was `no-store` historically, which forced a
+    // round-trip per invocation. Killed during May 2026 free-tier optimisation.
+    const res = await fetch(url, { signal: ctrl.signal });
     if (!res.ok) return null;
     return await res.text();
   } catch {
