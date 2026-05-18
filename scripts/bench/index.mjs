@@ -385,22 +385,56 @@ async function main() {
       console.warn(`[bench] refresh_rankings threw: ${e.message}`);
     }
 
+    // Persisted-cost reconciliation : le local `totalCostUsd` n'inclut que
+    // les judges runs CE process. Si le cycle est resumé après un timeout
+    // (workflow GH Actions = 50 min hard cap, mais certains cycles prennent
+    // 9h+), `totalCostUsd` peut être 0 alors que les judge_scores en DB ont
+    // accumulé du coût réel sur des runs précédents. On agrège donc le coût
+    // depuis la source de vérité (`judge_scores.cost_usd`) plutôt que de
+    // s'appuyer sur le compteur in-memory.
+    const persistedCost = await fetchPersistedCostForCycle(sb, cycle.id);
+    const finalCost = Math.max(Number(persistedCost) || 0, totalCostUsd);
+    const roundedCost = Math.round(finalCost * 10000) / 10000;
+
     if (budgetExhausted) {
       await setCycleStatus(sb, cycle.id, "partial", {
-        actual_cost_usd: Math.round(totalCostUsd * 10000) / 10000,
-        metadata: { reason: "budget_exhausted", spent_usd: totalCostUsd, budget_usd: budgetUsd },
+        actual_cost_usd: roundedCost,
+        metadata: { reason: "budget_exhausted", spent_usd: finalCost, budget_usd: budgetUsd },
       });
       console.log(`[bench] cycle #${cycle.id} marked PARTIAL — re-run with higher BENCH_BUDGET_USD to continue`);
     } else {
       await setCycleStatus(sb, cycle.id, "completed", {
-        actual_cost_usd: Math.round(totalCostUsd * 10000) / 10000,
+        actual_cost_usd: roundedCost,
       });
-      console.log(`[bench] cycle #${cycle.id} complete · cost $${totalCostUsd.toFixed(4)}`);
+      console.log(`[bench] cycle #${cycle.id} complete · cost $${finalCost.toFixed(4)} (in-memory=$${totalCostUsd.toFixed(4)}, persisted=$${Number(persistedCost).toFixed(4)})`);
     }
   } catch (err) {
     await setCycleStatus(sb, cycle.id, "failed", { metadata: { error: err.message } });
     throw err;
   }
+}
+
+/**
+ * Aggregate the actual cost paid for every judge call inside a given cycle.
+ * Used at cycle completion to reconcile `cycles.actual_cost_usd` when the
+ * in-memory counter is stale (e.g. on a resumed cycle where prior judges
+ * ran in a different process).
+ *
+ * The query walks `run_jobs → output_id → judge_scores.cost_usd`.
+ */
+async function fetchPersistedCostForCycle(sb, cycleId) {
+  const { data: jobs } = await sb
+    .from("run_jobs")
+    .select("output_id")
+    .eq("cycle_id", cycleId)
+    .not("output_id", "is", null);
+  const outputIds = [...new Set((jobs || []).map((j) => j.output_id))];
+  if (!outputIds.length) return 0;
+  const { data: scores } = await sb
+    .from("judge_scores")
+    .select("cost_usd")
+    .in("output_id", outputIds);
+  return (scores || []).reduce((sum, s) => sum + Number(s.cost_usd || 0), 0);
 }
 
 /**
