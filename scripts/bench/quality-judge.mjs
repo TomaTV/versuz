@@ -87,11 +87,22 @@ const FALLBACK_CHAINS = {
   // Combined with Groq → ~6-8k effective RPD at $0. Default
   // `--fallback-provider=openrouter-free` is the recommended way to
   // extend daily capacity for free.
+  //
+  // Refresh mai 2026 : les anciens free models (gemini-2.0-flash-exp,
+  // deepseek-chat-v3-0324, llama-3.3-70b-instruct, qwen-2.5-72b) ont
+  // tous été retirés du free tier OpenRouter (404 "No endpoints found").
+  // Liste régénérée depuis https://openrouter.ai/api/v1/models.
+  //
+  // ⚠ Évite les modèles "thinking/reasoning" (nemotron-reasoning,
+  // arcee/trinity-thinking) — ils injectent une chain-of-thought avant
+  // la réponse, ce qui casse `parseJsonish()` qui attend du strict JSON.
+  // Garde instruct-tuned only.
   "openrouter-free": [
-    "google/gemini-2.0-flash-exp:free",
-    "deepseek/deepseek-chat-v3-0324:free",
-    "meta-llama/llama-3.3-70b-instruct:free",
-    "qwen/qwen-2.5-72b-instruct:free",
+    "deepseek/deepseek-v4-flash:free",
+    "google/gemma-4-31b-it:free",
+    "google/gemma-4-26b-a4b-it:free",
+    "baidu/cobuddy:free",
+    "poolside/laguna-m.1:free",
   ],
 };
 
