@@ -3,18 +3,15 @@ name: Quality judge
 # Run the LLM-rated quality judge across the catalog. Each item gets a
 # 5-axis score (clarity / specificity / completeness / structure / usefulness).
 #
-# Provider chain (mai 2026 v2) :
-#   primary   : openrouter-free (4 models, separate per-model RPD)
-#               gemini-2.0-flash-exp:free + deepseek-chat-v3:free +
-#               llama-3.3-70b:free + qwen-2.5-72b:free
-#   fallback  : groq (4 models : gpt-oss-120b/20b, llama-3.3-70b,
-#               llama-4-scout)
+# Provider chain (mai 2026 v3) :
+#   primary   : openrouter-free (10 models, less-saturated picks first)
+#   fallback  : groq (gpt-oss-120b/20b, llama-3.3-70b, llama-4-scout)
 #
-# Pourquoi le switch : Groq seul plafonnait à ~150-500 items/jour
-# malgré le `--limit=50000` (rate-limit TPM agressif + retry overhead).
-# OpenRouter-free a 4 modèles avec quotas séparés, total ~4k RPD à $0.
-# Combiné avec Groq en fallback → ~8k effective RPD daily. Vise drain
-# du backlog 91k unjudged en ~2 semaines au lieu d'un an.
+# OR `:free` tier is a GLOBALLY pooled bucket → expect 429s constant
+# on the popular IDs. Single source of truth for the model list is in
+# scripts/bench/quality-judge.mjs `FALLBACK_CHAINS`. Free-tier retry
+# budget is tight (1 attempt, 8s wait) so a busy model rotates out fast
+# enough that Groq fallback is reached well before the 55min timeout.
 #
 # Strategy : drain as many unjudged items as the timeout allows per run,
 # multiple runs per day to chip away at the backlog quickly.

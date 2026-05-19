@@ -83,26 +83,30 @@ const FALLBACK_CHAINS = {
     "mistralai/mistral-small-3.1-24b-instruct",
     "openai/gpt-5-nano",
   ],
-  // OpenRouter FREE chain — zero cost, separate per-model daily quotas.
-  // Combined with Groq → ~6-8k effective RPD at $0. Default
-  // `--fallback-provider=openrouter-free` is the recommended way to
-  // extend daily capacity for free.
+  // OpenRouter FREE chain — zero cost, but `:free` tier is a GLOBAL pool
+  // shared across all OpenRouter users → 429 constant on the popular IDs
+  // (deepseek, gemma). Wider rotation = lower collision probability since
+  // each `:free` model still has its own per-model bucket.
   //
-  // Refresh mai 2026 : les anciens free models (gemini-2.0-flash-exp,
-  // deepseek-chat-v3-0324, llama-3.3-70b-instruct, qwen-2.5-72b) ont
-  // tous été retirés du free tier OpenRouter (404 "No endpoints found").
-  // Liste régénérée depuis https://openrouter.ai/api/v1/models.
+  // Order : less-saturated picks first (coding/specialist models, GLM,
+  // Hermes, NVIDIA Nemotron) → headline models last (deepseek-flash,
+  // gemma) which are pounded by the OR community.
   //
-  // ⚠ Évite les modèles "thinking/reasoning" (nemotron-reasoning,
-  // arcee/trinity-thinking) — ils injectent une chain-of-thought avant
-  // la réponse, ce qui casse `parseJsonish()` qui attend du strict JSON.
-  // Garde instruct-tuned only.
+  // List regenerated from https://openrouter.ai/api/v1/models (mai 2026).
+  //
+  // ⚠ Évite les modèles "thinking/reasoning" — ils injectent une CoT
+  // preamble qui casse `parseJsonish()` (strict JSON). Instruct-tuned only.
   "openrouter-free": [
-    "deepseek/deepseek-v4-flash:free",
+    "qwen/qwen3-coder:free",
+    "z-ai/glm-4.5-air:free",
+    "openai/gpt-oss-120b:free",
+    "openai/gpt-oss-20b:free",
+    "qwen/qwen3-next-80b-a3b-instruct:free",
+    "nousresearch/hermes-3-llama-3.1-405b:free",
+    "meta-llama/llama-3.3-70b-instruct:free",
+    "minimax/minimax-m2.5:free",
     "google/gemma-4-31b-it:free",
-    "google/gemma-4-26b-a4b-it:free",
-    "baidu/cobuddy:free",
-    "poolside/laguna-m.1:free",
+    "deepseek/deepseek-v4-flash:free",
   ],
 };
 
@@ -113,6 +117,10 @@ let exhaustedModels;
 let rrCursor;
 let REQUIRED_KEY;
 let THROTTLE_MS;
+// Free-tier OR pool is shared globally → 429 sticky. Tighter retry budget
+// so a busy model exhausts in ~10s instead of ~90s, leaving the workflow
+// time to fall through to Groq before its 55min timeout.
+let IS_FREE_TIER;
 
 function configureProvider(name) {
   const chain = FALLBACK_CHAINS[name];
@@ -124,6 +132,7 @@ function configureProvider(name) {
   const realProvider = name === "openrouter-free" ? "openrouter" : name;
   PROVIDER = realProvider;
   PROVIDER_CHAIN = chain;
+  IS_FREE_TIER = name === "openrouter-free";
   MODELS = (() => {
     if (modelArg) return modelArg.split(",").map((s) => s.trim()).filter(Boolean);
     if (process.env.QUALITY_JUDGE_MODELS) return process.env.QUALITY_JUDGE_MODELS.split(",").map((s) => s.trim()).filter(Boolean);
@@ -194,8 +203,12 @@ async function callProviderRaw(opts) {
  * should stop the run gracefully — re-run tomorrow when daily quota resets.
  */
 async function callProvider(opts) {
-  const MAX_RETRIES_PER_MODEL = 3;
-  const MAX_NETWORK_RETRIES = 2;
+  // Free-tier OR pool is shared globally → retrying the same 429'd model is
+  // almost never productive. Burn through fast (1 short retry) and rotate
+  // to the next ID. Paid tiers / dedicated free tiers (Groq) keep the
+  // original generous budget.
+  const MAX_RETRIES_PER_MODEL = IS_FREE_TIER ? 1 : 3;
+  const MAX_NETWORK_RETRIES = IS_FREE_TIER ? 0 : 2;
   while (true) {
     const modelId = pickModel();
     if (!modelId) {
@@ -256,7 +269,9 @@ async function callProvider(opts) {
         // Try to extract "Please try again in 12.34s" hint
         const m = msg.match(/try again in ([\d.]+)\s*s/i);
         const hintMs = m ? Math.min(Math.max(parseFloat(m[1]) * 1000 + 500, 5000), 65000) : 0;
-        const waitMs = hintMs || Math.min(15000 * (attempt + 1), 65000);
+        // Free-tier 429s rarely clear within seconds (pool is global) →
+        // 8s short wait then rotate. Paid/Groq backoff stays aggressive.
+        const waitMs = hintMs || (IS_FREE_TIER ? 8000 : Math.min(15000 * (attempt + 1), 65000));
         console.warn(`  ↳ ${modelId} 429 (TPM/RPM), sleeping ${(waitMs / 1000).toFixed(0)}s (attempt ${attempt + 1}/${MAX_RETRIES_PER_MODEL})`);
         await new Promise((r) => setTimeout(r, waitMs));
       }
