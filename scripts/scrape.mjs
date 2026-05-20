@@ -124,6 +124,22 @@ function runAdapter(adapter, opts) {
   });
 }
 
+// ─── Soft deadline ───────────────────────────────────────────────────────
+// SCRAPE_DEADLINE_MS = budget total avant exit 0 propre. Évite que GitHub
+// Actions kill le job (status `cancelled` rouge) quand `scrape:max` dépasse
+// les 50min du timeout-minutes. Adapters héritent de l'env → ils peuvent
+// checker le même budget pour stopper leurs boucles internes.
+const SCRAPE_DEADLINE_MS = Number(process.env.SCRAPE_DEADLINE_MS) || 0;
+const SCRAPE_DEADLINE_AT = SCRAPE_DEADLINE_MS > 0 ? Date.now() + SCRAPE_DEADLINE_MS : 0;
+if (SCRAPE_DEADLINE_AT) {
+  // Re-export deadline absolu pour que les scripts enfants l'utilisent même
+  // si SCRAPE_DEADLINE_MS a été partiellement consommé par le parent.
+  process.env.SCRAPE_DEADLINE_AT = String(SCRAPE_DEADLINE_AT);
+}
+function deadlineReached() {
+  return SCRAPE_DEADLINE_AT > 0 && Date.now() >= SCRAPE_DEADLINE_AT;
+}
+
 // ─── Main ───────────────────────────────────────────────────────────────
 async function main() {
   const opts = parseArgs();
@@ -132,12 +148,21 @@ async function main() {
   console.log(
     `\n[scrape] source=${opts.source} · kind=${opts.kind}${opts.max ? " · max" : ""}\n`
   );
+  if (SCRAPE_DEADLINE_AT) {
+    const mins = (SCRAPE_DEADLINE_MS / 60000).toFixed(1);
+    console.log(`[scrape] soft deadline : ${mins} min from now (exit 0 if exceeded)`);
+  }
   console.log(`[scrape] will run ${adapters.length} adapter(s) serially :`);
   for (const a of adapters) console.log(`  · ${a.label}`);
   console.log();
 
   const results = [];
   for (const adapter of adapters) {
+    if (deadlineReached()) {
+      console.log(`\n[scrape] deadline reached — skipping ${adapter.label} (next cron picks up via skip-by-known)`);
+      results.push({ adapter, code: 0, elapsed: 0, skipped: true });
+      continue;
+    }
     console.log(`\n━━━━━ ${adapter.label} ━━━━━`);
     const r = await runAdapter(adapter, opts);
     results.push(r);
@@ -150,7 +175,7 @@ async function main() {
 
   console.log(`\n[scrape] ━━━━━ SUMMARY ━━━━━`);
   for (const r of results) {
-    const status = r.code === 0 ? "✓" : `✗ exit ${r.code}`;
+    const status = r.skipped ? "⊘ skipped (deadline)" : r.code === 0 ? "✓" : `✗ exit ${r.code}`;
     console.log(`  ${status}  ${r.adapter.label} · ${r.elapsed}s`);
   }
 }

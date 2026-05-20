@@ -67,6 +67,11 @@ jobs:
           R2_BUCKET: ${{ secrets.R2_BUCKET }}
           R2_PUBLIC_URL: ${{ secrets.R2_PUBLIC_URL }}
           QUALITY_CONCURRENCY: "8"
+          # Soft deadline 48 min → sort en exit 0 avant le timeout 55 min de
+          # GH Actions. Quand un provider stalle (network hang) ou que la liste
+          # de candidates est très longue, ça évite le status `cancelled` rouge.
+          # Le checkpoint reprend la suite au prochain run (toutes les 4h).
+          QUALITY_DEADLINE_MS: "2880000"
         run: |
           LIMIT="${{ inputs.limit || '50000' }}"
           KIND="${{ inputs.kind || 'both' }}"

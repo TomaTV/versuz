@@ -623,13 +623,28 @@ async function main() {
   const totals = { kept: 0, skipped: 0, errors: 0 };
 
   if (args.mode === "exhaustive") {
-    console.log(`[codesearch] EXHAUSTIVE mode : ${EXHAUSTIVE_QUERIES.length} sub-queries × ${kinds.length} kind(s) = ${EXHAUSTIVE_QUERIES.length * kinds.length} passes`);
+    // Soft deadline (injecté par scrape.mjs orchestrateur via env). Quand
+    // atteint, on break entre passes pour exit 0 propre — le prochain cron
+    // reprend là où on s'est arrêtés grâce à skip-by-known.
+    const deadlineAt = Number(process.env.SCRAPE_DEADLINE_AT) || 0;
+    const totalPasses = EXHAUSTIVE_QUERIES.length * kinds.length;
+    console.log(`[codesearch] EXHAUSTIVE mode : ${EXHAUSTIVE_QUERIES.length} sub-queries × ${kinds.length} kind(s) = ${totalPasses} passes`);
+    if (deadlineAt) {
+      const minsLeft = Math.max(0, ((deadlineAt - Date.now()) / 60000)).toFixed(1);
+      console.log(`[codesearch] honoring soft deadline : ${minsLeft} min remaining`);
+    }
     let passNum = 0;
-    for (const q of EXHAUSTIVE_QUERIES) {
+    let stoppedEarly = false;
+    outer: for (const q of EXHAUSTIVE_QUERIES) {
       for (const kind of kinds) {
+        if (deadlineAt && Date.now() >= deadlineAt) {
+          console.log(`\n[codesearch] deadline reached at pass ${passNum}/${totalPasses} — stopping exhaustive loop (exit 0)`);
+          stoppedEarly = true;
+          break outer;
+        }
         passNum += 1;
         console.log("");
-        console.log(`[codesearch] ━━━ PASS ${passNum}/${EXHAUSTIVE_QUERIES.length * kinds.length} · kind=${kind} · query="${q || "(no filter)"}" ━━━`);
+        console.log(`[codesearch] ━━━ PASS ${passNum}/${totalPasses} · kind=${kind} · query="${q || "(no filter)"}" ━━━`);
         try {
           const r = await processKind({ kind, args: { ...args, query: q || "" }, sb, octokit });
           totals.kept += r.kept;
@@ -640,6 +655,9 @@ async function main() {
           totals.errors += 1;
         }
       }
+    }
+    if (stoppedEarly) {
+      console.log(`[codesearch] completed ${passNum}/${totalPasses} passes before deadline`);
     }
   } else {
     for (const kind of kinds) {

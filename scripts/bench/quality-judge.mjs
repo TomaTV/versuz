@@ -47,6 +47,17 @@ const REJUDGE = args.has("--rejudge");
 
 const KINDS = kindArg ? [kindArg] : ["skill", "claude_md"];
 const LIMIT = limitArg ? parseInt(limitArg, 10) : 1000;
+
+// Soft deadline (ms from now). Quand atteint, on stoppe la boucle entre 2
+// items pour exit 0 propre — sinon le GH workflow kill au timeout-minutes
+// et affiche `cancelled` rouge même si on a judgé 60+ items. Le checkpoint
+// est sauvegardé tous les 25 items donc le prochain run reprend où on s'est
+// arrêtés.
+const QUALITY_DEADLINE_MS = Number(process.env.QUALITY_DEADLINE_MS) || 0;
+const QUALITY_DEADLINE_AT = QUALITY_DEADLINE_MS > 0 ? Date.now() + QUALITY_DEADLINE_MS : 0;
+function qualityDeadlineReached() {
+  return QUALITY_DEADLINE_AT > 0 && Date.now() >= QUALITY_DEADLINE_AT;
+}
 const INITIAL_PROVIDER = (providerArg || process.env.QUALITY_JUDGE_PROVIDER || "groq").toLowerCase();
 // Default fallback is `none` : when Groq's TPD is exhausted, the script
 // stops and retries the next day. Zero surprise cost.
@@ -570,6 +581,11 @@ async function processKind(kind) {
   const STORAGE_FAIL_THRESHOLD = Number(process.env.QUALITY_STORAGE_FAIL_THRESHOLD || 20);
 
   for (let i = 0; i < candidates.length; i++) {
+    if (qualityDeadlineReached()) {
+      console.log(`[quality-judge] deadline reached at ${i}/${candidates.length} — stopping cleanly (next cron resumes via checkpoint)`);
+      saveCheckpoint(checkpoint.done, checkpoint.failed);
+      return { ok, fail, exhausted: false, deadline: true };
+    }
     const item = candidates[i];
     const key = `${kind}:${item.id}`;
     process.stdout.write(`[${i + 1}/${candidates.length}] ${kind} ${item.slug.slice(0, 40)} … `);
@@ -637,9 +653,17 @@ async function processKind(kind) {
   let stopEarly = false;
   for (const k of KINDS) {
     if (stopEarly) break;
+    if (qualityDeadlineReached()) {
+      console.log(`[quality-judge] deadline reached — skipping remaining kinds`);
+      break;
+    }
     let result = await processKind(k);
     totalOk += result.ok;
     totalFail += result.fail;
+    if (result.deadline) {
+      stopEarly = true;
+      continue;
+    }
 
     // Cross-provider fallback: when all models of the current provider are
     // exhausted (TPD), auto-switch to the fallback provider and continue
@@ -657,7 +681,7 @@ async function processKind(kind) {
         const retry = await processKind(k);
         totalOk += retry.ok;
         totalFail += retry.fail;
-        if (retry.exhausted) stopEarly = true;
+        if (retry.exhausted || retry.deadline) stopEarly = true;
       } catch (err) {
         console.warn(`[quality-judge] fallback provider "${FALLBACK_PROVIDER}" unavailable: ${err.message}`);
         stopEarly = true;

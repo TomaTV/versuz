@@ -49,6 +49,11 @@ jobs:
           SCRAPE_CONCURRENCY: "2"
           SCRAPE_USE_STORAGE: "1"          # write to Storage bucket directly
           SCRAPE_MAX_NEW: ${{ inputs.max_new || '2000' }}
+          # Soft deadline 43 min → sort en exit 0 avant le timeout 50 min de
+          # GH Actions. scrape:max enchaîne 338 passes Sourcegraph, impossible
+          # de finir en un run ; le prochain cron reprend via skip-by-known.
+          # Sans ce flag, GH kill le job → status `cancelled` rouge.
+          SCRAPE_DEADLINE_MS: "2580000"
         run: |
           MODE="${{ inputs.mode || 'all' }}"
           echo "Running scrape mode=$MODE with SCRAPE_MAX_NEW=$SCRAPE_MAX_NEW"
