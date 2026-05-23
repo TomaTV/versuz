@@ -11,7 +11,7 @@
       "schedule": "0 5 * * *"
     },
     {
-      "path": "/api/cron/sweep-stuck-jobs?hours=24",
+      "path": "/api/cron/sweep-stuck-jobs?hours=72",
       "schedule": "0 6 * * *"
     },
     {

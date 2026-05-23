@@ -140,19 +140,24 @@ jobs:
             # Manual run on a specific scope = single cycle, full budget.
             node scripts/bench/index.mjs --scope=${{ inputs.scope }} --concurrency=6
           else
-            # Auto-drain : loop up to 5 cycles per workflow run, splitting
+            # Auto-drain : loop up to 20 cycles per workflow run, splitting
             # the per-run budget across iterations so we never blow the cap.
-            # Each cycle today costs ~$0.02-$0.05 (9-15 jobs × DeepSeek V4
-            # Flash via OpenRouter), so $0.20/iteration is generous headroom.
+            # Vercel cron `/api/cron/bench?scope=all` enqueues 14 cycles/day
+            # → drain >14 to keep up + chip away at any backlog. Loop=5 (legacy)
+            # left 9 cycles/day un-drained, jobs sat >24h and got swept-errored.
+            # Each cycle costs ~$0.02-$0.05 (9-15 jobs × DeepSeek V4 Flash
+            # via OpenRouter), so ~$0.05/iter is tight — if a cycle hits the
+            # per-iter cap it goes 'partial' and resumes next run (acceptable).
             # If the queue is empty, the bench script prints "no queued cycle
             # found" and exits 0 — we break out of the loop early.
+            ITERATIONS=20
             TOTAL_BUDGET="${BENCH_BUDGET_USD:-1}"
-            PER_ITER=$(awk "BEGIN { printf \"%.4f\", $TOTAL_BUDGET / 5 }")
+            PER_ITER=$(awk "BEGIN { printf \"%.4f\", $TOTAL_BUDGET / $ITERATIONS }")
             export BENCH_BUDGET_USD="$PER_ITER"
-            echo "[bench-runner] draining queue · 5 × \$$PER_ITER (total cap \$$TOTAL_BUDGET)"
+            echo "[bench-runner] draining queue · $ITERATIONS × \$$PER_ITER (total cap \$$TOTAL_BUDGET)"
 
-            for i in 1 2 3 4 5; do
-              echo "[bench-runner] ── iteration $i/5 ──────────────────────"
+            for i in $(seq 1 $ITERATIONS); do
+              echo "[bench-runner] ── iteration $i/$ITERATIONS ──────────────────────"
               OUT_FILE=$(mktemp)
               node scripts/bench/index.mjs --concurrency=6 2>&1 | tee "$OUT_FILE"
               if grep -q "no queued cycle found" "$OUT_FILE"; then
